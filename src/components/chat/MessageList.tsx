@@ -2,6 +2,7 @@ import { useRef, useEffect } from "react";
 import { Message, User } from "@/services/mockData";
 import { MessageBubble } from "./MessageBubble";
 import { TypingIndicator } from "./TypingIndicator";
+import { MessageSkeleton } from "./MessageSkeleton";
 import { cn } from "@/lib/utils";
 
 interface MessageListProps {
@@ -27,16 +28,12 @@ export function MessageList({ messages, onReaction, onReply, onForward, onEdit, 
   }, [messages]);
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
+    return <MessageSkeleton />;
   }
 
   if (messages.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center text-center px-4">
+      <div className="flex flex-1 flex-col items-center justify-center text-center px-4 animate-fade-in">
         <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
           <span className="text-3xl">💬</span>
         </div>
@@ -54,13 +51,15 @@ export function MessageList({ messages, onReaction, onReply, onForward, onEdit, 
       "scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
     )}>
       <div className="flex flex-col gap-3">
-        {messages.map((message) => (
+        {messages.map((message, index) => (
           <div
             key={message.id}
             id={`message-${message.id}`}
             ref={(el) => {
               if (el) messageRefs.current.set(message.id, el);
             }}
+            className="animate-fade-in transition-all duration-200"
+            style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
           >
             <MessageBubble
               message={message}

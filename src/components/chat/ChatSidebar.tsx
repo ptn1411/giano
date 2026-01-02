@@ -5,6 +5,7 @@ import { AvatarWithStatus } from "./AvatarWithStatus";
 import { ThemeToggle } from "./ThemeToggle";
 import { SearchBar } from "./SearchBar";
 import { ChatListItem } from "./ChatListItem";
+import { ChatListSkeleton } from "./ChatListSkeleton";
 import { cn } from "@/lib/utils";
 
 interface ChatSidebarProps {
@@ -98,11 +99,9 @@ export function ChatSidebar({
         {/* Chat List */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
+            <ChatListSkeleton />
           ) : chats.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center animate-fade-in">
               <p className="text-muted-foreground">No chats found</p>
               <button
                 onClick={onNewChat}
@@ -113,13 +112,18 @@ export function ChatSidebar({
             </div>
           ) : (
             <div className="divide-y divide-border/50">
-              {chats.map((chat) => (
-                <ChatListItem
-                  key={chat.id}
-                  chat={chat}
-                  isActive={chat.id === activeChatId}
-                  onClick={() => onSelectChat(chat.id)}
-                />
+              {chats.map((chat, index) => (
+                <div 
+                  key={chat.id} 
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${index * 30}ms` }}
+                >
+                  <ChatListItem
+                    chat={chat}
+                    isActive={chat.id === activeChatId}
+                    onClick={() => onSelectChat(chat.id)}
+                  />
+                </div>
               ))}
             </div>
           )}
