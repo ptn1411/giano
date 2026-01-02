@@ -4,6 +4,7 @@ import { Check, CheckCheck, Smile, Reply, Forward, Pencil, Trash2, Pin, PinOff }
 import { Message } from "@/services/mockData";
 import { MessageAttachments } from "./MessageAttachments";
 import { ReplyPreview } from "./ReplyPreview";
+import { VoicePlayer } from "./VoicePlayer";
 import { highlightText } from "./MessageSearch";
 import { cn } from "@/lib/utils";
 
@@ -66,7 +67,11 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, 
 
   const hasAttachments = message.attachments && message.attachments.length > 0;
   const hasText = message.text && message.text.trim().length > 0;
-
+  
+  // Check if this is a voice message
+  const isVoiceMessage = hasAttachments && 
+    message.attachments!.length === 1 && 
+    message.attachments![0].name === 'Voice message';
   return (
     <div
       className={cn(
@@ -96,8 +101,19 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, 
           />
         )}
 
-        {/* Attachments */}
-        {hasAttachments && (
+        {/* Voice message */}
+        {isVoiceMessage && (
+          <div className="py-1">
+            <VoicePlayer
+              audioUrl={message.attachments![0].url}
+              duration={message.attachments![0].duration}
+              isOwn={isOwn}
+            />
+          </div>
+        )}
+
+        {/* Regular Attachments */}
+        {hasAttachments && !isVoiceMessage && (
           <MessageAttachments attachments={message.attachments!} isOwn={isOwn} />
         )}
 
