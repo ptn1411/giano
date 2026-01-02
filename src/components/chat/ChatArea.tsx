@@ -1,4 +1,4 @@
-import { Chat, User } from "@/services/mockData";
+import { Chat, User, Attachment } from "@/services/mockData";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
@@ -6,9 +6,9 @@ import { MessageSquare } from "lucide-react";
 
 interface ChatAreaProps {
   chat: Chat | null;
-  messages: { id: string; chatId: string; senderId: string; text: string; timestamp: Date; isRead: boolean; reactions: { emoji: string; userId: string }[] }[];
+  messages: { id: string; chatId: string; senderId: string; text: string; timestamp: Date; isRead: boolean; reactions: { emoji: string; userId: string }[]; attachments?: Attachment[] }[];
   participants: User[];
-  onSendMessage: (text: string) => void;
+  onSendMessage: (text: string, attachments?: Attachment[]) => void;
   onReaction: (messageId: string, emoji: string) => void;
   onMenuClick: () => void;
   onBack: () => void;

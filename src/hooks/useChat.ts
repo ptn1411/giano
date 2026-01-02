@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Chat, Message, User, chatApi } from '@/services/mockData';
+import { Chat, Message, User, Attachment, chatApi } from '@/services/mockData';
 
 export function useChats() {
   const [chats, setChats] = useState<Chat[]>([]);
@@ -52,9 +52,9 @@ export function useMessages(chatId: string | null) {
     }
   }, [chatId]);
 
-  const sendMessage = useCallback(async (text: string) => {
-    if (!chatId || !text.trim()) return;
-    const newMessage = await chatApi.sendMessage(chatId, text);
+  const sendMessage = useCallback(async (text: string, attachments?: Attachment[]) => {
+    if (!chatId || (!text.trim() && (!attachments || attachments.length === 0))) return;
+    const newMessage = await chatApi.sendMessage(chatId, text, attachments);
     setMessages((prev) => [...prev, newMessage]);
     return newMessage;
   }, [chatId]);

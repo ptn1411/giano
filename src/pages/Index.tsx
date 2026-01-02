@@ -4,7 +4,7 @@ import { ChatArea } from "@/components/chat/ChatArea";
 import { FloatingActionButton } from "@/components/chat/FloatingActionButton";
 import { NewGroupModal } from "@/components/chat/NewGroupModal";
 import { useChats, useMessages, useUsers, useCurrentUser } from "@/hooks/useChat";
-import { chatApi, Chat } from "@/services/mockData";
+import { chatApi, Chat, Attachment } from "@/services/mockData";
 import { toast } from "@/hooks/use-toast";
 
 const Index = () => {
@@ -44,8 +44,8 @@ const Index = () => {
     setSidebarOpen(true);
   }, []);
 
-  const handleSendMessage = useCallback(async (text: string) => {
-    await sendMessage(text);
+  const handleSendMessage = useCallback(async (text: string, attachments?: Attachment[]) => {
+    await sendMessage(text, attachments);
     refetchChats();
   }, [sendMessage, refetchChats]);
 

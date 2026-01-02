@@ -1,24 +1,96 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, Smile, Paperclip } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Smile, Paperclip, Image as ImageIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AttachmentPreview, FilePreview } from "./AttachmentPreview";
+import { Attachment } from "@/services/mockData";
 
 interface MessageInputProps {
-  onSend: (text: string) => void;
+  onSend: (text: string, attachments?: Attachment[]) => void;
   disabled?: boolean;
 }
 
 export function MessageInput({ onSend, disabled }: MessageInputProps) {
   const [text, setText] = useState("");
+  const [files, setFiles] = useState<FilePreview[]>([]);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
+
+  // Simulate upload progress
+  const simulateUpload = useCallback((fileId: string) => {
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += Math.random() * 20 + 10;
+      if (progress >= 100) {
+        progress = 100;
+        clearInterval(interval);
+      }
+      setFiles((prev) =>
+        prev.map((f) => (f.id === fileId ? { ...f, progress: Math.min(100, Math.round(progress)) } : f))
+      );
+    }, 150);
+  }, []);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file') => {
+    const selectedFiles = Array.from(e.target.files || []);
+    
+    const newFiles: FilePreview[] = selectedFiles.map((file) => {
+      const filePreview: FilePreview = {
+        id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        file,
+        type: file.type.startsWith('image/') ? 'image' : 'file',
+        progress: 0,
+      };
+
+      // Create preview for images
+      if (file.type.startsWith('image/')) {
+        filePreview.preview = URL.createObjectURL(file);
+      }
+
+      return filePreview;
+    });
+
+    setFiles((prev) => [...prev, ...newFiles]);
+    newFiles.forEach((f) => simulateUpload(f.id));
+    
+    // Reset input
+    e.target.value = '';
+    setShowAttachMenu(false);
+  }, [simulateUpload]);
+
+  const removeFile = useCallback((id: string) => {
+    setFiles((prev) => {
+      const file = prev.find((f) => f.id === id);
+      if (file?.preview) {
+        URL.revokeObjectURL(file.preview);
+      }
+      return prev.filter((f) => f.id !== id);
+    });
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (text.trim() && !disabled) {
-      onSend(text.trim());
-      setText("");
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
+    
+    const allUploaded = files.every((f) => f.progress === 100);
+    if ((!text.trim() && files.length === 0) || disabled || !allUploaded) return;
+
+    // Convert FilePreview to Attachment
+    const attachments: Attachment[] = files.map((f) => ({
+      id: f.id,
+      type: f.type,
+      name: f.file.name,
+      size: f.file.size,
+      url: f.preview || URL.createObjectURL(f.file),
+      mimeType: f.file.type,
+    }));
+
+    onSend(text.trim(), attachments.length > 0 ? attachments : undefined);
+    setText("");
+    setFiles([]);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
     }
   };
 
@@ -41,56 +113,123 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
     handleInput();
   }, [text]);
 
+  // Close attach menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
+        setShowAttachMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const canSend = (text.trim() || files.length > 0) && files.every((f) => f.progress === 100);
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex items-end gap-2 border-t border-border bg-card px-4 py-3"
-    >
-      <button
-        type="button"
-        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full hover:bg-accent text-muted-foreground transition-colors"
-      >
-        <Paperclip className="h-5 w-5" />
-      </button>
+    <div className="border-t border-border bg-card">
+      {/* Attachment Preview */}
+      <AttachmentPreview files={files} onRemove={removeFile} />
 
-      <div className="relative flex-1">
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Write a message..."
-          rows={1}
-          disabled={disabled}
-          className={cn(
-            "w-full resize-none rounded-2xl border border-border bg-background px-4 py-2.5 pr-10",
-            "text-sm placeholder:text-muted-foreground",
-            "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary",
-            "transition-all duration-200",
-            "max-h-[120px] overflow-y-auto",
-            "scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]"
+      <form onSubmit={handleSubmit} className="flex items-end gap-2 px-4 py-3">
+        {/* Attach button with menu */}
+        <div className="relative" ref={attachMenuRef}>
+          <button
+            type="button"
+            onClick={() => setShowAttachMenu(!showAttachMenu)}
+            className={cn(
+              "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all duration-200",
+              showAttachMenu 
+                ? "bg-primary text-primary-foreground rotate-45" 
+                : "hover:bg-accent text-muted-foreground"
+            )}
+          >
+            <Paperclip className="h-5 w-5" />
+          </button>
+
+          {/* Attach menu */}
+          {showAttachMenu && (
+            <div className="absolute bottom-12 left-0 flex flex-col gap-1 rounded-xl bg-card p-1.5 shadow-lg border border-border animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-accent transition-colors"
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                  <ImageIcon className="h-4 w-4 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-foreground">Photo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-accent transition-colors"
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary/50">
+                  <Paperclip className="h-4 w-4 text-secondary-foreground" />
+                </div>
+                <span className="text-sm font-medium text-foreground">File</span>
+              </button>
+            </div>
           )}
-        />
-        <button
-          type="button"
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Smile className="h-5 w-5" />
-        </button>
-      </div>
+        </div>
 
-      <button
-        type="submit"
-        disabled={!text.trim() || disabled}
-        className={cn(
-          "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all duration-200",
-          text.trim()
-            ? "bg-primary text-primary-foreground hover:bg-primary/90"
-            : "bg-muted text-muted-foreground cursor-not-allowed"
-        )}
-      >
-        <Send className="h-5 w-5" />
-      </button>
-    </form>
+        {/* Hidden file inputs */}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => handleFileSelect(e, 'image')}
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(e) => handleFileSelect(e, 'file')}
+        />
+
+        <div className="relative flex-1">
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Write a message..."
+            rows={1}
+            disabled={disabled}
+            className={cn(
+              "w-full resize-none rounded-2xl border border-border bg-background px-4 py-2.5 pr-10",
+              "text-sm placeholder:text-muted-foreground",
+              "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary",
+              "transition-all duration-200",
+              "max-h-[120px] overflow-y-auto",
+              "scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]"
+            )}
+          />
+          <button
+            type="button"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Smile className="h-5 w-5" />
+          </button>
+        </div>
+
+        <button
+          type="submit"
+          disabled={!canSend || disabled}
+          className={cn(
+            "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all duration-200",
+            canSend
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "bg-muted text-muted-foreground cursor-not-allowed"
+          )}
+        >
+          <Send className="h-5 w-5" />
+        </button>
+      </form>
+    </div>
   );
 }
