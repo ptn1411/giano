@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import { Message, User } from "@/services/mockData";
+import { Message, User, InlineButton } from "@/services/mockData";
 import { MessageBubble } from "./MessageBubble";
 import { TypingIndicator } from "./TypingIndicator";
 import { MessageSkeleton } from "./MessageSkeleton";
@@ -14,12 +14,26 @@ interface MessageListProps {
   onDelete: (message: Message) => void;
   onPin: (message: Message) => void;
   onUnpin: (messageId: string) => void;
+  onInlineButtonClick?: (button: InlineButton, messageId: string) => void;
   loading?: boolean;
   searchQuery?: string;
   typingUsers?: User[];
 }
 
-export function MessageList({ messages, onReaction, onReply, onForward, onEdit, onDelete, onPin, onUnpin, loading, searchQuery, typingUsers = [] }: MessageListProps) {
+export function MessageList({ 
+  messages, 
+  onReaction, 
+  onReply, 
+  onForward, 
+  onEdit, 
+  onDelete, 
+  onPin, 
+  onUnpin, 
+  onInlineButtonClick,
+  loading, 
+  searchQuery, 
+  typingUsers = [] 
+}: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -72,6 +86,7 @@ export function MessageList({ messages, onReaction, onReply, onForward, onEdit, 
               onPin={onPin}
               onUnpin={onUnpin}
               searchQuery={searchQuery}
+              onInlineButtonClick={onInlineButtonClick}
             />
           </div>
         ))}

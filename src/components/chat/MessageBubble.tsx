@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { format } from "date-fns";
 import { Check, CheckCheck, Smile, Reply, Forward, Pencil, Trash2, Pin, PinOff } from "lucide-react";
-import { Message } from "@/services/mockData";
+import { Message, InlineButton } from "@/services/mockData";
 import { MessageAttachments } from "./MessageAttachments";
 import { ReplyPreview } from "./ReplyPreview";
 import { VoicePlayer } from "./VoicePlayer";
@@ -19,6 +19,7 @@ interface MessageBubbleProps {
   onPin: (message: Message) => void;
   onUnpin: (messageId: string) => void;
   searchQuery?: string;
+  onInlineButtonClick?: (button: InlineButton, messageId: string) => void;
 }
 
 const quickReactions = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
@@ -52,7 +53,19 @@ function formatTextWithMentions(text: string, isOwn: boolean, searchQuery?: stri
   });
 }
 
-export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, onEdit, onDelete, onPin, onUnpin, searchQuery }: MessageBubbleProps) {
+export function MessageBubble({ 
+  message, 
+  isOwn, 
+  onReaction, 
+  onReply, 
+  onForward, 
+  onEdit, 
+  onDelete, 
+  onPin, 
+  onUnpin, 
+  searchQuery,
+  onInlineButtonClick 
+}: MessageBubbleProps) {
   const [showReactions, setShowReactions] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout>();
 
@@ -67,6 +80,7 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, 
 
   const hasAttachments = message.attachments && message.attachments.length > 0;
   const hasText = message.text && message.text.trim().length > 0;
+  const hasInlineKeyboard = message.inlineKeyboard && message.inlineKeyboard.length > 0;
   
   // Check if this is a voice message
   const isVoiceMessage = hasAttachments && 
@@ -125,6 +139,30 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, 
           )}>
             {formatTextWithMentions(message.text, isOwn, searchQuery)}
           </p>
+        )}
+
+        {/* Inline Keyboard (Bot buttons) */}
+        {hasInlineKeyboard && (
+          <div className="mt-3 space-y-2">
+            {message.inlineKeyboard!.map((row, rowIndex) => (
+              <div key={rowIndex} className="flex gap-2">
+                {row.map((button, btnIndex) => (
+                  <button
+                    key={btnIndex}
+                    onClick={() => onInlineButtonClick?.(button, message.id)}
+                    className={cn(
+                      "flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-all",
+                      "bg-background/80 hover:bg-background text-foreground",
+                      "border border-border hover:border-primary",
+                      "active:scale-95"
+                    )}
+                  >
+                    {button.text}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
         )}
         
         <div className={cn(

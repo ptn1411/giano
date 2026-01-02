@@ -1,12 +1,13 @@
-import { useState, useCallback, useMemo } from "react";
-import { Chat, User, Attachment, Message } from "@/services/mockData";
+import { useState, useCallback } from "react";
+import { Chat, User, Attachment, Message, InlineButton } from "@/services/mockData";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { PinnedMessagesBar } from "./PinnedMessage";
 import { MessageSearch } from "./MessageSearch";
-import { TypingIndicator } from "./TypingIndicator";
 import { MessageSquare } from "lucide-react";
+import { toast } from "sonner";
+
 interface ChatAreaProps {
   chat: Chat | null;
   messages: Message[];
@@ -64,6 +65,13 @@ export function ChatArea({
     }
   }, []);
 
+  const handleInlineButtonClick = useCallback((button: InlineButton, messageId: string) => {
+    // Show toast for demo purposes
+    toast.success(`Clicked: ${button.text}`, {
+      description: `Callback: ${button.callbackData || 'none'}`,
+    });
+  }, []);
+
   if (!chat) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center bg-background p-8 text-center">
@@ -115,6 +123,7 @@ export function ChatArea({
         onPin={onPin}
         typingUsers={chat.isTyping ? participants.filter(p => p.id !== 'user-1').slice(0, 1) : []}
         onUnpin={onUnpin}
+        onInlineButtonClick={handleInlineButtonClick}
         loading={loading}
         searchQuery={isSearchOpen ? searchQuery : undefined}
       />

@@ -1,4 +1,5 @@
 import { formatDistanceToNow } from "date-fns";
+import { Bot } from "lucide-react";
 import { Chat } from "@/services/mockData";
 import { AvatarWithStatus } from "./AvatarWithStatus";
 import { cn } from "@/lib/utils";
@@ -26,15 +27,23 @@ export function ChatListItem({ chat, isActive, onClick }: ChatListItemProps) {
       <AvatarWithStatus
         src={chat.avatar}
         alt={chat.name}
-        status={chat.type === 'private' ? 'online' : undefined}
+        status={chat.type === 'private' ? 'online' : chat.isBot ? 'online' : undefined}
         size="lg"
       />
       
       <div className="flex-1 min-w-0 text-left">
         <div className="flex items-center justify-between gap-2">
-          <span className="font-semibold text-foreground truncate">
-            {chat.name}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-semibold text-foreground truncate">
+              {chat.name}
+            </span>
+            {chat.isBot && (
+              <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-medium shrink-0">
+                <Bot className="h-3 w-3" />
+                BOT
+              </span>
+            )}
+          </div>
           <span className="text-xs text-muted-foreground flex-shrink-0">
             {lastMessageTime}
           </span>
