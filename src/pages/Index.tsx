@@ -12,6 +12,7 @@ const Index = () => {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<import("@/services/mockData").Message | null>(null);
   
   const { chats, loading: chatsLoading, refetch: refetchChats, searchChats } = useChats();
   const { messages, loading: messagesLoading, sendMessage, addReaction } = useMessages(activeChatId);
@@ -44,8 +45,9 @@ const Index = () => {
     setSidebarOpen(true);
   }, []);
 
-  const handleSendMessage = useCallback(async (text: string, attachments?: Attachment[]) => {
-    await sendMessage(text, attachments);
+  const handleSendMessage = useCallback(async (text: string, attachments?: Attachment[], replyTo?: import("@/services/mockData").Message['replyTo']) => {
+    await sendMessage(text, attachments, replyTo);
+    setReplyingTo(null);
     refetchChats();
   }, [sendMessage, refetchChats]);
 
@@ -91,6 +93,9 @@ const Index = () => {
           participants={participants}
           onSendMessage={handleSendMessage}
           onReaction={addReaction}
+          onReply={setReplyingTo}
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
           onMenuClick={() => setSidebarOpen(!sidebarOpen)}
           onBack={handleBack}
           loading={messagesLoading}

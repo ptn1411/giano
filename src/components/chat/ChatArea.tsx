@@ -1,4 +1,4 @@
-import { Chat, User, Attachment } from "@/services/mockData";
+import { Chat, User, Attachment, Message } from "@/services/mockData";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
@@ -6,10 +6,13 @@ import { MessageSquare } from "lucide-react";
 
 interface ChatAreaProps {
   chat: Chat | null;
-  messages: { id: string; chatId: string; senderId: string; text: string; timestamp: Date; isRead: boolean; reactions: { emoji: string; userId: string }[]; attachments?: Attachment[] }[];
+  messages: Message[];
   participants: User[];
-  onSendMessage: (text: string, attachments?: Attachment[]) => void;
+  onSendMessage: (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) => void;
   onReaction: (messageId: string, emoji: string) => void;
+  onReply: (message: Message) => void;
+  replyingTo?: Message | null;
+  onCancelReply?: () => void;
   onMenuClick: () => void;
   onBack: () => void;
   loading?: boolean;
@@ -21,6 +24,9 @@ export function ChatArea({
   participants,
   onSendMessage,
   onReaction,
+  onReply,
+  replyingTo,
+  onCancelReply,
   onMenuClick,
   onBack,
   loading,
@@ -53,9 +59,14 @@ export function ChatArea({
       <MessageList
         messages={messages}
         onReaction={onReaction}
+        onReply={onReply}
         loading={loading}
       />
-      <MessageInput onSend={onSendMessage} />
+      <MessageInput 
+        onSend={onSendMessage} 
+        replyingTo={replyingTo}
+        onCancelReply={onCancelReply}
+      />
     </div>
   );
 }

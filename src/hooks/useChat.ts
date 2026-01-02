@@ -52,9 +52,9 @@ export function useMessages(chatId: string | null) {
     }
   }, [chatId]);
 
-  const sendMessage = useCallback(async (text: string, attachments?: Attachment[]) => {
+  const sendMessage = useCallback(async (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) => {
     if (!chatId || (!text.trim() && (!attachments || attachments.length === 0))) return;
-    const newMessage = await chatApi.sendMessage(chatId, text, attachments);
+    const newMessage = await chatApi.sendMessage(chatId, text, attachments, replyTo);
     setMessages((prev) => [...prev, newMessage]);
     return newMessage;
   }, [chatId]);

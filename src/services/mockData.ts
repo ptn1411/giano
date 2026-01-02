@@ -26,6 +26,12 @@ export interface Message {
   isRead: boolean;
   reactions: { emoji: string; userId: string }[];
   attachments?: Attachment[];
+  replyTo?: {
+    id: string;
+    text: string;
+    senderId: string;
+    senderName: string;
+  };
 }
 
 export interface Chat {
@@ -168,7 +174,7 @@ export const chatApi = {
     return messagesStore[chatId] || [];
   },
 
-  async sendMessage(chatId: string, text: string, attachments?: Attachment[]): Promise<Message> {
+  async sendMessage(chatId: string, text: string, attachments?: Attachment[], replyTo?: Message['replyTo']): Promise<Message> {
     await delay(200);
     const newMessage: Message = {
       id: `msg-${chatId}-${Date.now()}`,
@@ -179,6 +185,7 @@ export const chatApi = {
       isRead: false,
       reactions: [],
       attachments,
+      replyTo,
     };
     
     if (!messagesStore[chatId]) {
