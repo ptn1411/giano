@@ -152,6 +152,7 @@ export function ChatArea({
         editingMessage={editingMessage}
         onCancelEdit={onCancelEdit}
         users={participants}
+        botId={botId}
       />
     </div>
   );

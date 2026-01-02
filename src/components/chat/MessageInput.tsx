@@ -6,6 +6,7 @@ import { ReplyPreview } from "./ReplyPreview";
 import { MentionSuggestions } from "./MentionSuggestions";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { EmojiPicker } from "./EmojiPicker";
+import { SlashCommandMenu, getCommandsForBot } from "./SlashCommandMenu";
 import { Attachment, Message, User } from "@/services/mockData";
 
 interface MessageInputProps {
@@ -17,9 +18,10 @@ interface MessageInputProps {
   editingMessage?: Message | null;
   onCancelEdit?: () => void;
   users?: User[];
+  botId?: string | null;
 }
 
-export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCancelReply, editingMessage, onCancelEdit, users = [] }: MessageInputProps) {
+export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCancelReply, editingMessage, onCancelEdit, users = [], botId }: MessageInputProps) {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -27,6 +29,7 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
   const [showMentions, setShowMentions] = useState(false);
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [showSlashCommands, setShowSlashCommands] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -136,19 +139,30 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
   }, [editingMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Don't submit if mention suggestions are open
-    if (showMentions && (e.key === "Enter" || e.key === "Tab" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+    // Don't submit if mention suggestions or slash commands are open
+    if ((showMentions || showSlashCommands) && (e.key === "Enter" || e.key === "Tab" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
       return;
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
+    // Close slash commands on Escape
+    if (e.key === 'Escape' && showSlashCommands) {
+      setShowSlashCommands(false);
+    }
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
     setText(newText);
+
+    // Check for slash commands (only for bots)
+    if (botId && newText.startsWith("/")) {
+      setShowSlashCommands(true);
+    } else {
+      setShowSlashCommands(false);
+    }
 
     const cursorPos = e.target.selectionStart;
     const textBeforeCursor = newText.slice(0, cursorPos);
@@ -170,6 +184,12 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
     setShowMentions(false);
     setMentionQuery("");
     setMentionStartIndex(-1);
+  };
+
+  const handleSlashCommandSelect = (command: string) => {
+    setText(command + " ");
+    setShowSlashCommands(false);
+    textareaRef.current?.focus();
   };
 
   const handleMentionSelect = (user: User) => {
@@ -334,6 +354,14 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
         />
 
         <div className="relative flex-1">
+          {/* Slash Command Menu */}
+          {botId && showSlashCommands && (
+            <SlashCommandMenu
+              commands={getCommandsForBot(botId)}
+              onSelect={handleSlashCommandSelect}
+              filterQuery={text}
+            />
+          )}
           <MentionSuggestions
             users={users}
             query={mentionQuery}
@@ -346,7 +374,7 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
             value={text}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
-            placeholder="Write a message..."
+            placeholder={botId ? "Type / for commands..." : "Write a message..."}
             rows={1}
             disabled={disabled}
             className={cn(
