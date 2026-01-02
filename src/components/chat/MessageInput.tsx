@@ -5,6 +5,7 @@ import { AttachmentPreview, FilePreview } from "./AttachmentPreview";
 import { ReplyPreview } from "./ReplyPreview";
 import { MentionSuggestions } from "./MentionSuggestions";
 import { VoiceRecorder } from "./VoiceRecorder";
+import { EmojiPicker } from "./EmojiPicker";
 import { Attachment, Message, User } from "@/services/mockData";
 
 interface MessageInputProps {
@@ -357,12 +358,14 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
             )}
             style={{ maxHeight: '150px' }}
           />
-          <button
-            type="button"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Smile className="h-5 w-5" />
-          </button>
+          <EmojiPicker onSelect={(emoji) => setText((prev) => prev + emoji)}>
+            <button
+              type="button"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Smile className="h-5 w-5" />
+            </button>
+          </EmojiPicker>
         </div>
 
         {canSend ? (
