@@ -100,6 +100,7 @@ const Index = () => {
       <FloatingActionButton
         onNewChat={handleNewChat}
         onNewGroup={() => setShowNewGroupModal(true)}
+        hidden={!!activeChatId}
       />
 
       <NewGroupModal

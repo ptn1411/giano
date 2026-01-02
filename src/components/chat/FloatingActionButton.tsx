@@ -5,10 +5,13 @@ import { cn } from "@/lib/utils";
 interface FloatingActionButtonProps {
   onNewChat: () => void;
   onNewGroup: () => void;
+  hidden?: boolean;
 }
 
-export function FloatingActionButton({ onNewChat, onNewGroup }: FloatingActionButtonProps) {
+export function FloatingActionButton({ onNewChat, onNewGroup, hidden }: FloatingActionButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
+
+  if (hidden) return null;
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
