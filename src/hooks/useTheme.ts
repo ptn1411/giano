@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
-type Theme = 'light' | 'dark';
+export type ThemeMode = 'light' | 'dark' | 'system';
+type ResolvedTheme = 'light' | 'dark';
 type ColorTheme = 'default' | 'ocean' | 'forest' | 'sunset' | 'purple';
 
 export const colorThemes: { id: ColorTheme; name: string; primary: string; preview: string }[] = [
@@ -11,14 +12,33 @@ export const colorThemes: { id: ColorTheme; name: string; primary: string; previ
   { id: 'purple', name: 'Royal Purple', primary: '271 81% 55%', preview: '#a855f7' },
 ];
 
+function getSystemTheme(): ResolvedTheme {
+  if (typeof window !== 'undefined') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return 'light';
+}
+
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(() => {
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('theme') as Theme;
+      const stored = localStorage.getItem('themeMode') as ThemeMode;
       if (stored) return stored;
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      // Legacy support
+      const legacyTheme = localStorage.getItem('theme');
+      if (legacyTheme === 'light' || legacyTheme === 'dark') {
+        return legacyTheme;
+      }
+      return 'system';
     }
-    return 'light';
+    return 'system';
+  });
+
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => {
+    if (themeMode === 'system') {
+      return getSystemTheme();
+    }
+    return themeMode as ResolvedTheme;
   });
 
   const [colorTheme, setColorTheme] = useState<ColorTheme>(() => {
@@ -28,16 +48,43 @@ export function useTheme() {
     return 'default';
   });
 
+  // Listen for system theme changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    const handleChange = (e: MediaQueryListEvent) => {
+      if (themeMode === 'system') {
+        setResolvedTheme(e.matches ? 'dark' : 'light');
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [themeMode]);
+
+  // Update resolved theme when mode changes
+  useEffect(() => {
+    if (themeMode === 'system') {
+      setResolvedTheme(getSystemTheme());
+    } else {
+      setResolvedTheme(themeMode as ResolvedTheme);
+    }
+    localStorage.setItem('themeMode', themeMode);
+    // Clean up legacy key
+    localStorage.removeItem('theme');
+  }, [themeMode]);
+
+  // Apply theme to DOM
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
+    if (resolvedTheme === 'dark') {
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+  }, [resolvedTheme]);
 
+  // Apply color theme
   useEffect(() => {
     const root = document.documentElement;
     const selectedTheme = colorThemes.find(t => t.id === colorTheme);
@@ -50,13 +97,30 @@ export function useTheme() {
     localStorage.setItem('colorTheme', colorTheme);
   }, [colorTheme]);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
-  };
+  const toggleTheme = useCallback(() => {
+    setThemeMode((prev) => {
+      if (prev === 'light') return 'dark';
+      if (prev === 'dark') return 'light';
+      // If system, toggle to opposite of current resolved
+      return resolvedTheme === 'light' ? 'dark' : 'light';
+    });
+  }, [resolvedTheme]);
 
-  const setColor = (color: ColorTheme) => {
+  const setTheme = useCallback((mode: ThemeMode) => {
+    setThemeMode(mode);
+  }, []);
+
+  const setColor = useCallback((color: ColorTheme) => {
     setColorTheme(color);
-  };
+  }, []);
 
-  return { theme, toggleTheme, colorTheme, setColorTheme: setColor, colorThemes };
+  return { 
+    theme: resolvedTheme, 
+    themeMode,
+    toggleTheme, 
+    setTheme,
+    colorTheme, 
+    setColorTheme: setColor, 
+    colorThemes 
+  };
 }

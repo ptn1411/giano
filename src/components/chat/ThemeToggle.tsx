@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/popover";
 
 export function ThemeToggle({ className }: { className?: string }) {
-  const { theme, toggleTheme, colorTheme, setColorTheme } = useTheme();
+  const { theme, themeMode, toggleTheme, colorTheme, setColorTheme } = useTheme();
   const [open, setOpen] = useState(false);
 
   return (
