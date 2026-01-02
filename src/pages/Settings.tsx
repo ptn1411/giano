@@ -53,6 +53,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
+import { useTheme, colorThemes, ThemeMode } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import {
@@ -139,6 +140,7 @@ function ToggleItem({
 
 export default function Settings() {
   const navigate = useNavigate();
+  const { themeMode, setTheme, colorTheme: activeColorTheme, setColorTheme } = useTheme();
   const [section, setSection] = useState<SettingsSection>('main');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [privacy, setPrivacy] = useState<PrivacySettings | null>(null);
@@ -224,6 +226,30 @@ export default function Settings() {
   };
 
   const updateAppearance = async (updates: Partial<AppearanceSettings>) => {
+    // Apply theme changes immediately
+    if (updates.theme) {
+      setTheme(updates.theme as ThemeMode);
+    }
+    if (updates.accentColor) {
+      // Map hex color to colorTheme id
+      const colorMap: Record<string, string> = {
+        '#0284c7': 'default',
+        '#0d9488': 'ocean',
+        '#16a34a': 'forest',
+        '#f97316': 'sunset',
+        '#a855f7': 'purple',
+        '#6366f1': 'default',
+        '#22c55e': 'forest',
+        '#f59e0b': 'sunset',
+        '#ef4444': 'sunset',
+        '#ec4899': 'purple',
+        '#8b5cf6': 'purple',
+      };
+      const colorId = colorMap[updates.accentColor];
+      if (colorId) {
+        setColorTheme(colorId as any);
+      }
+    }
     const updated = await settingsApi.updateAppearanceSettings(updates);
     setAppearance(updated);
     toast({ title: 'Settings saved' });
@@ -738,20 +764,20 @@ export default function Settings() {
                   onClick={() => updateAppearance({ theme: value as AppearanceSettings['theme'] })}
                   className={cn(
                     "flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors",
-                    appearance.theme === value 
+                    themeMode === value 
                       ? "border-primary bg-primary/10" 
                       : "border-border hover:bg-accent/50"
                   )}
                 >
                   <Icon className={cn(
                     "h-6 w-6",
-                    appearance.theme === value ? "text-primary" : "text-muted-foreground"
+                    themeMode === value ? "text-primary" : "text-muted-foreground"
                   )} />
                   <span className={cn(
                     "text-sm font-medium",
-                    appearance.theme === value ? "text-primary" : "text-foreground"
+                    themeMode === value ? "text-primary" : "text-foreground"
                   )}>{label}</span>
-                  {appearance.theme === value && (
+                  {themeMode === value && (
                     <Check className="h-4 w-4 text-primary" />
                   )}
                 </button>
@@ -791,17 +817,18 @@ export default function Settings() {
           <div className="py-2">
             <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Accent Color</h3>
             <div className="px-4 py-3 flex gap-3 flex-wrap">
-              {['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6'].map((color) => (
+              {colorThemes.map((theme) => (
                 <button
-                  key={color}
-                  onClick={() => updateAppearance({ accentColor: color })}
+                  key={theme.id}
+                  onClick={() => setColorTheme(theme.id as any)}
                   className={cn(
                     "h-10 w-10 rounded-full flex items-center justify-center transition-transform hover:scale-110",
-                    appearance.accentColor === color && "ring-2 ring-offset-2 ring-offset-background ring-foreground"
+                    activeColorTheme === theme.id && "ring-2 ring-offset-2 ring-offset-background ring-foreground"
                   )}
-                  style={{ backgroundColor: color }}
+                  style={{ backgroundColor: theme.preview }}
+                  title={theme.name}
                 >
-                  {appearance.accentColor === color && (
+                  {activeColorTheme === theme.id && (
                     <Check className="h-5 w-5 text-white" />
                   )}
                 </button>
