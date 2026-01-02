@@ -12,8 +12,13 @@ interface ChatAreaProps {
   onReaction: (messageId: string, emoji: string) => void;
   onReply: (message: Message) => void;
   onForward: (message: Message) => void;
+  onEdit: (message: Message) => void;
+  onDelete: (message: Message) => void;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
+  editingMessage?: Message | null;
+  onCancelEdit?: () => void;
+  onEditSubmit?: (messageId: string, newText: string) => void;
   onMenuClick: () => void;
   onBack: () => void;
   loading?: boolean;
@@ -27,8 +32,13 @@ export function ChatArea({
   onReaction,
   onReply,
   onForward,
+  onEdit,
+  onDelete,
   replyingTo,
   onCancelReply,
+  editingMessage,
+  onCancelEdit,
+  onEditSubmit,
   onMenuClick,
   onBack,
   loading,
@@ -63,12 +73,17 @@ export function ChatArea({
         onReaction={onReaction}
         onReply={onReply}
         onForward={onForward}
+        onEdit={onEdit}
+        onDelete={onDelete}
         loading={loading}
       />
       <MessageInput 
         onSend={onSendMessage} 
+        onEditSubmit={onEditSubmit}
         replyingTo={replyingTo}
         onCancelReply={onCancelReply}
+        editingMessage={editingMessage}
+        onCancelEdit={onCancelEdit}
       />
     </div>
   );

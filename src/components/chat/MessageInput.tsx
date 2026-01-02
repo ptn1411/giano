@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Smile, Paperclip, Image as ImageIcon, X } from "lucide-react";
+import { Send, Smile, Paperclip, Image as ImageIcon, X, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AttachmentPreview, FilePreview } from "./AttachmentPreview";
 import { ReplyPreview } from "./ReplyPreview";
@@ -7,12 +7,15 @@ import { Attachment, Message } from "@/services/mockData";
 
 interface MessageInputProps {
   onSend: (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) => void;
+  onEditSubmit?: (messageId: string, newText: string) => void;
   disabled?: boolean;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
+  editingMessage?: Message | null;
+  onCancelEdit?: () => void;
 }
 
-export function MessageInput({ onSend, disabled, replyingTo, onCancelReply }: MessageInputProps) {
+export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCancelReply, editingMessage, onCancelEdit }: MessageInputProps) {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -76,6 +79,19 @@ export function MessageInput({ onSend, disabled, replyingTo, onCancelReply }: Me
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Handle edit mode
+    if (editingMessage) {
+      if (text.trim() && onEditSubmit) {
+        onEditSubmit(editingMessage.id, text.trim());
+      }
+      setText("");
+      onCancelEdit?.();
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+      return;
+    }
+    
     const allUploaded = files.every((f) => f.progress === 100);
     if ((!text.trim() && files.length === 0) || disabled || !allUploaded) return;
 
@@ -102,6 +118,14 @@ export function MessageInput({ onSend, disabled, replyingTo, onCancelReply }: Me
       textareaRef.current.style.height = 'auto';
     }
   };
+
+  // Populate text when editing
+  useEffect(() => {
+    if (editingMessage) {
+      setText(editingMessage.text);
+      textareaRef.current?.focus();
+    }
+  }, [editingMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -133,12 +157,29 @@ export function MessageInput({ onSend, disabled, replyingTo, onCancelReply }: Me
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const canSend = (text.trim() || files.length > 0) && files.every((f) => f.progress === 100);
+  const canSend = editingMessage ? text.trim().length > 0 : (text.trim() || files.length > 0) && files.every((f) => f.progress === 100);
 
   return (
     <div className="border-t border-border bg-card">
+      {/* Edit Preview */}
+      {editingMessage && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 border-l-4 border-primary animate-in slide-in-from-bottom-2 duration-200">
+          <Pencil className="h-4 w-4 text-primary" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-primary">Editing message</p>
+            <p className="text-sm text-muted-foreground truncate">{editingMessage.text}</p>
+          </div>
+          <button
+            onClick={onCancelEdit}
+            className="flex-shrink-0 p-1 rounded-full hover:bg-accent transition-colors"
+          >
+            <X className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
+      )}
+
       {/* Reply Preview */}
-      {replyingTo && (
+      {replyingTo && !editingMessage && (
         <ReplyPreview
           senderName={replyingTo.senderId === 'user-1' ? 'You' : 'User'}
           text={replyingTo.text}

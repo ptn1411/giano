@@ -87,11 +87,27 @@ export function useMessages(chatId: string | null) {
     );
   }, [chatId]);
 
+  const deleteMessage = useCallback(async (messageId: string) => {
+    if (!chatId) return;
+    await chatApi.deleteMessage(chatId, messageId);
+    setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+  }, [chatId]);
+
+  const editMessage = useCallback(async (messageId: string, newText: string) => {
+    if (!chatId) return;
+    const updated = await chatApi.editMessage(chatId, messageId, newText);
+    if (updated) {
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === messageId ? { ...msg, text: newText, isEdited: true } : msg))
+      );
+    }
+  }, [chatId]);
+
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
 
-  return { messages, loading, sendMessage, addReaction, refetch: fetchMessages };
+  return { messages, loading, sendMessage, addReaction, deleteMessage, editMessage, refetch: fetchMessages };
 }
 
 export function useUsers() {
