@@ -298,6 +298,14 @@ export default function Settings() {
     }
   };
 
+  const handleLogout = () => {
+    toast({ 
+      title: 'Logged out', 
+      description: 'You have been logged out successfully' 
+    });
+    navigate('/');
+  };
+
   const renderMainSection = () => (
     <div className="divide-y divide-border">
       {/* Profile Summary */}
@@ -357,6 +365,18 @@ export default function Settings() {
           title="Devices & Sessions"
           description={`${devices.length} active sessions`}
           onClick={() => setSection('devices')}
+        />
+      </div>
+
+      {/* Logout Button */}
+      <div className="py-2">
+        <SettingItem
+          icon={<LogOut className="h-5 w-5 text-destructive" />}
+          title="Log Out"
+          description="Sign out of your account"
+          onClick={handleLogout}
+          destructive
+          trailing={null}
         />
       </div>
     </div>
