@@ -46,7 +46,7 @@ export function ScreenShareModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={cn(
-        "p-0 gap-0 overflow-hidden bg-card border-border transition-all duration-300",
+        "p-0 gap-0 overflow-hidden bg-card border-border transition-all duration-300 [&>button]:hidden",
         isFullscreen ? "sm:max-w-[95vw] sm:max-h-[95vh]" : "sm:max-w-2xl"
       )}>
         {!isSharing ? (

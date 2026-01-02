@@ -159,7 +159,7 @@ export function LiveStreamModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl p-0 gap-0 max-h-[90vh] overflow-hidden bg-black border-none">
+      <DialogContent className="sm:max-w-2xl p-0 gap-0 max-h-[90vh] overflow-hidden bg-black border-none [&>button]:hidden">
         {/* Video Area */}
         <div className="relative aspect-video bg-gradient-to-br from-primary/30 via-background to-accent/30">
           {/* Floating Hearts */}
