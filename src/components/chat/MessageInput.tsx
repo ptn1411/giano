@@ -2,14 +2,17 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Smile, Paperclip, Image as ImageIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AttachmentPreview, FilePreview } from "./AttachmentPreview";
-import { Attachment } from "@/services/mockData";
+import { ReplyPreview } from "./ReplyPreview";
+import { Attachment, Message } from "@/services/mockData";
 
 interface MessageInputProps {
-  onSend: (text: string, attachments?: Attachment[]) => void;
+  onSend: (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) => void;
   disabled?: boolean;
+  replyingTo?: Message | null;
+  onCancelReply?: () => void;
 }
 
-export function MessageInput({ onSend, disabled }: MessageInputProps) {
+export function MessageInput({ onSend, disabled, replyingTo, onCancelReply }: MessageInputProps) {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -86,9 +89,15 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
       mimeType: f.file.type,
     }));
 
-    onSend(text.trim(), attachments.length > 0 ? attachments : undefined);
+    onSend(text.trim(), attachments.length > 0 ? attachments : undefined, replyingTo ? {
+      id: replyingTo.id,
+      text: replyingTo.text,
+      senderId: replyingTo.senderId,
+      senderName: replyingTo.senderId === 'user-1' ? 'You' : 'User',
+    } : undefined);
     setText("");
     setFiles([]);
+    onCancelReply?.();
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -128,6 +137,15 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
 
   return (
     <div className="border-t border-border bg-card">
+      {/* Reply Preview */}
+      {replyingTo && (
+        <ReplyPreview
+          senderName={replyingTo.senderId === 'user-1' ? 'You' : 'User'}
+          text={replyingTo.text}
+          onCancel={onCancelReply || (() => {})}
+        />
+      )}
+
       {/* Attachment Preview */}
       <AttachmentPreview files={files} onRemove={removeFile} />
 

@@ -1,19 +1,21 @@
 import { useState, useRef } from "react";
 import { format } from "date-fns";
-import { Check, CheckCheck, Smile } from "lucide-react";
+import { Check, CheckCheck, Smile, Reply } from "lucide-react";
 import { Message } from "@/services/mockData";
 import { MessageAttachments } from "./MessageAttachments";
+import { ReplyPreview } from "./ReplyPreview";
 import { cn } from "@/lib/utils";
 
 interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
   onReaction: (emoji: string) => void;
+  onReply: (message: Message) => void;
 }
 
 const quickReactions = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
-export function MessageBubble({ message, isOwn, onReaction }: MessageBubbleProps) {
+export function MessageBubble({ message, isOwn, onReaction, onReply }: MessageBubbleProps) {
   const [showReactions, setShowReactions] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout>();
 
@@ -47,6 +49,17 @@ export function MessageBubble({ message, isOwn, onReaction }: MessageBubbleProps
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
+        {/* Reply preview */}
+        {message.replyTo && (
+          <ReplyPreview
+            senderName={message.replyTo.senderName}
+            text={message.replyTo.text}
+            onCancel={() => {}}
+            isInBubble
+            isOwn={isOwn}
+          />
+        )}
+
         {/* Attachments */}
         {hasAttachments && (
           <MessageAttachments attachments={message.attachments!} isOwn={isOwn} />
@@ -101,6 +114,13 @@ export function MessageBubble({ message, isOwn, onReaction }: MessageBubbleProps
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
+            <button
+              onClick={() => onReply(message)}
+              className="p-1 rounded-full hover:bg-accent transition-colors"
+              title="Reply"
+            >
+              <Reply className="h-4 w-4 text-muted-foreground" />
+            </button>
             {quickReactions.map((emoji) => (
               <button
                 key={emoji}

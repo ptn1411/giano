@@ -6,10 +6,11 @@ import { cn } from "@/lib/utils";
 interface MessageListProps {
   messages: Message[];
   onReaction: (messageId: string, emoji: string) => void;
+  onReply: (message: Message) => void;
   loading?: boolean;
 }
 
-export function MessageList({ messages, onReaction, loading }: MessageListProps) {
+export function MessageList({ messages, onReaction, onReply, loading }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,6 +51,7 @@ export function MessageList({ messages, onReaction, loading }: MessageListProps)
             message={message}
             isOwn={message.senderId === 'user-1'}
             onReaction={(emoji) => onReaction(message.id, emoji)}
+            onReply={onReply}
           />
         ))}
       </div>
