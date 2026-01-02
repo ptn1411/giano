@@ -1,8 +1,10 @@
+import { useState, useCallback } from "react";
 import { Chat, User, Attachment, Message } from "@/services/mockData";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { PinnedMessagesBar } from "./PinnedMessage";
+import { MessageSearch } from "./MessageSearch";
 import { MessageSquare } from "lucide-react";
 
 interface ChatAreaProps {
@@ -25,6 +27,8 @@ interface ChatAreaProps {
   onMenuClick: () => void;
   onBack: () => void;
   loading?: boolean;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
 }
 
 export function ChatArea({
@@ -48,14 +52,17 @@ export function ChatArea({
   onBack,
   loading,
 }: ChatAreaProps) {
-  const scrollToMessage = (messageId: string) => {
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const scrollToMessage = useCallback((messageId: string) => {
     const element = document.getElementById(`message-${messageId}`);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      element.classList.add('animate-pulse');
-      setTimeout(() => element.classList.remove('animate-pulse'), 1500);
+      element.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+      setTimeout(() => element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 2000);
     }
-  };
+  }, []);
 
   if (!chat) {
     return (
@@ -80,7 +87,18 @@ export function ChatArea({
         participants={participants}
         onMenuClick={onMenuClick}
         onBack={onBack}
+        onSearchClick={() => setIsSearchOpen(true)}
         showBackButton
+      />
+      <MessageSearch
+        messages={messages}
+        isOpen={isSearchOpen}
+        onClose={() => {
+          setIsSearchOpen(false);
+          setSearchQuery("");
+        }}
+        onNavigate={scrollToMessage}
+        onQueryChange={setSearchQuery}
       />
       <PinnedMessagesBar
         messages={messages}
@@ -97,6 +115,7 @@ export function ChatArea({
         onPin={onPin}
         onUnpin={onUnpin}
         loading={loading}
+        searchQuery={isSearchOpen ? searchQuery : undefined}
       />
       <MessageInput 
         onSend={onSendMessage} 

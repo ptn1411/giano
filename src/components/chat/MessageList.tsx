@@ -13,9 +13,10 @@ interface MessageListProps {
   onPin: (message: Message) => void;
   onUnpin: (messageId: string) => void;
   loading?: boolean;
+  searchQuery?: string;
 }
 
-export function MessageList({ messages, onReaction, onReply, onForward, onEdit, onDelete, onPin, onUnpin, loading }: MessageListProps) {
+export function MessageList({ messages, onReaction, onReply, onForward, onEdit, onDelete, onPin, onUnpin, loading, searchQuery }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -69,6 +70,7 @@ export function MessageList({ messages, onReaction, onReply, onForward, onEdit, 
               onDelete={onDelete}
               onPin={onPin}
               onUnpin={onUnpin}
+              searchQuery={searchQuery}
             />
           </div>
         ))}

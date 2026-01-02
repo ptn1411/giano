@@ -1,4 +1,4 @@
-import { Menu, Phone, Video, MoreVertical, ArrowLeft } from "lucide-react";
+import { Menu, Phone, Video, MoreVertical, ArrowLeft, Search } from "lucide-react";
 import { Chat, User } from "@/services/mockData";
 import { AvatarWithStatus } from "./AvatarWithStatus";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ interface ChatHeaderProps {
   participants: User[];
   onMenuClick: () => void;
   onBack: () => void;
+  onSearchClick: () => void;
   showBackButton?: boolean;
 }
 
@@ -16,6 +17,7 @@ export function ChatHeader({
   participants,
   onMenuClick,
   onBack,
+  onSearchClick,
   showBackButton,
 }: ChatHeaderProps) {
   const isOnline = chat.type === 'private' && participants.some(
@@ -68,6 +70,13 @@ export function ChatHeader({
       </div>
 
       <div className="flex items-center gap-1">
+        <button 
+          onClick={onSearchClick}
+          className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground"
+          title="Search messages"
+        >
+          <Search className="h-5 w-5" />
+        </button>
         <button className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground">
           <Phone className="h-5 w-5" />
         </button>
