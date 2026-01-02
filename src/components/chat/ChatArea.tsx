@@ -89,7 +89,7 @@ export function ChatArea({
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-background">
+    <div className="flex flex-1 flex-col bg-background min-h-0 overflow-hidden">
       <ChatHeader
         chat={chat}
         participants={participants}
