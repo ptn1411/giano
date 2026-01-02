@@ -35,11 +35,18 @@ const slashCommands: SlashCommand[] = [
   { command: "/stats", description: "View your statistics" },
   { command: "/subscribe", description: "Subscribe to updates" },
   { command: "/feedback", description: "Send feedback" },
+  { command: "/profile", description: "View your profile" },
+  { command: "/wallet", description: "Check wallet balance" },
+  { command: "/notifications", description: "Manage notifications" },
+  { command: "/language", description: "Change language" },
+  { command: "/premium", description: "Upgrade to premium" },
+  { command: "/export", description: "Export your data" },
 ];
 
 const replyKeyboardButtons = [
   ["🏠 Home", "📊 Statistics"],
   ["⚙️ Settings", "❓ Help"],
+  ["💳 Wallet", "👤 Profile"],
   ["❌ Cancel"],
 ];
 
@@ -50,24 +57,72 @@ const menuItems = [
   { icon: HelpCircle, label: "Help", action: "help" },
 ];
 
-export function TelegramBotDemo() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      type: "bot",
-      content: "👋 Welcome to the Demo Bot!\n\nI can help you explore all Telegram bot menu types. Try the different menus below!",
-      inlineKeyboard: [
-        [
-          { text: "✅ Get Started", callbackData: "start" },
-          { text: "ℹ️ Learn More", callbackData: "learn" },
-        ],
-        [
-          { text: "🔄 Refresh", callbackData: "refresh" },
-        ],
+const initialMessages: Message[] = [
+  {
+    id: "1",
+    type: "bot",
+    content: "👋 Welcome to the Demo Bot!\n\nI can help you explore all Telegram bot menu types. Try the different menus below!",
+    inlineKeyboard: [
+      [
+        { text: "✅ Get Started", callbackData: "start" },
+        { text: "ℹ️ Learn More", callbackData: "learn" },
       ],
-      timestamp: new Date(),
-    },
-  ]);
+      [
+        { text: "🔄 Refresh", callbackData: "refresh" },
+      ],
+    ],
+    timestamp: new Date(Date.now() - 60000 * 5),
+  },
+  {
+    id: "2",
+    type: "user",
+    content: "Hello! What can you do?",
+    timestamp: new Date(Date.now() - 60000 * 4),
+  },
+  {
+    id: "3",
+    type: "bot",
+    content: "🤖 I'm a demo bot showcasing Telegram's menu systems!\n\n📋 Here's what I can do:\n• Show Reply Keyboards\n• Display Inline Buttons\n• Handle Slash Commands\n• Navigate via Bot Menu\n\nTry typing / to see available commands!",
+    inlineKeyboard: [
+      [
+        { text: "📱 Reply Keyboard Demo", callbackData: "reply_demo" },
+      ],
+      [
+        { text: "🔘 Inline Buttons Demo", callbackData: "inline_demo" },
+      ],
+      [
+        { text: "⌨️ Commands Demo", callbackData: "cmd_demo" },
+      ],
+    ],
+    timestamp: new Date(Date.now() - 60000 * 3),
+  },
+  {
+    id: "4",
+    type: "user",
+    content: "/stats",
+    timestamp: new Date(Date.now() - 60000 * 2),
+  },
+  {
+    id: "5",
+    type: "bot",
+    content: "📊 Your Statistics\n\n📈 Messages sent: 142\n📥 Messages received: 89\n⭐ Bot rating: 4.8/5\n🕐 Active time: 24h 35m\n💎 Premium status: Active",
+    inlineKeyboard: [
+      [
+        { text: "📅 Daily", callbackData: "stats_daily" },
+        { text: "📆 Weekly", callbackData: "stats_weekly" },
+        { text: "📊 Monthly", callbackData: "stats_monthly" },
+      ],
+      [
+        { text: "📤 Export Report", callbackData: "export" },
+        { text: "🔄 Refresh", callbackData: "refresh_stats" },
+      ],
+    ],
+    timestamp: new Date(Date.now() - 60000),
+  },
+];
+
+export function TelegramBotDemo() {
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [inputValue, setInputValue] = useState("");
   const [showReplyKeyboard, setShowReplyKeyboard] = useState(true);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -126,15 +181,17 @@ export function TelegramBotDemo() {
         const cmd = inputValue.split(" ")[0];
         switch (cmd) {
           case "/start":
-            addBotMessage("🚀 Bot started! Use the menus to navigate.", [
+            addBotMessage("🚀 Bot started! Use the menus to navigate.\n\n🎯 Quick Actions:", [
               [{ text: "📖 View Tutorial", callbackData: "tutorial" }],
+              [{ text: "🎁 Claim Welcome Bonus", callbackData: "bonus" }],
             ]);
             break;
           case "/help":
             addBotMessage("📚 Help Center\n\nChoose a topic:", [
-              [{ text: "Getting Started", callbackData: "help_start" }],
-              [{ text: "FAQ", callbackData: "help_faq" }],
-              [{ text: "Contact Support", callbackData: "help_support" }],
+              [{ text: "🚀 Getting Started", callbackData: "help_start" }],
+              [{ text: "❓ FAQ", callbackData: "help_faq" }],
+              [{ text: "💬 Contact Support", callbackData: "help_support" }],
+              [{ text: "📹 Video Tutorials", callbackData: "help_video" }],
             ]);
             break;
           case "/settings":
@@ -143,19 +200,72 @@ export function TelegramBotDemo() {
                 { text: "🔔 Notifications", callbackData: "notif" },
                 { text: "🌐 Language", callbackData: "lang" },
               ],
+              [
+                { text: "🎨 Theme", callbackData: "theme" },
+                { text: "🔒 Privacy", callbackData: "privacy" },
+              ],
               [{ text: "🔙 Back", callbackData: "back" }],
             ]);
             break;
           case "/stats":
-            addBotMessage("📊 Your Statistics\n\n📈 Messages: 142\n👥 Interactions: 89\n⭐ Rating: 4.8/5", [
+            addBotMessage("📊 Your Statistics\n\n📈 Messages: 142\n👥 Interactions: 89\n⭐ Rating: 4.8/5\n🏆 Rank: #234", [
+              [
+                { text: "📅 Daily", callbackData: "daily" },
+                { text: "📆 Weekly", callbackData: "weekly" },
+                { text: "📊 Monthly", callbackData: "monthly" },
+              ],
               [{ text: "🔄 Refresh", callbackData: "refresh_stats" }],
             ]);
             break;
+          case "/profile":
+            addBotMessage("👤 Your Profile\n\n📛 Name: Demo User\n📧 Email: demo@example.com\n📅 Joined: Jan 2024\n💎 Status: Premium", [
+              [{ text: "✏️ Edit Profile", callbackData: "edit" }],
+              [{ text: "📷 Change Photo", callbackData: "photo" }],
+            ]);
+            break;
+          case "/wallet":
+            addBotMessage("💳 Wallet Balance\n\n💰 Balance: $125.50\n📈 This month: +$45.00\n📉 Spent: $32.00", [
+              [
+                { text: "💵 Deposit", callbackData: "deposit" },
+                { text: "💸 Withdraw", callbackData: "withdraw" },
+              ],
+              [{ text: "📜 Transaction History", callbackData: "history" }],
+            ]);
+            break;
+          case "/premium":
+            addBotMessage("💎 Upgrade to Premium\n\n✨ Benefits:\n• Unlimited messages\n• Priority support\n• Exclusive features\n• No ads\n\n💰 Price: $9.99/month", [
+              [{ text: "🛒 Subscribe Now", callbackData: "subscribe" }],
+              [{ text: "📋 Compare Plans", callbackData: "plans" }],
+            ]);
+            break;
+          case "/notifications":
+            addBotMessage("🔔 Notification Settings\n\nManage your alerts:", [
+              [{ text: "✅ Messages: ON", callbackData: "toggle_msg" }],
+              [{ text: "✅ Updates: ON", callbackData: "toggle_update" }],
+              [{ text: "❌ Marketing: OFF", callbackData: "toggle_marketing" }],
+              [{ text: "💾 Save", callbackData: "save_notif" }],
+            ]);
+            break;
+          case "/language":
+            addBotMessage("🌐 Select Language:", [
+              [
+                { text: "🇺🇸 English", callbackData: "lang_en" },
+                { text: "🇻🇳 Tiếng Việt", callbackData: "lang_vi" },
+              ],
+              [
+                { text: "🇯🇵 日本語", callbackData: "lang_jp" },
+                { text: "🇰🇷 한국어", callbackData: "lang_kr" },
+              ],
+              [{ text: "🇨🇳 中文", callbackData: "lang_cn" }],
+            ]);
+            break;
           default:
-            addBotMessage("Unknown command. Type /help for available commands.");
+            addBotMessage("❌ Unknown command.\n\nType /help for available commands or use the menu button below.");
         }
       } else {
-        addBotMessage(`You said: "${inputValue}"\n\nTry using the menus or type / to see commands!`);
+        addBotMessage(`📩 You said: "${inputValue}"\n\n💡 Tip: Try using the menus or type / to see commands!`, [
+          [{ text: "📋 Show Commands", callbackData: "show_cmd" }],
+        ]);
       }
     }, 500);
     
@@ -168,31 +278,68 @@ export function TelegramBotDemo() {
     
     setTimeout(() => {
       if (text.includes("Home")) {
-        addBotMessage("🏠 Welcome Home!\n\nWhat would you like to do?", [
+        addBotMessage("🏠 Welcome Home!\n\n📌 Recent Activity:\n• 3 new messages\n• 2 pending tasks\n• 1 notification", [
           [
             { text: "📝 New Task", callbackData: "new_task" },
             { text: "📋 View Tasks", callbackData: "view_tasks" },
           ],
+          [
+            { text: "📬 Messages", callbackData: "messages" },
+            { text: "🔔 Alerts", callbackData: "alerts" },
+          ],
         ]);
       } else if (text.includes("Statistics")) {
-        addBotMessage("📊 Loading your statistics...", [
-          [{ text: "📈 Daily", callbackData: "daily" }, { text: "📅 Weekly", callbackData: "weekly" }],
-          [{ text: "📆 Monthly", callbackData: "monthly" }],
+        addBotMessage("📊 Your Statistics Dashboard\n\n📈 Today: +15 interactions\n📅 This Week: 89 messages\n📆 This Month: 342 total\n🏆 Ranking: Top 10%", [
+          [
+            { text: "📈 Daily", callbackData: "daily" },
+            { text: "📅 Weekly", callbackData: "weekly" },
+            { text: "📆 Monthly", callbackData: "monthly" },
+          ],
+          [{ text: "📤 Export CSV", callbackData: "export" }],
         ]);
       } else if (text.includes("Settings")) {
-        addBotMessage("⚙️ Settings Menu\n\nSelect an option:", [
-          [{ text: "🔔 Notifications", callbackData: "notif" }],
-          [{ text: "🎨 Theme", callbackData: "theme" }],
-          [{ text: "🔐 Privacy", callbackData: "privacy" }],
+        addBotMessage("⚙️ Settings Menu\n\nSelect an option to configure:", [
+          [
+            { text: "🔔 Notifications", callbackData: "notif" },
+            { text: "🎨 Theme", callbackData: "theme" },
+          ],
+          [
+            { text: "🔐 Privacy", callbackData: "privacy" },
+            { text: "🌐 Language", callbackData: "lang" },
+          ],
+          [{ text: "🗑️ Clear Data", callbackData: "clear" }],
         ]);
       } else if (text.includes("Help")) {
-        addBotMessage("❓ How can I help you?\n\nSelect a category:", [
-          [{ text: "📖 Guide", callbackData: "guide" }, { text: "💬 FAQ", callbackData: "faq" }],
-          [{ text: "📧 Contact", callbackData: "contact" }],
+        addBotMessage("❓ Help Center\n\nHow can I assist you today?", [
+          [
+            { text: "📖 User Guide", callbackData: "guide" },
+            { text: "💬 FAQ", callbackData: "faq" },
+          ],
+          [
+            { text: "🎥 Video Tutorials", callbackData: "videos" },
+            { text: "📧 Contact Us", callbackData: "contact" },
+          ],
+          [{ text: "🐛 Report Bug", callbackData: "bug" }],
+        ]);
+      } else if (text.includes("Wallet")) {
+        addBotMessage("💳 Your Wallet\n\n💰 Balance: $125.50\n📈 Earned this month: +$45.00\n📉 Spent: -$32.00\n🎁 Bonus: $5.00", [
+          [
+            { text: "💵 Deposit", callbackData: "deposit" },
+            { text: "💸 Withdraw", callbackData: "withdraw" },
+          ],
+          [{ text: "📜 History", callbackData: "history" }],
+        ]);
+      } else if (text.includes("Profile")) {
+        addBotMessage("👤 Your Profile\n\n📛 Demo User\n📧 demo@example.com\n📅 Member since: Jan 2024\n💎 Status: Premium\n⭐ Rating: 4.8/5", [
+          [
+            { text: "✏️ Edit", callbackData: "edit" },
+            { text: "📷 Photo", callbackData: "photo" },
+          ],
+          [{ text: "🔗 Share Profile", callbackData: "share" }],
         ]);
       } else if (text.includes("Cancel")) {
         setShowReplyKeyboard(false);
-        addBotMessage("Keyboard hidden. Tap the menu button to show it again.");
+        addBotMessage("⌨️ Keyboard hidden.\n\nTap the menu button (☰) to show it again.");
       }
     }, 400);
   };
