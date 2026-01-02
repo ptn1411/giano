@@ -22,6 +22,35 @@ interface MessageBubbleProps {
 
 const quickReactions = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
+// Highlight @mentions in text
+function formatTextWithMentions(text: string, isOwn: boolean, searchQuery?: string): React.ReactNode {
+  // First apply search highlighting if needed
+  if (searchQuery) {
+    return highlightText(text, searchQuery);
+  }
+
+  // Split by @mentions pattern
+  const mentionRegex = /(@\w+(?:\s\w+)?)/g;
+  const parts = text.split(mentionRegex);
+
+  return parts.map((part, index) => {
+    if (part.startsWith("@")) {
+      return (
+        <span
+          key={index}
+          className={cn(
+            "font-semibold cursor-pointer hover:underline",
+            isOwn ? "text-primary-foreground/90" : "text-primary"
+          )}
+        >
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
 export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, onEdit, onDelete, onPin, onUnpin, searchQuery }: MessageBubbleProps) {
   const [showReactions, setShowReactions] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout>();
@@ -78,7 +107,7 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, 
             "text-sm whitespace-pre-wrap break-words",
             hasAttachments && "mt-2 px-2"
           )}>
-            {searchQuery ? highlightText(message.text, searchQuery) : message.text}
+            {formatTextWithMentions(message.text, isOwn, searchQuery)}
           </p>
         )}
         
