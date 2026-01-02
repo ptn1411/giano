@@ -154,9 +154,11 @@ export default function Settings() {
   const [editingProfile, setEditingProfile] = useState(false);
   const [editedProfile, setEditedProfile] = useState<UserProfile | null>(null);
 
+  const { session } = useAuth();
+
   useEffect(() => {
     loadSettings();
-  }, []);
+  }, [session]);
 
   const loadSettings = async () => {
     const [
@@ -176,14 +178,24 @@ export default function Settings() {
       settingsApi.getAppearanceSettings(),
       settingsApi.getDevices(),
     ]);
-    setProfile(profileData);
+    
+    // Override profile with logged-in user data
+    const mergedProfile: UserProfile = session ? {
+      ...profileData,
+      name: session.user.name,
+      avatar: session.user.avatar,
+      email: session.user.email || profileData.email,
+      phone: session.user.phone || profileData.phone,
+    } : profileData;
+    
+    setProfile(mergedProfile);
     setPrivacy(privacyData);
     setNotifications(notifData);
     setChatSettings(chatData);
     setDataStorage(dataData);
     setAppearance(appearanceData);
     setDevices(devicesData);
-    setEditedProfile(profileData);
+    setEditedProfile(mergedProfile);
   };
 
   const handleBack = () => {
