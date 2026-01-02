@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, Phone, Video, MoreVertical, ArrowLeft, Search, Info, BellOff, Pin, Trash2, LogOut, MessageSquare } from "lucide-react";
+import { Menu, Phone, Video, MoreVertical, ArrowLeft, Search, Info, BellOff, Pin, Trash2, LogOut, MessageSquare, Mic, Radio, Monitor } from "lucide-react";
 import { Chat, User } from "@/services/mockData";
 import { AvatarWithStatus } from "./AvatarWithStatus";
 import {
@@ -12,6 +12,10 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { ContactInfoModal } from "./ContactInfoModal";
+import { CallModal } from "./CallModal";
+import { VoiceRoomModal } from "./VoiceRoomModal";
+import { LiveStreamModal } from "./LiveStreamModal";
+import { ScreenShareModal } from "./ScreenShareModal";
 
 interface ChatHeaderProps {
   chat: Chat;
@@ -31,6 +35,12 @@ export function ChatHeader({
   showBackButton,
 }: ChatHeaderProps) {
   const [showContactInfo, setShowContactInfo] = useState(false);
+  const [showVoiceCall, setShowVoiceCall] = useState(false);
+  const [showVideoCall, setShowVideoCall] = useState(false);
+  const [showVoiceRoom, setShowVoiceRoom] = useState(false);
+  const [showLiveStream, setShowLiveStream] = useState(false);
+  const [showScreenShare, setShowScreenShare] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
 
   const isOnline = chat.type === 'private' && participants.some(
     (p) => p.id !== 'user-1' && p.status === 'online'
@@ -129,10 +139,18 @@ export function ChatHeader({
         >
           <Search className="h-5 w-5" />
         </button>
-        <button className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground">
+        <button 
+          onClick={() => setShowVoiceCall(true)}
+          className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground"
+          title="Voice call"
+        >
           <Phone className="h-5 w-5" />
         </button>
-        <button className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground">
+        <button 
+          onClick={() => setShowVideoCall(true)}
+          className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground"
+          title="Video call"
+        >
           <Video className="h-5 w-5" />
         </button>
         
@@ -151,6 +169,34 @@ export function ChatHeader({
               <Search className="h-4 w-4" />
               <span>Search in conversation</span>
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            
+            {/* Call & Stream Options */}
+            <DropdownMenuItem onClick={() => setShowVoiceCall(true)} className="gap-3 cursor-pointer">
+              <Phone className="h-4 w-4" />
+              <span>Voice call</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowVideoCall(true)} className="gap-3 cursor-pointer">
+              <Video className="h-4 w-4" />
+              <span>Video call</span>
+            </DropdownMenuItem>
+            {chat.type === 'group' && (
+              <>
+                <DropdownMenuItem onClick={() => setShowVoiceRoom(true)} className="gap-3 cursor-pointer">
+                  <Mic className="h-4 w-4" />
+                  <span>Start voice room</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowLiveStream(true)} className="gap-3 cursor-pointer">
+                  <Radio className="h-4 w-4" />
+                  <span>Go live</span>
+                </DropdownMenuItem>
+              </>
+            )}
+            <DropdownMenuItem onClick={() => setShowScreenShare(true)} className="gap-3 cursor-pointer">
+              <Monitor className="h-4 w-4" />
+              <span>Share screen</span>
+            </DropdownMenuItem>
+            
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleMuteNotifications} className="gap-3 cursor-pointer">
               <BellOff className="h-4 w-4" />
@@ -182,11 +228,58 @@ export function ChatHeader({
         </DropdownMenu>
       </div>
 
+      {/* Modals */}
       <ContactInfoModal
         open={showContactInfo}
         onOpenChange={setShowContactInfo}
         chat={chat}
         participants={participants}
+      />
+
+      <CallModal
+        open={showVoiceCall}
+        onOpenChange={setShowVoiceCall}
+        callType="voice"
+        contactName={chat.name}
+        contactAvatar={chat.avatar}
+      />
+
+      <CallModal
+        open={showVideoCall}
+        onOpenChange={setShowVideoCall}
+        callType="video"
+        contactName={chat.name}
+        contactAvatar={chat.avatar}
+      />
+
+      {chat.type === 'group' && (
+        <>
+          <VoiceRoomModal
+            open={showVoiceRoom}
+            onOpenChange={setShowVoiceRoom}
+            roomName={`${chat.name} Voice Room`}
+            participants={participants}
+          />
+
+          <LiveStreamModal
+            open={showLiveStream}
+            onOpenChange={setShowLiveStream}
+            isHost={true}
+            streamTitle={`Live in ${chat.name}`}
+            hostName="You"
+            hostAvatar="https://api.dicebear.com/7.x/avataaars/svg?seed=You"
+          />
+        </>
+      )}
+
+      <ScreenShareModal
+        open={showScreenShare}
+        onOpenChange={setShowScreenShare}
+        isSharing={isScreenSharing}
+        sharerName="You"
+        sharerAvatar="https://api.dicebear.com/7.x/avataaars/svg?seed=You"
+        onStartSharing={() => setIsScreenSharing(true)}
+        onStopSharing={() => setIsScreenSharing(false)}
       />
     </header>
   );

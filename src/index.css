@@ -196,4 +196,19 @@ All colors MUST be HSL.
       transform: translateY(0);
     }
   }
+
+  .animate-float-up {
+    animation: floatUp 2s ease-out forwards;
+  }
+
+  @keyframes floatUp {
+    0% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-100px) scale(1.5);
+    }
+  }
 }
