@@ -4,7 +4,7 @@ interface AvatarWithStatusProps {
   src: string;
   alt: string;
   status?: 'online' | 'offline' | 'away';
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
 }
 
@@ -12,12 +12,14 @@ const sizeClasses = {
   sm: 'h-8 w-8',
   md: 'h-10 w-10',
   lg: 'h-12 w-12',
+  xl: 'h-20 w-20',
 };
 
 const statusSizeClasses = {
   sm: 'h-2.5 w-2.5',
   md: 'h-3 w-3',
   lg: 'h-3.5 w-3.5',
+  xl: 'h-4 w-4',
 };
 
 const statusColors = {

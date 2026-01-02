@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Menu, Phone, Video, MoreVertical, ArrowLeft, Search, Info, BellOff, Pin, Trash2, LogOut, MessageSquare } from "lucide-react";
 import { Chat, User } from "@/services/mockData";
 import { AvatarWithStatus } from "./AvatarWithStatus";
@@ -10,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { ContactInfoModal } from "./ContactInfoModal";
 
 interface ChatHeaderProps {
   chat: Chat;
@@ -28,6 +30,8 @@ export function ChatHeader({
   onSearchClick,
   showBackButton,
 }: ChatHeaderProps) {
+  const [showContactInfo, setShowContactInfo] = useState(false);
+
   const isOnline = chat.type === 'private' && participants.some(
     (p) => p.id !== 'user-1' && p.status === 'online'
   );
@@ -39,10 +43,7 @@ export function ChatHeader({
     : 'offline';
 
   const handleViewInfo = () => {
-    toast({
-      title: chat.type === 'group' ? 'Group Info' : 'Contact Info',
-      description: `Viewing info for ${chat.name}`,
-    });
+    setShowContactInfo(true);
   };
 
   const handleMuteNotifications = () => {
@@ -180,6 +181,13 @@ export function ChatHeader({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <ContactInfoModal
+        open={showContactInfo}
+        onOpenChange={setShowContactInfo}
+        chat={chat}
+        participants={participants}
+      />
     </header>
   );
 }
