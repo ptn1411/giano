@@ -91,9 +91,14 @@ export function CallModal({
     setCallState('connecting');
   };
 
+  const isFullscreen = callType === 'video' && callState === 'connected';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden bg-gradient-to-b from-card to-background border-none [&>button]:hidden">
+      <DialogContent className={cn(
+        "p-0 gap-0 overflow-hidden bg-gradient-to-b from-card to-background border-none [&>button]:hidden transition-all duration-300",
+        isFullscreen ? "sm:max-w-[100vw] sm:max-h-[100vh] w-screen h-screen rounded-none" : "sm:max-w-md"
+      )}>
         {/* Video Background (for video calls) */}
         {callType === 'video' && callState === 'connected' && !isVideoOff && (
           <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-accent/20">
@@ -109,7 +114,8 @@ export function CallModal({
 
         {/* Main Content */}
         <div className={cn(
-          "relative flex flex-col items-center justify-center py-12 px-6 min-h-[400px]",
+          "relative flex flex-col items-center justify-center py-12 px-6",
+          isFullscreen ? "min-h-screen" : "min-h-[400px]",
           callType === 'video' && callState === 'connected' && !isVideoOff && "bg-transparent"
         )}>
           {/* Close button */}
