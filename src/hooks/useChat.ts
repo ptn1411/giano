@@ -59,6 +59,10 @@ export function useMessages(chatId: string | null) {
     return newMessage;
   }, [chatId]);
 
+  const addMessage = useCallback((message: Message) => {
+    setMessages((prev) => [...prev, message]);
+  }, []);
+
   const addReaction = useCallback(async (messageId: string, emoji: string) => {
     if (!chatId) return;
     await chatApi.addReaction(messageId, chatId, emoji);
@@ -125,7 +129,7 @@ export function useMessages(chatId: string | null) {
     fetchMessages();
   }, [fetchMessages]);
 
-  return { messages, loading, sendMessage, addReaction, deleteMessage, editMessage, pinMessage, unpinMessage, refetch: fetchMessages };
+  return { messages, loading, sendMessage, addMessage, addReaction, deleteMessage, editMessage, pinMessage, unpinMessage, refetch: fetchMessages };
 }
 
 export function useUsers() {

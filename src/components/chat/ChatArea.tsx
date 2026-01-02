@@ -21,6 +21,7 @@ interface ChatAreaProps {
   onDelete: (message: Message) => void;
   onPin: (message: Message) => void;
   onUnpin: (messageId: string) => void;
+  onInlineButtonClick?: (button: InlineButton, messageId: string) => void;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
   editingMessage?: Message | null;
@@ -45,6 +46,7 @@ export function ChatArea({
   onDelete,
   onPin,
   onUnpin,
+  onInlineButtonClick,
   replyingTo,
   onCancelReply,
   editingMessage,
@@ -67,11 +69,10 @@ export function ChatArea({
   }, []);
 
   const handleInlineButtonClick = useCallback((button: InlineButton, messageId: string) => {
-    // Show toast for demo purposes
-    toast.success(`Clicked: ${button.text}`, {
-      description: `Callback: ${button.callbackData || 'none'}`,
-    });
-  }, []);
+    if (onInlineButtonClick) {
+      onInlineButtonClick(button, messageId);
+    }
+  }, [onInlineButtonClick]);
 
   const handleReplyKeyboardClick = useCallback((text: string) => {
     onSendMessage(text);
