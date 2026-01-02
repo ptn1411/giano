@@ -5,6 +5,13 @@ export interface User {
   avatar: string;
   status: 'online' | 'offline' | 'away';
   lastSeen?: Date;
+  isBot?: boolean;
+}
+
+export interface InlineButton {
+  text: string;
+  callbackData?: string;
+  url?: string;
 }
 
 export interface Attachment {
@@ -35,11 +42,12 @@ export interface Message {
     senderId: string;
     senderName: string;
   };
+  inlineKeyboard?: InlineButton[][];
 }
 
 export interface Chat {
   id: string;
-  type: 'private' | 'group';
+  type: 'private' | 'group' | 'bot';
   name: string;
   avatar: string;
   participants: string[];
@@ -47,6 +55,7 @@ export interface Chat {
   unreadCount: number;
   isTyping?: boolean;
   typingUser?: string;
+  isBot?: boolean;
 }
 
 // Mock Users
@@ -58,6 +67,10 @@ export const mockUsers: User[] = [
   { id: 'user-5', name: 'David Brown', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=David', status: 'away' },
   { id: 'user-6', name: 'Emma Davis', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma', status: 'online' },
   { id: 'user-7', name: 'Frank Miller', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Frank', status: 'offline', lastSeen: new Date(Date.now() - 86400000) },
+  // Bots
+  { id: 'bot-1', name: 'Assistant Bot', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Assistant', status: 'online', isBot: true },
+  { id: 'bot-2', name: 'Shop Bot', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Shop', status: 'online', isBot: true },
+  { id: 'bot-3', name: 'News Bot', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=News', status: 'online', isBot: true },
 ];
 
 // Mock Messages
@@ -84,6 +97,35 @@ const createMessages = (chatId: string): Message[] => {
 
 // Mock Chats
 export const mockChats: Chat[] = [
+  // Bot chats first
+  {
+    id: 'bot-chat-1',
+    type: 'bot',
+    name: 'Assistant Bot',
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Assistant',
+    participants: ['user-1', 'bot-1'],
+    unreadCount: 1,
+    isBot: true,
+  },
+  {
+    id: 'bot-chat-2',
+    type: 'bot',
+    name: 'Shop Bot',
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Shop',
+    participants: ['user-1', 'bot-2'],
+    unreadCount: 0,
+    isBot: true,
+  },
+  {
+    id: 'bot-chat-3',
+    type: 'bot',
+    name: 'News Bot',
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=News',
+    participants: ['user-1', 'bot-3'],
+    unreadCount: 3,
+    isBot: true,
+  },
+  // Regular chats
   {
     id: 'chat-1',
     type: 'private',
@@ -145,16 +187,205 @@ export const mockChats: Chat[] = [
   },
 ];
 
+// Create bot messages with inline keyboards
+const createBotMessages = (chatId: string, botId: string): Message[] => {
+  if (botId === 'bot-1') {
+    return [
+      {
+        id: `msg-${chatId}-1`,
+        chatId,
+        senderId: 'bot-1',
+        text: "👋 Welcome to Assistant Bot!\n\nI can help you with various tasks. Use the buttons below or type / to see commands.",
+        timestamp: new Date(Date.now() - 60000 * 10),
+        isRead: true,
+        reactions: [],
+        inlineKeyboard: [
+          [
+            { text: "✅ Get Started", callbackData: "start" },
+            { text: "ℹ️ Learn More", callbackData: "learn" },
+          ],
+          [{ text: "📋 View Commands", callbackData: "commands" }],
+        ],
+      },
+      {
+        id: `msg-${chatId}-2`,
+        chatId,
+        senderId: 'user-1',
+        text: "/help",
+        timestamp: new Date(Date.now() - 60000 * 8),
+        isRead: true,
+        reactions: [],
+      },
+      {
+        id: `msg-${chatId}-3`,
+        chatId,
+        senderId: 'bot-1',
+        text: "📚 Help Center\n\nHere's what I can do for you:\n\n• 📊 Statistics - View your stats\n• ⚙️ Settings - Configure preferences\n• 💳 Wallet - Manage your balance\n• 👤 Profile - Edit your profile",
+        timestamp: new Date(Date.now() - 60000 * 7),
+        isRead: true,
+        reactions: [],
+        inlineKeyboard: [
+          [
+            { text: "📊 Statistics", callbackData: "stats" },
+            { text: "⚙️ Settings", callbackData: "settings" },
+          ],
+          [
+            { text: "💳 Wallet", callbackData: "wallet" },
+            { text: "👤 Profile", callbackData: "profile" },
+          ],
+          [{ text: "📞 Contact Support", callbackData: "support" }],
+        ],
+      },
+      {
+        id: `msg-${chatId}-4`,
+        chatId,
+        senderId: 'bot-1',
+        text: "📊 Your Statistics\n\n📈 Messages: 142\n👥 Interactions: 89\n⭐ Rating: 4.8/5\n🏆 Rank: #234\n💎 Status: Premium",
+        timestamp: new Date(Date.now() - 60000 * 5),
+        isRead: false,
+        reactions: [{ emoji: '👍', userId: 'user-1' }],
+        inlineKeyboard: [
+          [
+            { text: "📅 Daily", callbackData: "daily" },
+            { text: "📆 Weekly", callbackData: "weekly" },
+            { text: "📊 Monthly", callbackData: "monthly" },
+          ],
+          [{ text: "🔄 Refresh", callbackData: "refresh" }],
+        ],
+      },
+    ];
+  } else if (botId === 'bot-2') {
+    return [
+      {
+        id: `msg-${chatId}-1`,
+        chatId,
+        senderId: 'bot-2',
+        text: "🛒 Welcome to Shop Bot!\n\nBrowse our products and get the best deals. What would you like to explore?",
+        timestamp: new Date(Date.now() - 60000 * 30),
+        isRead: true,
+        reactions: [],
+        inlineKeyboard: [
+          [
+            { text: "👕 Clothing", callbackData: "clothing" },
+            { text: "📱 Electronics", callbackData: "electronics" },
+          ],
+          [
+            { text: "🏠 Home & Living", callbackData: "home" },
+            { text: "🎮 Gaming", callbackData: "gaming" },
+          ],
+          [{ text: "🔥 Hot Deals", callbackData: "deals" }],
+        ],
+      },
+      {
+        id: `msg-${chatId}-2`,
+        chatId,
+        senderId: 'user-1',
+        text: "Show me electronics",
+        timestamp: new Date(Date.now() - 60000 * 25),
+        isRead: true,
+        reactions: [],
+      },
+      {
+        id: `msg-${chatId}-3`,
+        chatId,
+        senderId: 'bot-2',
+        text: "📱 Electronics\n\n1. iPhone 15 Pro - $999\n2. MacBook Air M3 - $1,299\n3. AirPods Pro 2 - $249\n4. iPad Pro - $899\n\nSelect a product for details:",
+        timestamp: new Date(Date.now() - 60000 * 24),
+        isRead: true,
+        reactions: [],
+        inlineKeyboard: [
+          [
+            { text: "📱 iPhone 15 Pro", callbackData: "iphone" },
+            { text: "💻 MacBook Air", callbackData: "macbook" },
+          ],
+          [
+            { text: "🎧 AirPods Pro", callbackData: "airpods" },
+            { text: "📲 iPad Pro", callbackData: "ipad" },
+          ],
+          [
+            { text: "🛒 View Cart (2)", callbackData: "cart" },
+            { text: "🔙 Back", callbackData: "back" },
+          ],
+        ],
+      },
+    ];
+  } else {
+    return [
+      {
+        id: `msg-${chatId}-1`,
+        chatId,
+        senderId: 'bot-3',
+        text: "📰 Welcome to News Bot!\n\nStay updated with the latest news from around the world. Select a category:",
+        timestamp: new Date(Date.now() - 60000 * 60),
+        isRead: true,
+        reactions: [],
+        inlineKeyboard: [
+          [
+            { text: "🌍 World", callbackData: "world" },
+            { text: "💼 Business", callbackData: "business" },
+          ],
+          [
+            { text: "💻 Technology", callbackData: "tech" },
+            { text: "⚽ Sports", callbackData: "sports" },
+          ],
+          [{ text: "🔔 Subscribe", callbackData: "subscribe" }],
+        ],
+      },
+      {
+        id: `msg-${chatId}-2`,
+        chatId,
+        senderId: 'bot-3',
+        text: "🔥 Breaking News\n\n📌 Tech Giants Report Record Q4 Earnings\n📌 Global Climate Summit Reaches Agreement\n📌 New AI Breakthrough in Healthcare",
+        timestamp: new Date(Date.now() - 60000 * 30),
+        isRead: false,
+        reactions: [],
+        inlineKeyboard: [
+          [{ text: "📖 Read More", callbackData: "read" }],
+          [{ text: "📤 Share", callbackData: "share" }, { text: "🔖 Save", callbackData: "save" }],
+        ],
+      },
+      {
+        id: `msg-${chatId}-3`,
+        chatId,
+        senderId: 'bot-3',
+        text: "💻 Technology News\n\n1. Apple announces new Vision Pro features\n2. Google's Gemini 2.0 released\n3. Tesla unveils new Robotaxi design",
+        timestamp: new Date(Date.now() - 60000 * 15),
+        isRead: false,
+        reactions: [],
+        inlineKeyboard: [
+          [
+            { text: "1️⃣ Apple", callbackData: "apple" },
+            { text: "2️⃣ Google", callbackData: "google" },
+            { text: "3️⃣ Tesla", callbackData: "tesla" },
+          ],
+          [{ text: "🔄 Refresh", callbackData: "refresh" }],
+        ],
+      },
+    ];
+  }
+};
+
 // Add last messages to chats
 mockChats.forEach((chat) => {
-  const messages = createMessages(chat.id);
-  chat.lastMessage = messages[messages.length - 1];
+  if (chat.isBot) {
+    const botId = chat.participants.find(p => p.startsWith('bot-')) || 'bot-1';
+    const messages = createBotMessages(chat.id, botId);
+    chat.lastMessage = messages[messages.length - 1];
+  } else {
+    const messages = createMessages(chat.id);
+    chat.lastMessage = messages[messages.length - 1];
+  }
 });
 
 // Storage for messages
 const messagesStore: Record<string, Message[]> = {};
 mockChats.forEach((chat) => {
-  messagesStore[chat.id] = createMessages(chat.id);
+  if (chat.isBot) {
+    const botId = chat.participants.find(p => p.startsWith('bot-')) || 'bot-1';
+    messagesStore[chat.id] = createBotMessages(chat.id, botId);
+  } else {
+    messagesStore[chat.id] = createMessages(chat.id);
+  }
 });
 
 // Simulated API delay
