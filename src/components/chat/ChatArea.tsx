@@ -5,6 +5,7 @@ import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { PinnedMessagesBar } from "./PinnedMessage";
 import { MessageSearch } from "./MessageSearch";
+import { BotReplyKeyboard } from "./BotReplyKeyboard";
 import { MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
@@ -72,6 +73,15 @@ export function ChatArea({
     });
   }, []);
 
+  const handleReplyKeyboardClick = useCallback((text: string) => {
+    onSendMessage(text);
+  }, [onSendMessage]);
+
+  // Get bot ID from participants
+  const botId = chat?.isBot 
+    ? chat.participants.find(p => p.startsWith('bot-')) 
+    : null;
+
   if (!chat) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center bg-background p-8 text-center">
@@ -127,6 +137,13 @@ export function ChatArea({
         loading={loading}
         searchQuery={isSearchOpen ? searchQuery : undefined}
       />
+      {/* Bot Reply Keyboard */}
+      {chat.isBot && botId && (
+        <BotReplyKeyboard 
+          botId={botId} 
+          onButtonClick={handleReplyKeyboardClick} 
+        />
+      )}
       <MessageInput 
         onSend={onSendMessage} 
         onEditSubmit={onEditSubmit}
