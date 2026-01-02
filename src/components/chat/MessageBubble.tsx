@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { format } from "date-fns";
-import { Check, CheckCheck, Smile, Reply, Forward, Pencil, Trash2 } from "lucide-react";
+import { Check, CheckCheck, Smile, Reply, Forward, Pencil, Trash2, Pin, PinOff } from "lucide-react";
 import { Message } from "@/services/mockData";
 import { MessageAttachments } from "./MessageAttachments";
 import { ReplyPreview } from "./ReplyPreview";
@@ -14,11 +14,13 @@ interface MessageBubbleProps {
   onForward: (message: Message) => void;
   onEdit: (message: Message) => void;
   onDelete: (message: Message) => void;
+  onPin: (message: Message) => void;
+  onUnpin: (messageId: string) => void;
 }
 
 const quickReactions = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
-export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, onEdit, onDelete }: MessageBubbleProps) {
+export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, onEdit, onDelete, onPin, onUnpin }: MessageBubbleProps) {
   const [showReactions, setShowReactions] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout>();
 
@@ -133,6 +135,17 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, 
               title="Forward"
             >
               <Forward className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <button
+              onClick={() => message.isPinned ? onUnpin(message.id) : onPin(message)}
+              className="p-1 rounded-full hover:bg-accent transition-colors"
+              title={message.isPinned ? "Unpin" : "Pin"}
+            >
+              {message.isPinned ? (
+                <PinOff className="h-4 w-4 text-primary" />
+              ) : (
+                <Pin className="h-4 w-4 text-muted-foreground" />
+              )}
             </button>
             {isOwn && (
               <>

@@ -20,7 +20,7 @@ const Index = () => {
   const [deletingMessage, setDeletingMessage] = useState<Message | null>(null);
   
   const { chats, loading: chatsLoading, refetch: refetchChats, searchChats } = useChats();
-  const { messages, loading: messagesLoading, sendMessage, addReaction, deleteMessage, editMessage } = useMessages(activeChatId);
+  const { messages, loading: messagesLoading, sendMessage, addReaction, deleteMessage, editMessage, pinMessage, unpinMessage } = useMessages(activeChatId);
   const { users } = useUsers();
   const currentUser = useCurrentUser();
 
@@ -132,6 +132,8 @@ const Index = () => {
           onForward={setForwardingMessage}
           onEdit={setEditingMessage}
           onDelete={setDeletingMessage}
+          onPin={(msg) => pinMessage(msg.id)}
+          onUnpin={unpinMessage}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
           editingMessage={editingMessage}

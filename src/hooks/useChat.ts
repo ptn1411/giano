@@ -103,11 +103,29 @@ export function useMessages(chatId: string | null) {
     }
   }, [chatId]);
 
+  const pinMessage = useCallback(async (messageId: string) => {
+    if (!chatId) return;
+    const updated = await chatApi.pinMessage(chatId, messageId);
+    if (updated) {
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === messageId ? { ...msg, isPinned: true } : msg))
+      );
+    }
+  }, [chatId]);
+
+  const unpinMessage = useCallback(async (messageId: string) => {
+    if (!chatId) return;
+    await chatApi.unpinMessage(chatId, messageId);
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === messageId ? { ...msg, isPinned: false } : msg))
+    );
+  }, [chatId]);
+
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
 
-  return { messages, loading, sendMessage, addReaction, deleteMessage, editMessage, refetch: fetchMessages };
+  return { messages, loading, sendMessage, addReaction, deleteMessage, editMessage, pinMessage, unpinMessage, refetch: fetchMessages };
 }
 
 export function useUsers() {

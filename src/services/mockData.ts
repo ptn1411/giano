@@ -25,6 +25,7 @@ export interface Message {
   timestamp: Date;
   isRead: boolean;
   isEdited?: boolean;
+  isPinned?: boolean;
   reactions: { emoji: string; userId: string }[];
   attachments?: Attachment[];
   replyTo?: {
@@ -303,5 +304,29 @@ export const chatApi = {
       }
     }
     return undefined;
+  },
+
+  async pinMessage(chatId: string, messageId: string): Promise<Message | undefined> {
+    await delay(100);
+    const messages = messagesStore[chatId];
+    if (messages) {
+      const message = messages.find((m) => m.id === messageId);
+      if (message) {
+        message.isPinned = true;
+        return message;
+      }
+    }
+    return undefined;
+  },
+
+  async unpinMessage(chatId: string, messageId: string): Promise<void> {
+    await delay(100);
+    const messages = messagesStore[chatId];
+    if (messages) {
+      const message = messages.find((m) => m.id === messageId);
+      if (message) {
+        message.isPinned = false;
+      }
+    }
   },
 };
