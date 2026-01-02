@@ -67,7 +67,8 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
             "text-sm placeholder:text-muted-foreground",
             "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary",
             "transition-all duration-200",
-            "max-h-[120px]"
+            "max-h-[120px] overflow-y-auto",
+            "scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]"
           )}
         />
         <button
