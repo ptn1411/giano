@@ -6,7 +6,7 @@ import { NewGroupModal } from "@/components/chat/NewGroupModal";
 import { ForwardModal } from "@/components/chat/ForwardModal";
 import { DeleteConfirmModal } from "@/components/chat/DeleteConfirmModal";
 import { useChats, useMessages, useUsers } from "@/hooks/useChat";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthStore } from "@/stores/authStore";
 import { chatApi, Chat, Attachment, Message, InlineButton, User } from "@/services/mockData";
 import { toast } from "@/hooks/use-toast";
 import { generateBotResponse, generateCallbackResponse } from "@/services/botResponses";
@@ -24,7 +24,7 @@ const Index = () => {
   const { chats, loading: chatsLoading, refetch: refetchChats, searchChats } = useChats();
   const { messages, loading: messagesLoading, sendMessage, addReaction, deleteMessage, editMessage, pinMessage, unpinMessage, addMessage } = useMessages(activeChatId);
   const { users } = useUsers();
-  const { session } = useAuth();
+  const { session } = useAuthStore();
   const botResponseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Convert auth session to User format for sidebar

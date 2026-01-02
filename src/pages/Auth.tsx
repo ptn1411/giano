@@ -4,13 +4,13 @@ import { MessageSquare, Mail, Lock, User, Eye, EyeOff, Loader2 } from 'lucide-re
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { login, signup } = useAuth();
+  const { login, signup } = useAuthStore();
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
