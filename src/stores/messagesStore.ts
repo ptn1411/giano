@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import { Message, Attachment, chatApi } from '@/services/mockData';
 
@@ -170,31 +171,31 @@ export const useMessages = (chatId: string | null) => {
     chatId ? state.messages[chatId] || [] : []
   );
   const loading = useMessagesStore((state) => state.loading);
-  const fetchMessages = useMessagesStore((state) => state.fetchMessages);
-  const sendMessage = useMessagesStore((state) => state.sendMessage);
-  const addMessage = useMessagesStore((state) => state.addMessage);
-  const addReaction = useMessagesStore((state) => state.addReaction);
-  const deleteMessage = useMessagesStore((state) => state.deleteMessage);
-  const editMessage = useMessagesStore((state) => state.editMessage);
-  const pinMessage = useMessagesStore((state) => state.pinMessage);
-  const unpinMessage = useMessagesStore((state) => state.unpinMessage);
+
+  // Memoize actions to prevent infinite loops in useCallback dependencies
+  const actions = useMemo(() => {
+    const store = useMessagesStore.getState();
+    return {
+      sendMessage: (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) =>
+        chatId ? store.sendMessage(chatId, text, attachments, replyTo) : Promise.resolve(undefined),
+      addMessage: store.addMessage,
+      addReaction: (messageId: string, emoji: string) =>
+        chatId ? store.addReaction(chatId, messageId, emoji) : Promise.resolve(),
+      deleteMessage: (messageId: string) =>
+        chatId ? store.deleteMessage(chatId, messageId) : Promise.resolve(),
+      editMessage: (messageId: string, newText: string) =>
+        chatId ? store.editMessage(chatId, messageId, newText) : Promise.resolve(),
+      pinMessage: (messageId: string) =>
+        chatId ? store.pinMessage(chatId, messageId) : Promise.resolve(),
+      unpinMessage: (messageId: string) =>
+        chatId ? store.unpinMessage(chatId, messageId) : Promise.resolve(),
+      refetch: () => chatId ? store.fetchMessages(chatId) : Promise.resolve(),
+    };
+  }, [chatId]);
 
   return {
     messages,
     loading,
-    sendMessage: (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) =>
-      chatId ? sendMessage(chatId, text, attachments, replyTo) : Promise.resolve(undefined),
-    addMessage,
-    addReaction: (messageId: string, emoji: string) =>
-      chatId ? addReaction(chatId, messageId, emoji) : Promise.resolve(),
-    deleteMessage: (messageId: string) =>
-      chatId ? deleteMessage(chatId, messageId) : Promise.resolve(),
-    editMessage: (messageId: string, newText: string) =>
-      chatId ? editMessage(chatId, messageId, newText) : Promise.resolve(),
-    pinMessage: (messageId: string) =>
-      chatId ? pinMessage(chatId, messageId) : Promise.resolve(),
-    unpinMessage: (messageId: string) =>
-      chatId ? unpinMessage(chatId, messageId) : Promise.resolve(),
-    refetch: () => chatId ? fetchMessages(chatId) : Promise.resolve(),
+    ...actions,
   };
 };

@@ -37,17 +37,15 @@ const Index = () => {
   } = useChatStore();
   
   const { chats, loading: chatsLoading, searchChats } = useChats();
-  const fetchChats = useChatsStore((state) => state.fetchChats);
   const { messages, loading: messagesLoading, sendMessage, addReaction, deleteMessage, editMessage, pinMessage, unpinMessage, addMessage } = useMessages(activeChatId);
   const { users } = useUsers();
-  const fetchUsers = useUsersStore((state) => state.fetchUsers);
   const { session } = useAuthStore();
   const botResponseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch chats and users on mount only
   useEffect(() => {
-    fetchChats();
-    fetchUsers();
+    useChatsStore.getState().fetchChats();
+    useUsersStore.getState().fetchUsers();
   }, []);
 
   // Convert auth session to User format for sidebar
@@ -87,7 +85,7 @@ const Index = () => {
   const handleSendMessage = useCallback(async (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) => {
     await sendMessage(text, attachments, replyTo);
     setReplyingTo(null);
-    fetchChats();
+    useChatsStore.getState().fetchChats();
 
     // Auto-respond if it's a bot chat
     if (activeChat?.isBot && activeChatId) {
@@ -101,11 +99,11 @@ const Index = () => {
         botResponseTimeoutRef.current = setTimeout(() => {
           const botMessage = generateBotResponse(botId, text, activeChatId);
           addMessage(botMessage);
-          fetchChats();
+          useChatsStore.getState().fetchChats();
         }, 800 + Math.random() * 700); // 800-1500ms delay
       }
     }
-  }, [sendMessage, fetchChats, activeChat, activeChatId, addMessage, setReplyingTo]);
+  }, [sendMessage, activeChat, activeChatId, addMessage, setReplyingTo]);
 
   const handleInlineButtonClick = useCallback((button: InlineButton, messageId: string) => {
     if (!activeChat?.isBot || !activeChatId) return;
@@ -128,7 +126,7 @@ const Index = () => {
         const botMessage = generateCallbackResponse(botId, button.callbackData!, activeChatId);
         if (botMessage) {
           addMessage(botMessage);
-          fetchChats();
+          useChatsStore.getState().fetchChats();
         }
       }, 500 + Math.random() * 500);
     }
@@ -137,29 +135,29 @@ const Index = () => {
     if (button.url) {
       window.open(button.url, '_blank');
     }
-  }, [activeChat, activeChatId, addMessage, fetchChats]);
+  }, [activeChat, activeChatId, addMessage]);
 
   const handleForwardMessage = useCallback(async (chatId: string, message: Message) => {
     const forwardedText = message.text ? `[Forwarded]\n${message.text}` : '[Forwarded message]';
     await chatApi.sendMessage(chatId, forwardedText, message.attachments);
-    fetchChats();
+    useChatsStore.getState().fetchChats();
     toast({
       title: "Message forwarded",
       description: "Your message has been forwarded successfully",
     });
-  }, [fetchChats]);
+  }, []);
 
   const handleDeleteMessage = useCallback(async () => {
     if (deletingMessage) {
       await deleteMessage(deletingMessage.id);
       setDeletingMessage(null);
-      fetchChats();
+      useChatsStore.getState().fetchChats();
       toast({
         title: "Message deleted",
         description: "Your message has been deleted",
       });
     }
-  }, [deletingMessage, deleteMessage, fetchChats, setDeletingMessage]);
+  }, [deletingMessage, deleteMessage, setDeletingMessage]);
 
   const handleEditMessage = useCallback(async (messageId: string, newText: string) => {
     await editMessage(messageId, newText);
@@ -178,14 +176,14 @@ const Index = () => {
   }, []);
 
   const handleGroupCreated = useCallback((chatId: string) => {
-    fetchChats();
+    useChatsStore.getState().fetchChats();
     setActiveChatId(chatId);
     setShowNewGroupModal(false);
     toast({
       title: "Group created",
       description: "Your new group has been created successfully",
     });
-  }, [fetchChats, setActiveChatId, setShowNewGroupModal]);
+  }, [setActiveChatId, setShowNewGroupModal]);
 
   // Get participants for active chat
   const participants = activeChat
