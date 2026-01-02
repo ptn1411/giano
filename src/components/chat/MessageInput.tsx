@@ -134,13 +134,16 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
     }
   };
 
-  const handleInput = () => {
+  const handleInput = useCallback(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+      const newHeight = Math.min(textarea.scrollHeight, 150);
+      textarea.style.height = `${newHeight}px`;
+      // Show scrollbar only when at max height
+      textarea.style.overflowY = textarea.scrollHeight > 150 ? 'auto' : 'hidden';
     }
-  };
+  }, []);
 
   useEffect(() => {
     handleInput();
@@ -264,9 +267,9 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
               "text-sm placeholder:text-muted-foreground",
               "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary",
               "transition-all duration-200",
-              "max-h-[120px] overflow-y-auto",
-              "scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]"
+              "overflow-hidden"
             )}
+            style={{ maxHeight: '150px' }}
           />
           <button
             type="button"
