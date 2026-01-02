@@ -3,8 +3,9 @@ import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { FloatingActionButton } from "@/components/chat/FloatingActionButton";
 import { NewGroupModal } from "@/components/chat/NewGroupModal";
+import { ForwardModal } from "@/components/chat/ForwardModal";
 import { useChats, useMessages, useUsers, useCurrentUser } from "@/hooks/useChat";
-import { chatApi, Chat, Attachment } from "@/services/mockData";
+import { chatApi, Chat, Attachment, Message } from "@/services/mockData";
 import { toast } from "@/hooks/use-toast";
 
 const Index = () => {
@@ -12,7 +13,8 @@ const Index = () => {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<import("@/services/mockData").Message | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   
   const { chats, loading: chatsLoading, refetch: refetchChats, searchChats } = useChats();
   const { messages, loading: messagesLoading, sendMessage, addReaction } = useMessages(activeChatId);
@@ -45,11 +47,21 @@ const Index = () => {
     setSidebarOpen(true);
   }, []);
 
-  const handleSendMessage = useCallback(async (text: string, attachments?: Attachment[], replyTo?: import("@/services/mockData").Message['replyTo']) => {
+  const handleSendMessage = useCallback(async (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) => {
     await sendMessage(text, attachments, replyTo);
     setReplyingTo(null);
     refetchChats();
   }, [sendMessage, refetchChats]);
+
+  const handleForwardMessage = useCallback(async (chatId: string, message: Message) => {
+    const forwardedText = message.text ? `[Forwarded]\n${message.text}` : '[Forwarded message]';
+    await chatApi.sendMessage(chatId, forwardedText, message.attachments);
+    refetchChats();
+    toast({
+      title: "Message forwarded",
+      description: "Your message has been forwarded successfully",
+    });
+  }, [refetchChats]);
 
   const handleNewChat = useCallback(() => {
     toast({
@@ -94,6 +106,7 @@ const Index = () => {
           onSendMessage={handleSendMessage}
           onReaction={addReaction}
           onReply={setReplyingTo}
+          onForward={setForwardingMessage}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
           onMenuClick={() => setSidebarOpen(!sidebarOpen)}
@@ -113,6 +126,14 @@ const Index = () => {
         onClose={() => setShowNewGroupModal(false)}
         users={users}
         onGroupCreated={handleGroupCreated}
+      />
+
+      <ForwardModal
+        isOpen={!!forwardingMessage}
+        onClose={() => setForwardingMessage(null)}
+        message={forwardingMessage}
+        chats={chats.filter((c) => c.id !== activeChatId)}
+        onForward={handleForwardMessage}
       />
     </div>
   );

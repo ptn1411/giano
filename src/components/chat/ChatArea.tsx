@@ -11,6 +11,7 @@ interface ChatAreaProps {
   onSendMessage: (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) => void;
   onReaction: (messageId: string, emoji: string) => void;
   onReply: (message: Message) => void;
+  onForward: (message: Message) => void;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
   onMenuClick: () => void;
@@ -25,6 +26,7 @@ export function ChatArea({
   onSendMessage,
   onReaction,
   onReply,
+  onForward,
   replyingTo,
   onCancelReply,
   onMenuClick,
@@ -60,6 +62,7 @@ export function ChatArea({
         messages={messages}
         onReaction={onReaction}
         onReply={onReply}
+        onForward={onForward}
         loading={loading}
       />
       <MessageInput 
