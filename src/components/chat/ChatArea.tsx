@@ -2,6 +2,7 @@ import { Chat, User, Attachment, Message } from "@/services/mockData";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
+import { PinnedMessagesBar } from "./PinnedMessage";
 import { MessageSquare } from "lucide-react";
 
 interface ChatAreaProps {
@@ -14,6 +15,8 @@ interface ChatAreaProps {
   onForward: (message: Message) => void;
   onEdit: (message: Message) => void;
   onDelete: (message: Message) => void;
+  onPin: (message: Message) => void;
+  onUnpin: (messageId: string) => void;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
   editingMessage?: Message | null;
@@ -34,6 +37,8 @@ export function ChatArea({
   onForward,
   onEdit,
   onDelete,
+  onPin,
+  onUnpin,
   replyingTo,
   onCancelReply,
   editingMessage,
@@ -43,6 +48,15 @@ export function ChatArea({
   onBack,
   loading,
 }: ChatAreaProps) {
+  const scrollToMessage = (messageId: string) => {
+    const element = document.getElementById(`message-${messageId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.classList.add('animate-pulse');
+      setTimeout(() => element.classList.remove('animate-pulse'), 1500);
+    }
+  };
+
   if (!chat) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center bg-background p-8 text-center">
@@ -68,6 +82,11 @@ export function ChatArea({
         onBack={onBack}
         showBackButton
       />
+      <PinnedMessagesBar
+        messages={messages}
+        onUnpin={onUnpin}
+        onScrollTo={scrollToMessage}
+      />
       <MessageList
         messages={messages}
         onReaction={onReaction}
@@ -75,6 +94,8 @@ export function ChatArea({
         onForward={onForward}
         onEdit={onEdit}
         onDelete={onDelete}
+        onPin={onPin}
+        onUnpin={onUnpin}
         loading={loading}
       />
       <MessageInput 

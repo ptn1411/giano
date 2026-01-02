@@ -10,11 +10,14 @@ interface MessageListProps {
   onForward: (message: Message) => void;
   onEdit: (message: Message) => void;
   onDelete: (message: Message) => void;
+  onPin: (message: Message) => void;
+  onUnpin: (messageId: string) => void;
   loading?: boolean;
 }
 
-export function MessageList({ messages, onReaction, onReply, onForward, onEdit, onDelete, loading }: MessageListProps) {
+export function MessageList({ messages, onReaction, onReply, onForward, onEdit, onDelete, onPin, onUnpin, loading }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -49,16 +52,25 @@ export function MessageList({ messages, onReaction, onReply, onForward, onEdit, 
     )}>
       <div className="flex flex-col gap-3">
         {messages.map((message) => (
-          <MessageBubble
+          <div
             key={message.id}
-            message={message}
-            isOwn={message.senderId === 'user-1'}
-            onReaction={(emoji) => onReaction(message.id, emoji)}
-            onReply={onReply}
-            onForward={onForward}
-            onEdit={onEdit}
-            onDelete={onDelete}
-          />
+            id={`message-${message.id}`}
+            ref={(el) => {
+              if (el) messageRefs.current.set(message.id, el);
+            }}
+          >
+            <MessageBubble
+              message={message}
+              isOwn={message.senderId === 'user-1'}
+              onReaction={(emoji) => onReaction(message.id, emoji)}
+              onReply={onReply}
+              onForward={onForward}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onPin={onPin}
+              onUnpin={onUnpin}
+            />
+          </div>
         ))}
       </div>
       <div ref={bottomRef} className="h-4" />
