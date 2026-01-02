@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Menu, Settings } from "lucide-react";
 import { Chat, User } from "@/services/mockData";
 import { AvatarWithStatus } from "./AvatarWithStatus";
@@ -7,7 +8,6 @@ import { SearchBar } from "./SearchBar";
 import { ChatListItem } from "./ChatListItem";
 import { ChatListSkeleton } from "./ChatListSkeleton";
 import { cn } from "@/lib/utils";
-
 interface ChatSidebarProps {
   chats: Chat[];
   currentUser: User | null;
@@ -31,11 +31,16 @@ export function ChatSidebar({
   onToggle,
   loading,
 }: ChatSidebarProps) {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     onSearch(query);
+  };
+
+  const handleSettingsClick = () => {
+    navigate('/settings');
   };
 
   return (
@@ -81,7 +86,10 @@ export function ChatSidebar({
           
           <div className="flex items-center gap-1">
             <ThemeToggle />
-            <button className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground">
+            <button 
+              onClick={handleSettingsClick}
+              className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground"
+            >
               <Settings className="h-5 w-5" />
             </button>
           </div>
