@@ -54,7 +54,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { useTheme, colorThemes, ThemeMode } from "@/hooks/useTheme";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthStore } from "@/stores/authStore";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import {
@@ -141,7 +141,7 @@ function ToggleItem({
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, session } = useAuthStore();
   const { themeMode, setTheme, colorTheme: activeColorTheme, setColorTheme } = useTheme();
   const [section, setSection] = useState<SettingsSection>('main');
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -153,8 +153,6 @@ export default function Settings() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [editingProfile, setEditingProfile] = useState(false);
   const [editedProfile, setEditedProfile] = useState<UserProfile | null>(null);
-
-  const { session } = useAuth();
 
   useEffect(() => {
     loadSettings();
