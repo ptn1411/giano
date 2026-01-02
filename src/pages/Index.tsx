@@ -4,6 +4,7 @@ import { ChatArea } from "@/components/chat/ChatArea";
 import { FloatingActionButton } from "@/components/chat/FloatingActionButton";
 import { NewGroupModal } from "@/components/chat/NewGroupModal";
 import { ForwardModal } from "@/components/chat/ForwardModal";
+import { DeleteConfirmModal } from "@/components/chat/DeleteConfirmModal";
 import { useChats, useMessages, useUsers, useCurrentUser } from "@/hooks/useChat";
 import { chatApi, Chat, Attachment, Message } from "@/services/mockData";
 import { toast } from "@/hooks/use-toast";
@@ -15,9 +16,11 @@ const Index = () => {
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [deletingMessage, setDeletingMessage] = useState<Message | null>(null);
   
   const { chats, loading: chatsLoading, refetch: refetchChats, searchChats } = useChats();
-  const { messages, loading: messagesLoading, sendMessage, addReaction } = useMessages(activeChatId);
+  const { messages, loading: messagesLoading, sendMessage, addReaction, deleteMessage, editMessage } = useMessages(activeChatId);
   const { users } = useUsers();
   const currentUser = useCurrentUser();
 
@@ -63,6 +66,26 @@ const Index = () => {
     });
   }, [refetchChats]);
 
+  const handleDeleteMessage = useCallback(async () => {
+    if (deletingMessage) {
+      await deleteMessage(deletingMessage.id);
+      refetchChats();
+      toast({
+        title: "Message deleted",
+        description: "Your message has been deleted",
+      });
+    }
+  }, [deletingMessage, deleteMessage, refetchChats]);
+
+  const handleEditMessage = useCallback(async (messageId: string, newText: string) => {
+    await editMessage(messageId, newText);
+    setEditingMessage(null);
+    toast({
+      title: "Message edited",
+      description: "Your message has been updated",
+    });
+  }, [editMessage]);
+
   const handleNewChat = useCallback(() => {
     toast({
       title: "Coming soon",
@@ -107,8 +130,13 @@ const Index = () => {
           onReaction={addReaction}
           onReply={setReplyingTo}
           onForward={setForwardingMessage}
+          onEdit={setEditingMessage}
+          onDelete={setDeletingMessage}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
+          editingMessage={editingMessage}
+          onCancelEdit={() => setEditingMessage(null)}
+          onEditSubmit={handleEditMessage}
           onMenuClick={() => setSidebarOpen(!sidebarOpen)}
           onBack={handleBack}
           loading={messagesLoading}
@@ -134,6 +162,13 @@ const Index = () => {
         message={forwardingMessage}
         chats={chats.filter((c) => c.id !== activeChatId)}
         onForward={handleForwardMessage}
+      />
+
+      <DeleteConfirmModal
+        isOpen={!!deletingMessage}
+        onClose={() => setDeletingMessage(null)}
+        onConfirm={handleDeleteMessage}
+        messagePreview={deletingMessage?.text || (deletingMessage?.attachments?.length ? `${deletingMessage.attachments.length} attachment(s)` : "")}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { format } from "date-fns";
-import { Check, CheckCheck, Smile, Reply, Forward } from "lucide-react";
+import { Check, CheckCheck, Smile, Reply, Forward, Pencil, Trash2 } from "lucide-react";
 import { Message } from "@/services/mockData";
 import { MessageAttachments } from "./MessageAttachments";
 import { ReplyPreview } from "./ReplyPreview";
@@ -12,11 +12,13 @@ interface MessageBubbleProps {
   onReaction: (emoji: string) => void;
   onReply: (message: Message) => void;
   onForward: (message: Message) => void;
+  onEdit: (message: Message) => void;
+  onDelete: (message: Message) => void;
 }
 
 const quickReactions = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
-export function MessageBubble({ message, isOwn, onReaction, onReply, onForward }: MessageBubbleProps) {
+export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, onEdit, onDelete }: MessageBubbleProps) {
   const [showReactions, setShowReactions] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout>();
 
@@ -84,6 +86,9 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onForward }
           <span className="text-[10px]">
             {format(new Date(message.timestamp), 'HH:mm')}
           </span>
+          {message.isEdited && (
+            <span className="text-[10px] italic">edited</span>
+          )}
           {isOwn && (
             message.isRead ? (
               <CheckCheck className="h-3.5 w-3.5" />
@@ -129,6 +134,24 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onForward }
             >
               <Forward className="h-4 w-4 text-muted-foreground" />
             </button>
+            {isOwn && (
+              <>
+                <button
+                  onClick={() => onEdit(message)}
+                  className="p-1 rounded-full hover:bg-accent transition-colors"
+                  title="Edit"
+                >
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                </button>
+                <button
+                  onClick={() => onDelete(message)}
+                  className="p-1 rounded-full hover:bg-destructive/10 transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </button>
+              </>
+            )}
             {quickReactions.map((emoji) => (
               <button
                 key={emoji}

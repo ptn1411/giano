@@ -24,6 +24,7 @@ export interface Message {
   text: string;
   timestamp: Date;
   isRead: boolean;
+  isEdited?: boolean;
   reactions: { emoji: string; userId: string }[];
   attachments?: Attachment[];
   replyTo?: {
@@ -267,5 +268,40 @@ export const chatApi = {
     mockChats.unshift(newChat);
     messagesStore[newChat.id] = [];
     return newChat;
+  },
+
+  async deleteMessage(chatId: string, messageId: string): Promise<void> {
+    await delay(100);
+    const messages = messagesStore[chatId];
+    if (messages) {
+      const index = messages.findIndex((m) => m.id === messageId);
+      if (index !== -1) {
+        messages.splice(index, 1);
+        // Update last message if needed
+        const chat = mockChats.find((c) => c.id === chatId);
+        if (chat) {
+          chat.lastMessage = messages[messages.length - 1];
+        }
+      }
+    }
+  },
+
+  async editMessage(chatId: string, messageId: string, newText: string): Promise<Message | undefined> {
+    await delay(100);
+    const messages = messagesStore[chatId];
+    if (messages) {
+      const message = messages.find((m) => m.id === messageId);
+      if (message) {
+        message.text = newText;
+        message.isEdited = true;
+        // Update last message if needed
+        const chat = mockChats.find((c) => c.id === chatId);
+        if (chat && chat.lastMessage?.id === messageId) {
+          chat.lastMessage = message;
+        }
+        return message;
+      }
+    }
+    return undefined;
   },
 };

@@ -8,10 +8,12 @@ interface MessageListProps {
   onReaction: (messageId: string, emoji: string) => void;
   onReply: (message: Message) => void;
   onForward: (message: Message) => void;
+  onEdit: (message: Message) => void;
+  onDelete: (message: Message) => void;
   loading?: boolean;
 }
 
-export function MessageList({ messages, onReaction, onReply, onForward, loading }: MessageListProps) {
+export function MessageList({ messages, onReaction, onReply, onForward, onEdit, onDelete, loading }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,6 +56,8 @@ export function MessageList({ messages, onReaction, onReply, onForward, loading 
             onReaction={(emoji) => onReaction(message.id, emoji)}
             onReply={onReply}
             onForward={onForward}
+            onEdit={onEdit}
+            onDelete={onDelete}
           />
         ))}
       </div>
