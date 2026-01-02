@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { useTheme, colorThemes, ThemeMode } from "@/hooks/useTheme";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import {
@@ -140,6 +141,7 @@ function ToggleItem({
 
 export default function Settings() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const { themeMode, setTheme, colorTheme: activeColorTheme, setColorTheme } = useTheme();
   const [section, setSection] = useState<SettingsSection>('main');
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -298,12 +300,13 @@ export default function Settings() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     toast({ 
       title: 'Logged out', 
       description: 'You have been logged out successfully' 
     });
-    navigate('/');
+    navigate('/auth');
   };
 
   const renderMainSection = () => (
