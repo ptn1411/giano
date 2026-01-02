@@ -5,7 +5,7 @@ import { FloatingActionButton } from "@/components/chat/FloatingActionButton";
 import { NewGroupModal } from "@/components/chat/NewGroupModal";
 import { ForwardModal } from "@/components/chat/ForwardModal";
 import { DeleteConfirmModal } from "@/components/chat/DeleteConfirmModal";
-import { useChats } from "@/hooks/useChat";
+import { useChats, useChatsStore } from "@/stores/chatsStore";
 import { useUsers, useUsersStore } from "@/stores/usersStore";
 import { useMessages } from "@/stores/messagesStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -36,18 +36,19 @@ const Index = () => {
     setDeletingMessage,
   } = useChatStore();
   
-  const { chats, loading: chatsLoading, refetch: refetchChats, searchChats } = useChats();
+  const { chats, loading: chatsLoading, searchChats } = useChats();
+  const fetchChats = useChatsStore((state) => state.fetchChats);
   const { messages, loading: messagesLoading, sendMessage, addReaction, deleteMessage, editMessage, pinMessage, unpinMessage, addMessage } = useMessages(activeChatId);
   const { users } = useUsers();
+  const fetchUsers = useUsersStore((state) => state.fetchUsers);
   const { session } = useAuthStore();
   const botResponseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch chats and users on mount
-  const fetchUsers = useUsersStore((state) => state.fetchUsers);
+  // Fetch chats and users on mount only
   useEffect(() => {
-    refetchChats();
+    fetchChats();
     fetchUsers();
-  }, [refetchChats, fetchUsers]);
+  }, []);
 
   // Convert auth session to User format for sidebar
   const currentUser: User | null = session ? {
@@ -86,7 +87,7 @@ const Index = () => {
   const handleSendMessage = useCallback(async (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) => {
     await sendMessage(text, attachments, replyTo);
     setReplyingTo(null);
-    refetchChats();
+    fetchChats();
 
     // Auto-respond if it's a bot chat
     if (activeChat?.isBot && activeChatId) {
@@ -100,11 +101,11 @@ const Index = () => {
         botResponseTimeoutRef.current = setTimeout(() => {
           const botMessage = generateBotResponse(botId, text, activeChatId);
           addMessage(botMessage);
-          refetchChats();
+          fetchChats();
         }, 800 + Math.random() * 700); // 800-1500ms delay
       }
     }
-  }, [sendMessage, refetchChats, activeChat, activeChatId, addMessage, setReplyingTo]);
+  }, [sendMessage, fetchChats, activeChat, activeChatId, addMessage, setReplyingTo]);
 
   const handleInlineButtonClick = useCallback((button: InlineButton, messageId: string) => {
     if (!activeChat?.isBot || !activeChatId) return;
@@ -127,7 +128,7 @@ const Index = () => {
         const botMessage = generateCallbackResponse(botId, button.callbackData!, activeChatId);
         if (botMessage) {
           addMessage(botMessage);
-          refetchChats();
+          fetchChats();
         }
       }, 500 + Math.random() * 500);
     }
@@ -136,29 +137,29 @@ const Index = () => {
     if (button.url) {
       window.open(button.url, '_blank');
     }
-  }, [activeChat, activeChatId, addMessage, refetchChats]);
+  }, [activeChat, activeChatId, addMessage, fetchChats]);
 
   const handleForwardMessage = useCallback(async (chatId: string, message: Message) => {
     const forwardedText = message.text ? `[Forwarded]\n${message.text}` : '[Forwarded message]';
     await chatApi.sendMessage(chatId, forwardedText, message.attachments);
-    refetchChats();
+    fetchChats();
     toast({
       title: "Message forwarded",
       description: "Your message has been forwarded successfully",
     });
-  }, [refetchChats]);
+  }, [fetchChats]);
 
   const handleDeleteMessage = useCallback(async () => {
     if (deletingMessage) {
       await deleteMessage(deletingMessage.id);
       setDeletingMessage(null);
-      refetchChats();
+      fetchChats();
       toast({
         title: "Message deleted",
         description: "Your message has been deleted",
       });
     }
-  }, [deletingMessage, deleteMessage, refetchChats, setDeletingMessage]);
+  }, [deletingMessage, deleteMessage, fetchChats, setDeletingMessage]);
 
   const handleEditMessage = useCallback(async (messageId: string, newText: string) => {
     await editMessage(messageId, newText);
@@ -177,14 +178,14 @@ const Index = () => {
   }, []);
 
   const handleGroupCreated = useCallback((chatId: string) => {
-    refetchChats();
+    fetchChats();
     setActiveChatId(chatId);
     setShowNewGroupModal(false);
     toast({
       title: "Group created",
       description: "Your new group has been created successfully",
     });
-  }, [refetchChats, setActiveChatId, setShowNewGroupModal]);
+  }, [fetchChats, setActiveChatId, setShowNewGroupModal]);
 
   // Get participants for active chat
   const participants = activeChat
