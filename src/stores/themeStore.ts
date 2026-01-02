@@ -96,10 +96,10 @@ export const useThemeStore = create<ThemeState>()(
       },
 
       initializeTheme: () => {
-        const { themeMode, colorTheme } = get();
+        const { initialized, themeMode, colorTheme } = get();
         if (initialized) return;
         const resolved = themeMode === "system" ? getSystemTheme() : (themeMode as ResolvedTheme);
-        set({ resolvedTheme: resolved });
+        set({ resolvedTheme: resolved, initialized: true });
         applyThemeToDOM(resolved);
         applyColorThemeToDOM(colorTheme);
 
