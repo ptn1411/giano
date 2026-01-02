@@ -5,7 +5,8 @@ import { FloatingActionButton } from "@/components/chat/FloatingActionButton";
 import { NewGroupModal } from "@/components/chat/NewGroupModal";
 import { ForwardModal } from "@/components/chat/ForwardModal";
 import { DeleteConfirmModal } from "@/components/chat/DeleteConfirmModal";
-import { useChats, useUsers } from "@/hooks/useChat";
+import { useChats } from "@/hooks/useChat";
+import { useUsers, useUsersStore } from "@/stores/usersStore";
 import { useMessages } from "@/stores/messagesStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useChatStore } from "@/stores/chatStore";
@@ -41,10 +42,12 @@ const Index = () => {
   const { session } = useAuthStore();
   const botResponseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch chats on mount
+  // Fetch chats and users on mount
+  const fetchUsers = useUsersStore((state) => state.fetchUsers);
   useEffect(() => {
     refetchChats();
-  }, [refetchChats]);
+    fetchUsers();
+  }, [refetchChats, fetchUsers]);
 
   // Convert auth session to User format for sidebar
   const currentUser: User | null = session ? {
