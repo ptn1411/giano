@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { FloatingActionButton } from "@/components/chat/FloatingActionButton";
@@ -6,8 +6,9 @@ import { NewGroupModal } from "@/components/chat/NewGroupModal";
 import { ForwardModal } from "@/components/chat/ForwardModal";
 import { DeleteConfirmModal } from "@/components/chat/DeleteConfirmModal";
 import { useChats, useMessages, useUsers, useCurrentUser } from "@/hooks/useChat";
-import { chatApi, Chat, Attachment, Message } from "@/services/mockData";
+import { chatApi, Chat, Attachment, Message, InlineButton } from "@/services/mockData";
 import { toast } from "@/hooks/use-toast";
+import { generateBotResponse, generateCallbackResponse } from "@/services/botResponses";
 
 const Index = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -20,9 +21,10 @@ const Index = () => {
   const [deletingMessage, setDeletingMessage] = useState<Message | null>(null);
   
   const { chats, loading: chatsLoading, refetch: refetchChats, searchChats } = useChats();
-  const { messages, loading: messagesLoading, sendMessage, addReaction, deleteMessage, editMessage, pinMessage, unpinMessage } = useMessages(activeChatId);
+  const { messages, loading: messagesLoading, sendMessage, addReaction, deleteMessage, editMessage, pinMessage, unpinMessage, addMessage } = useMessages(activeChatId);
   const { users } = useUsers();
   const currentUser = useCurrentUser();
+  const botResponseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch active chat details
   useEffect(() => {
@@ -54,7 +56,56 @@ const Index = () => {
     await sendMessage(text, attachments, replyTo);
     setReplyingTo(null);
     refetchChats();
-  }, [sendMessage, refetchChats]);
+
+    // Auto-respond if it's a bot chat
+    if (activeChat?.isBot && activeChatId) {
+      const botId = activeChat.participants.find(p => p.startsWith('bot-'));
+      if (botId) {
+        // Clear any existing timeout
+        if (botResponseTimeoutRef.current) {
+          clearTimeout(botResponseTimeoutRef.current);
+        }
+        // Simulate typing delay
+        botResponseTimeoutRef.current = setTimeout(() => {
+          const botMessage = generateBotResponse(botId, text, activeChatId);
+          addMessage(botMessage);
+          refetchChats();
+        }, 800 + Math.random() * 700); // 800-1500ms delay
+      }
+    }
+  }, [sendMessage, refetchChats, activeChat, activeChatId, addMessage]);
+
+  const handleInlineButtonClick = useCallback((button: InlineButton, messageId: string) => {
+    if (!activeChat?.isBot || !activeChatId) return;
+    
+    const botId = activeChat.participants.find(p => p.startsWith('bot-'));
+    if (!botId) return;
+
+    // Show toast for button click
+    toast({
+      title: `${button.text}`,
+      description: button.callbackData ? `Processing...` : undefined,
+    });
+
+    // Generate bot response for callback
+    if (button.callbackData) {
+      if (botResponseTimeoutRef.current) {
+        clearTimeout(botResponseTimeoutRef.current);
+      }
+      botResponseTimeoutRef.current = setTimeout(() => {
+        const botMessage = generateCallbackResponse(botId, button.callbackData!, activeChatId);
+        if (botMessage) {
+          addMessage(botMessage);
+          refetchChats();
+        }
+      }, 500 + Math.random() * 500);
+    }
+
+    // Open URL if present
+    if (button.url) {
+      window.open(button.url, '_blank');
+    }
+  }, [activeChat, activeChatId, addMessage, refetchChats]);
 
   const handleForwardMessage = useCallback(async (chatId: string, message: Message) => {
     const forwardedText = message.text ? `[Forwarded]\n${message.text}` : '[Forwarded message]';
@@ -134,6 +185,7 @@ const Index = () => {
           onDelete={setDeletingMessage}
           onPin={(msg) => pinMessage(msg.id)}
           onUnpin={unpinMessage}
+          onInlineButtonClick={handleInlineButtonClick}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
           editingMessage={editingMessage}
