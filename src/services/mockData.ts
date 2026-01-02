@@ -15,6 +15,7 @@ export interface Attachment {
   url: string;
   mimeType: string;
   progress?: number; // 0-100 for upload progress
+  duration?: number; // for voice messages, in seconds
 }
 
 export interface Message {

@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Send, Smile, Paperclip, Image as ImageIcon, X, Pencil } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Smile, Paperclip, Image as ImageIcon, X, Pencil, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AttachmentPreview, FilePreview } from "./AttachmentPreview";
 import { ReplyPreview } from "./ReplyPreview";
 import { MentionSuggestions } from "./MentionSuggestions";
+import { VoiceRecorder } from "./VoiceRecorder";
 import { Attachment, Message, User } from "@/services/mockData";
 
 interface MessageInputProps {
@@ -24,6 +25,7 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
   const [mentionQuery, setMentionQuery] = useState("");
   const [showMentions, setShowMentions] = useState(false);
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -206,7 +208,38 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleVoiceSend = useCallback((audioBlob: Blob, duration: number) => {
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const voiceAttachment: Attachment = {
+      id: `voice-${Date.now()}`,
+      type: 'file',
+      name: 'Voice message',
+      size: audioBlob.size,
+      url: audioUrl,
+      mimeType: audioBlob.type,
+      duration,
+    };
+    onSend('', [voiceAttachment], replyingTo ? {
+      id: replyingTo.id,
+      text: replyingTo.text,
+      senderId: replyingTo.senderId,
+      senderName: replyingTo.senderId === 'user-1' ? 'You' : 'User',
+    } : undefined);
+    setIsRecordingVoice(false);
+    onCancelReply?.();
+  }, [onSend, replyingTo, onCancelReply]);
+
   const canSend = editingMessage ? text.trim().length > 0 : (text.trim() || files.length > 0) && files.every((f) => f.progress === 100);
+
+  // Show voice recorder if recording
+  if (isRecordingVoice) {
+    return (
+      <VoiceRecorder
+        onSend={handleVoiceSend}
+        onCancel={() => setIsRecordingVoice(false)}
+      />
+    );
+  }
 
   return (
     <div className="border-t border-border bg-card">
@@ -332,18 +365,23 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
           </button>
         </div>
 
-        <button
-          type="submit"
-          disabled={!canSend || disabled}
-          className={cn(
-            "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all duration-200",
-            canSend
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "bg-muted text-muted-foreground cursor-not-allowed"
-          )}
-        >
-          <Send className="h-5 w-5" />
-        </button>
+        {canSend ? (
+          <button
+            type="submit"
+            disabled={disabled}
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200"
+          >
+            <Send className="h-5 w-5" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsRecordingVoice(true)}
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200"
+          >
+            <Mic className="h-5 w-5" />
+          </button>
+        )}
       </form>
     </div>
   );
