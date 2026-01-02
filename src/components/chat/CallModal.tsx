@@ -97,14 +97,17 @@ export function CallModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={cn(
-        "p-0 gap-0 overflow-hidden bg-gradient-to-b from-card to-background border-none [&>button]:hidden transition-all duration-300",
-        isFullscreen ? "sm:max-w-[100vw] sm:max-h-[100vh] w-screen h-screen rounded-none" : "sm:max-w-md"
+        "p-0 gap-0 overflow-hidden border-none [&>button]:hidden",
+        "transition-all duration-500 ease-out",
+        isFullscreen 
+          ? "sm:max-w-[100vw] sm:max-h-[100vh] w-screen h-screen rounded-none bg-background" 
+          : "sm:max-w-md bg-gradient-to-b from-card to-background"
       )}>
         {/* Fullscreen Video Layout */}
         {isFullscreen ? (
-          <div className="relative w-full h-full flex flex-col">
+          <div className="relative w-full h-full flex flex-col animate-fade-in">
             {/* Video Area - takes most of the screen */}
-            <div className="flex-1 relative bg-gradient-to-br from-primary/20 via-background to-accent/20">
+            <div className="flex-1 relative bg-gradient-to-br from-primary/20 via-background to-accent/20 animate-scale-in" style={{ animationDelay: '100ms' }}>
               {!isVideoOff ? (
                 <>
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -127,7 +130,7 @@ export function CallModal({
               )}
 
               {/* Top bar with info */}
-              <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between bg-gradient-to-b from-background/80 to-transparent">
+              <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between bg-gradient-to-b from-background/80 to-transparent animate-fade-in" style={{ animationDelay: '200ms' }}>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10 border-2 border-green-500">
                     <AvatarImage src={contactAvatar} alt={contactName} />
@@ -156,7 +159,7 @@ export function CallModal({
             </div>
 
             {/* Bottom Controls */}
-            <div className="p-6 bg-gradient-to-t from-background via-background to-transparent">
+            <div className="p-6 bg-gradient-to-t from-background via-background to-transparent animate-fade-in" style={{ animationDelay: '300ms' }}>
               <div className="flex items-center justify-center gap-4">
                 {/* Mute */}
                 <button
