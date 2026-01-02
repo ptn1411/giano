@@ -16,25 +16,23 @@ const queryClient = new QueryClient();
 
 // Theme initializer component
 function ThemeInitializer({ children }: { children: React.ReactNode }) {
-  const initializeTheme = useThemeStore((state) => state.initializeTheme);
-  
   useEffect(() => {
-    initializeTheme();
-  }, [initializeTheme]);
-  
+    useThemeStore.getState().initializeTheme();
+  }, []);
+
   return <>{children}</>;
 }
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, isLoading, initialize, isInitialized } = useAuthStore();
-  
+  const { session, isLoading, isInitialized } = useAuthStore();
+
   useEffect(() => {
-    if (!isInitialized) {
-      initialize();
+    if (!useAuthStore.getState().isInitialized) {
+      void useAuthStore.getState().initialize();
     }
-  }, [initialize, isInitialized]);
-  
+  }, []);
+
   if (isLoading || !isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -42,24 +40,24 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   if (!session) {
     return <Navigate to="/auth" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
 // Public route wrapper (redirects to home if already logged in)
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { session, isLoading, initialize, isInitialized } = useAuthStore();
-  
+  const { session, isLoading, isInitialized } = useAuthStore();
+
   useEffect(() => {
-    if (!isInitialized) {
-      initialize();
+    if (!useAuthStore.getState().isInitialized) {
+      void useAuthStore.getState().initialize();
     }
-  }, [initialize, isInitialized]);
-  
+  }, []);
+
   if (isLoading || !isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -67,11 +65,11 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   if (session) {
     return <Navigate to="/" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
