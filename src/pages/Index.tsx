@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { FloatingActionButton } from "@/components/chat/FloatingActionButton";
@@ -7,19 +7,32 @@ import { ForwardModal } from "@/components/chat/ForwardModal";
 import { DeleteConfirmModal } from "@/components/chat/DeleteConfirmModal";
 import { useChats, useMessages, useUsers } from "@/hooks/useChat";
 import { useAuthStore } from "@/stores/authStore";
-import { chatApi, Chat, Attachment, Message, InlineButton, User } from "@/services/mockData";
+import { useChatStore } from "@/stores/chatStore";
+import { chatApi, Attachment, Message, InlineButton, User } from "@/services/mockData";
 import { toast } from "@/hooks/use-toast";
 import { generateBotResponse, generateCallbackResponse } from "@/services/botResponses";
 
 const Index = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [activeChat, setActiveChat] = useState<Chat | null>(null);
-  const [showNewGroupModal, setShowNewGroupModal] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
-  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-  const [deletingMessage, setDeletingMessage] = useState<Message | null>(null);
+  // Use Zustand store for UI state
+  const {
+    sidebarOpen,
+    setSidebarOpen,
+    toggleSidebar,
+    activeChatId,
+    setActiveChatId,
+    activeChat,
+    setActiveChat,
+    showNewGroupModal,
+    setShowNewGroupModal,
+    replyingTo,
+    setReplyingTo,
+    forwardingMessage,
+    setForwardingMessage,
+    editingMessage,
+    setEditingMessage,
+    deletingMessage,
+    setDeletingMessage,
+  } = useChatStore();
   
   const { chats, loading: chatsLoading, refetch: refetchChats, searchChats } = useChats();
   const { messages, loading: messagesLoading, sendMessage, addReaction, deleteMessage, editMessage, pinMessage, unpinMessage, addMessage } = useMessages(activeChatId);
@@ -46,7 +59,7 @@ const Index = () => {
       }
     };
     fetchChat();
-  }, [activeChatId]);
+  }, [activeChatId, setActiveChat]);
 
   // Close sidebar on mobile when chat is selected
   const handleSelectChat = useCallback((chatId: string) => {
@@ -54,12 +67,12 @@ const Index = () => {
     if (window.innerWidth < 1024) {
       setSidebarOpen(false);
     }
-  }, []);
+  }, [setActiveChatId, setSidebarOpen]);
 
   const handleBack = useCallback(() => {
     setActiveChatId(null);
     setSidebarOpen(true);
-  }, []);
+  }, [setActiveChatId, setSidebarOpen]);
 
   const handleSendMessage = useCallback(async (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) => {
     await sendMessage(text, attachments, replyTo);
@@ -82,7 +95,7 @@ const Index = () => {
         }, 800 + Math.random() * 700); // 800-1500ms delay
       }
     }
-  }, [sendMessage, refetchChats, activeChat, activeChatId, addMessage]);
+  }, [sendMessage, refetchChats, activeChat, activeChatId, addMessage, setReplyingTo]);
 
   const handleInlineButtonClick = useCallback((button: InlineButton, messageId: string) => {
     if (!activeChat?.isBot || !activeChatId) return;
@@ -129,13 +142,14 @@ const Index = () => {
   const handleDeleteMessage = useCallback(async () => {
     if (deletingMessage) {
       await deleteMessage(deletingMessage.id);
+      setDeletingMessage(null);
       refetchChats();
       toast({
         title: "Message deleted",
         description: "Your message has been deleted",
       });
     }
-  }, [deletingMessage, deleteMessage, refetchChats]);
+  }, [deletingMessage, deleteMessage, refetchChats, setDeletingMessage]);
 
   const handleEditMessage = useCallback(async (messageId: string, newText: string) => {
     await editMessage(messageId, newText);
@@ -144,7 +158,7 @@ const Index = () => {
       title: "Message edited",
       description: "Your message has been updated",
     });
-  }, [editMessage]);
+  }, [editMessage, setEditingMessage]);
 
   const handleNewChat = useCallback(() => {
     toast({
@@ -156,11 +170,12 @@ const Index = () => {
   const handleGroupCreated = useCallback((chatId: string) => {
     refetchChats();
     setActiveChatId(chatId);
+    setShowNewGroupModal(false);
     toast({
       title: "Group created",
       description: "Your new group has been created successfully",
     });
-  }, [refetchChats]);
+  }, [refetchChats, setActiveChatId, setShowNewGroupModal]);
 
   // Get participants for active chat
   const participants = activeChat
@@ -177,7 +192,7 @@ const Index = () => {
         onSearch={searchChats}
         onNewChat={handleNewChat}
         isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
+        onToggle={toggleSidebar}
         loading={chatsLoading}
       />
 
@@ -200,7 +215,7 @@ const Index = () => {
           editingMessage={editingMessage}
           onCancelEdit={() => setEditingMessage(null)}
           onEditSubmit={handleEditMessage}
-          onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+          onMenuClick={toggleSidebar}
           onBack={handleBack}
           loading={messagesLoading}
         />
