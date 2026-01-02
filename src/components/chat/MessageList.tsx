@@ -61,10 +61,10 @@ export function MessageList({
 
   return (
     <div className={cn(
-      "flex-1 overflow-y-auto px-4 py-4",
+      "flex-1 overflow-y-auto px-4 py-4 min-h-0",
       "scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
     )}>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 min-w-0">
         {messages.map((message, index) => (
           <div
             key={message.id}
@@ -72,7 +72,7 @@ export function MessageList({
             ref={(el) => {
               if (el) messageRefs.current.set(message.id, el);
             }}
-            className="animate-fade-in transition-all duration-200"
+            className="animate-fade-in transition-all duration-200 min-w-0"
             style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
           >
             <MessageBubble

@@ -89,13 +89,13 @@ export function MessageBubble({
   return (
     <div
       className={cn(
-        "group flex w-full gap-2",
+        "group flex w-full gap-2 min-w-0",
         isOwn ? "justify-end" : "justify-start"
       )}
     >
       <div
         className={cn(
-          "relative max-w-[75%] rounded-2xl",
+          "relative max-w-[75%] rounded-2xl min-w-0 break-words",
           hasText ? "px-4 py-2" : hasAttachments ? "p-1.5" : "px-4 py-2",
           isOwn
             ? "bg-primary text-primary-foreground rounded-br-md"
