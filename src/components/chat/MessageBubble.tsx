@@ -4,6 +4,7 @@ import { Check, CheckCheck, Smile, Reply, Forward, Pencil, Trash2, Pin, PinOff }
 import { Message } from "@/services/mockData";
 import { MessageAttachments } from "./MessageAttachments";
 import { ReplyPreview } from "./ReplyPreview";
+import { highlightText } from "./MessageSearch";
 import { cn } from "@/lib/utils";
 
 interface MessageBubbleProps {
@@ -16,11 +17,12 @@ interface MessageBubbleProps {
   onDelete: (message: Message) => void;
   onPin: (message: Message) => void;
   onUnpin: (messageId: string) => void;
+  searchQuery?: string;
 }
 
 const quickReactions = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
-export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, onEdit, onDelete, onPin, onUnpin }: MessageBubbleProps) {
+export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, onEdit, onDelete, onPin, onUnpin, searchQuery }: MessageBubbleProps) {
   const [showReactions, setShowReactions] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout>();
 
@@ -76,7 +78,7 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onForward, 
             "text-sm whitespace-pre-wrap break-words",
             hasAttachments && "mt-2 px-2"
           )}>
-            {message.text}
+            {searchQuery ? highlightText(message.text, searchQuery) : message.text}
           </p>
         )}
         
