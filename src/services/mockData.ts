@@ -7,6 +7,16 @@ export interface User {
   lastSeen?: Date;
 }
 
+export interface Attachment {
+  id: string;
+  type: 'image' | 'file';
+  name: string;
+  size: number;
+  url: string;
+  mimeType: string;
+  progress?: number; // 0-100 for upload progress
+}
+
 export interface Message {
   id: string;
   chatId: string;
@@ -15,6 +25,7 @@ export interface Message {
   timestamp: Date;
   isRead: boolean;
   reactions: { emoji: string; userId: string }[];
+  attachments?: Attachment[];
 }
 
 export interface Chat {
@@ -157,7 +168,7 @@ export const chatApi = {
     return messagesStore[chatId] || [];
   },
 
-  async sendMessage(chatId: string, text: string): Promise<Message> {
+  async sendMessage(chatId: string, text: string, attachments?: Attachment[]): Promise<Message> {
     await delay(200);
     const newMessage: Message = {
       id: `msg-${chatId}-${Date.now()}`,
@@ -167,6 +178,7 @@ export const chatApi = {
       timestamp: new Date(),
       isRead: false,
       reactions: [],
+      attachments,
     };
     
     if (!messagesStore[chatId]) {

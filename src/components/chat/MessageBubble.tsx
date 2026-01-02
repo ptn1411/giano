@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { format } from "date-fns";
 import { Check, CheckCheck, Smile } from "lucide-react";
 import { Message } from "@/services/mockData";
+import { MessageAttachments } from "./MessageAttachments";
 import { cn } from "@/lib/utils";
 
 interface MessageBubbleProps {
@@ -25,6 +26,9 @@ export function MessageBubble({ message, isOwn, onReaction }: MessageBubbleProps
     timeoutRef.current = setTimeout(() => setShowReactions(false), 300);
   };
 
+  const hasAttachments = message.attachments && message.attachments.length > 0;
+  const hasText = message.text && message.text.trim().length > 0;
+
   return (
     <div
       className={cn(
@@ -34,7 +38,8 @@ export function MessageBubble({ message, isOwn, onReaction }: MessageBubbleProps
     >
       <div
         className={cn(
-          "relative max-w-[75%] rounded-2xl px-4 py-2",
+          "relative max-w-[75%] rounded-2xl",
+          hasText ? "px-4 py-2" : hasAttachments ? "p-1.5" : "px-4 py-2",
           isOwn
             ? "bg-primary text-primary-foreground rounded-br-md"
             : "bg-card text-card-foreground rounded-bl-md shadow-sm"
@@ -42,11 +47,25 @@ export function MessageBubble({ message, isOwn, onReaction }: MessageBubbleProps
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
+        {/* Attachments */}
+        {hasAttachments && (
+          <MessageAttachments attachments={message.attachments!} isOwn={isOwn} />
+        )}
+
+        {/* Text content */}
+        {hasText && (
+          <p className={cn(
+            "text-sm whitespace-pre-wrap break-words",
+            hasAttachments && "mt-2 px-2"
+          )}>
+            {message.text}
+          </p>
+        )}
         
         <div className={cn(
           "mt-1 flex items-center justify-end gap-1",
-          isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
+          isOwn ? "text-primary-foreground/70" : "text-muted-foreground",
+          hasAttachments && !hasText && "px-2 pb-1"
         )}>
           <span className="text-[10px]">
             {format(new Date(message.timestamp), 'HH:mm')}
