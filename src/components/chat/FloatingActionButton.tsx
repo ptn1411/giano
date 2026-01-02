@@ -10,8 +10,6 @@ interface FloatingActionButtonProps {
 
 export function FloatingActionButton({ onNewChat, onNewGroup, hidden }: FloatingActionButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
-
-  if (hidden) return null;
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,6 +22,8 @@ export function FloatingActionButton({ onNewChat, onNewGroup, hidden }: Floating
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  if (hidden) return null;
 
   return (
     <div ref={containerRef} className="fixed bottom-6 right-6 z-30">
