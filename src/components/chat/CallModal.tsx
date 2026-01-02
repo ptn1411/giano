@@ -218,6 +218,15 @@ export function CallModal({
         ) : (
           /* Non-fullscreen layout (ringing/connecting states) */
           <div className="relative flex flex-col items-center justify-center py-12 px-6 min-h-[400px]">
+            {/* Blur background effect when connecting */}
+            {callState === 'connecting' && (
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-accent/20 to-primary/30 animate-pulse" />
+                <div className="absolute inset-0 backdrop-blur-sm" />
+                <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-primary/40 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute bottom-1/4 right-1/4 w-40 h-40 bg-accent/40 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '500ms' }} />
+              </div>
+            )}
             {/* Close button */}
             <button
               onClick={() => onOpenChange(false)}
