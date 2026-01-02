@@ -1,40 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Chat, Message, User, Attachment, chatApi } from '@/services/mockData';
+import { useState, useEffect } from 'react';
+import { User, chatApi } from '@/services/mockData';
 
-export function useChats() {
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchChats = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await chatApi.getChats();
-      setChats(data);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const searchChats = useCallback(async (query: string) => {
-    if (!query.trim()) {
-      fetchChats();
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await chatApi.searchChats(query);
-      setChats(data);
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchChats]);
-
-  useEffect(() => {
-    fetchChats();
-  }, [fetchChats]);
-
-  return { chats, loading, refetch: fetchChats, searchChats };
-}
+// Re-export useChats from chatsStore for backward compatibility
+export { useChats } from '@/stores/chatsStore';
 
 // Re-export useMessages from messagesStore for backward compatibility
 export { useMessages } from '@/stores/messagesStore';

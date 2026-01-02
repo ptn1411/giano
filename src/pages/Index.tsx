@@ -41,6 +41,11 @@ const Index = () => {
   const { session } = useAuthStore();
   const botResponseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Fetch chats on mount
+  useEffect(() => {
+    refetchChats();
+  }, [refetchChats]);
+
   // Convert auth session to User format for sidebar
   const currentUser: User | null = session ? {
     id: session.user.id,
