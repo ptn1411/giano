@@ -93,7 +93,7 @@ export function CallModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden bg-gradient-to-b from-card to-background border-none">
+      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden bg-gradient-to-b from-card to-background border-none [&>button]:hidden">
         {/* Video Background (for video calls) */}
         {callType === 'video' && callState === 'connected' && !isVideoOff && (
           <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-accent/20">
