@@ -6,8 +6,8 @@ import { MessageInput } from "./MessageInput";
 import { PinnedMessagesBar } from "./PinnedMessage";
 import { MessageSearch } from "./MessageSearch";
 import { BotReplyKeyboard } from "./BotReplyKeyboard";
-import { MessageSquare } from "lucide-react";
-import { toast } from "sonner";
+import { MessageSquare, Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface ChatAreaProps {
   chat: Chat | null;
@@ -85,7 +85,17 @@ export function ChatArea({
 
   if (!chat) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center bg-background p-8 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center bg-background p-8 text-center relative">
+        {/* Mobile menu button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onMenuClick}
+          className="absolute top-4 left-4 lg:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+        
         <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center mb-6">
           <MessageSquare className="h-12 w-12 text-primary" />
         </div>
