@@ -1,6 +1,7 @@
 import { useRef, useEffect } from "react";
-import { Message } from "@/services/mockData";
+import { Message, User } from "@/services/mockData";
 import { MessageBubble } from "./MessageBubble";
+import { TypingIndicator } from "./TypingIndicator";
 import { cn } from "@/lib/utils";
 
 interface MessageListProps {
@@ -14,9 +15,10 @@ interface MessageListProps {
   onUnpin: (messageId: string) => void;
   loading?: boolean;
   searchQuery?: string;
+  typingUsers?: User[];
 }
 
-export function MessageList({ messages, onReaction, onReply, onForward, onEdit, onDelete, onPin, onUnpin, loading, searchQuery }: MessageListProps) {
+export function MessageList({ messages, onReaction, onReply, onForward, onEdit, onDelete, onPin, onUnpin, loading, searchQuery, typingUsers = [] }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -74,6 +76,9 @@ export function MessageList({ messages, onReaction, onReply, onForward, onEdit, 
             />
           </div>
         ))}
+        {typingUsers.length > 0 && (
+          <TypingIndicator users={typingUsers} />
+        )}
       </div>
       <div ref={bottomRef} className="h-4" />
     </div>

@@ -1,12 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Chat, User, Attachment, Message } from "@/services/mockData";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { PinnedMessagesBar } from "./PinnedMessage";
 import { MessageSearch } from "./MessageSearch";
+import { TypingIndicator } from "./TypingIndicator";
 import { MessageSquare } from "lucide-react";
-
 interface ChatAreaProps {
   chat: Chat | null;
   messages: Message[];
@@ -113,6 +113,7 @@ export function ChatArea({
         onEdit={onEdit}
         onDelete={onDelete}
         onPin={onPin}
+        typingUsers={chat.isTyping ? participants.filter(p => p.id !== 'user-1').slice(0, 1) : []}
         onUnpin={onUnpin}
         loading={loading}
         searchQuery={isSearchOpen ? searchQuery : undefined}
