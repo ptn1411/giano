@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Send, Smile, Paperclip, Image as ImageIcon, X, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AttachmentPreview, FilePreview } from "./AttachmentPreview";
 import { ReplyPreview } from "./ReplyPreview";
-import { Attachment, Message } from "@/services/mockData";
+import { MentionSuggestions } from "./MentionSuggestions";
+import { Attachment, Message, User } from "@/services/mockData";
 
 interface MessageInputProps {
   onSend: (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) => void;
@@ -13,12 +14,16 @@ interface MessageInputProps {
   onCancelReply?: () => void;
   editingMessage?: Message | null;
   onCancelEdit?: () => void;
+  users?: User[];
 }
 
-export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCancelReply, editingMessage, onCancelEdit }: MessageInputProps) {
+export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCancelReply, editingMessage, onCancelEdit, users = [] }: MessageInputProps) {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -128,10 +133,51 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
   }, [editingMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Don't submit if mention suggestions are open
+    if (showMentions && (e.key === "Enter" || e.key === "Tab" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    setText(newText);
+
+    const cursorPos = e.target.selectionStart;
+    const textBeforeCursor = newText.slice(0, cursorPos);
+    
+    // Find the last @ before cursor
+    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+    
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      // Check if there's no space after @ (still typing username)
+      if (!textAfterAt.includes(" ")) {
+        setMentionQuery(textAfterAt);
+        setMentionStartIndex(lastAtIndex);
+        setShowMentions(true);
+        return;
+      }
+    }
+    
+    setShowMentions(false);
+    setMentionQuery("");
+    setMentionStartIndex(-1);
+  };
+
+  const handleMentionSelect = (user: User) => {
+    const beforeMention = text.slice(0, mentionStartIndex);
+    const afterCursor = text.slice(mentionStartIndex + mentionQuery.length + 1);
+    const newText = `${beforeMention}@${user.name} ${afterCursor}`;
+    setText(newText);
+    setShowMentions(false);
+    setMentionQuery("");
+    setMentionStartIndex(-1);
+    textareaRef.current?.focus();
   };
 
   const handleInput = useCallback(() => {
@@ -254,10 +300,17 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
         />
 
         <div className="relative flex-1">
+          <MentionSuggestions
+            users={users}
+            query={mentionQuery}
+            onSelect={handleMentionSelect}
+            onClose={() => setShowMentions(false)}
+            isOpen={showMentions}
+          />
           <textarea
             ref={textareaRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             placeholder="Write a message..."
             rows={1}

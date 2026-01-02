@@ -125,6 +125,7 @@ export function ChatArea({
         onCancelReply={onCancelReply}
         editingMessage={editingMessage}
         onCancelEdit={onCancelEdit}
+        users={participants}
       />
     </div>
   );
