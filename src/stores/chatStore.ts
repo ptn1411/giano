@@ -42,7 +42,7 @@ const initialState = {
   replyingTo: null,
 };
 
-export const useChatStore = create<ChatState>()((set) => ({
+export const useChatStoreBase = create<ChatState>()((set) => ({
   ...initialState,
 
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
@@ -58,3 +58,64 @@ export const useChatStore = create<ChatState>()((set) => ({
 
   reset: () => set(initialState),
 }));
+
+// Stable selectors
+const selectSidebarOpen = (state: ChatState) => state.sidebarOpen;
+const selectActiveChatId = (state: ChatState) => state.activeChatId;
+const selectActiveChat = (state: ChatState) => state.activeChat;
+const selectShowNewGroupModal = (state: ChatState) => state.showNewGroupModal;
+const selectReplyingTo = (state: ChatState) => state.replyingTo;
+const selectForwardingMessage = (state: ChatState) => state.forwardingMessage;
+const selectEditingMessage = (state: ChatState) => state.editingMessage;
+const selectDeletingMessage = (state: ChatState) => state.deletingMessage;
+const selectSetSidebarOpen = (state: ChatState) => state.setSidebarOpen;
+const selectToggleSidebar = (state: ChatState) => state.toggleSidebar;
+const selectSetActiveChatId = (state: ChatState) => state.setActiveChatId;
+const selectSetActiveChat = (state: ChatState) => state.setActiveChat;
+const selectSetShowNewGroupModal = (state: ChatState) => state.setShowNewGroupModal;
+const selectSetReplyingTo = (state: ChatState) => state.setReplyingTo;
+const selectSetForwardingMessage = (state: ChatState) => state.setForwardingMessage;
+const selectSetEditingMessage = (state: ChatState) => state.setEditingMessage;
+const selectSetDeletingMessage = (state: ChatState) => state.setDeletingMessage;
+
+// Hook with stable selectors to prevent infinite loops
+export function useChatStore() {
+  const sidebarOpen = useChatStoreBase(selectSidebarOpen);
+  const activeChatId = useChatStoreBase(selectActiveChatId);
+  const activeChat = useChatStoreBase(selectActiveChat);
+  const showNewGroupModal = useChatStoreBase(selectShowNewGroupModal);
+  const replyingTo = useChatStoreBase(selectReplyingTo);
+  const forwardingMessage = useChatStoreBase(selectForwardingMessage);
+  const editingMessage = useChatStoreBase(selectEditingMessage);
+  const deletingMessage = useChatStoreBase(selectDeletingMessage);
+  const setSidebarOpen = useChatStoreBase(selectSetSidebarOpen);
+  const toggleSidebar = useChatStoreBase(selectToggleSidebar);
+  const setActiveChatId = useChatStoreBase(selectSetActiveChatId);
+  const setActiveChat = useChatStoreBase(selectSetActiveChat);
+  const setShowNewGroupModal = useChatStoreBase(selectSetShowNewGroupModal);
+  const setReplyingTo = useChatStoreBase(selectSetReplyingTo);
+  const setForwardingMessage = useChatStoreBase(selectSetForwardingMessage);
+  const setEditingMessage = useChatStoreBase(selectSetEditingMessage);
+  const setDeletingMessage = useChatStoreBase(selectSetDeletingMessage);
+
+  return {
+    sidebarOpen,
+    activeChatId,
+    activeChat,
+    showNewGroupModal,
+    replyingTo,
+    forwardingMessage,
+    editingMessage,
+    deletingMessage,
+    setSidebarOpen,
+    toggleSidebar,
+    setActiveChatId,
+    setActiveChat,
+    setShowNewGroupModal,
+    setReplyingTo,
+    setForwardingMessage,
+    setEditingMessage,
+    setDeletingMessage,
+    reset: useChatStoreBase.getState().reset,
+  };
+}

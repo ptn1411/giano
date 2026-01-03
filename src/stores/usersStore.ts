@@ -38,15 +38,19 @@ export const useUsersStore = create<UsersState>()((set, get) => ({
   },
 }));
 
+// Stable selectors
+const selectUsers = (state: UsersState) => state.users;
+const selectLoading = (state: UsersState) => state.loading;
+
 // Selector hook for backward compatibility
 export function useUsers() {
-  const users = useUsersStore((state) => state.users);
-  const loading = useUsersStore((state) => state.loading);
+  const users = useUsersStore(selectUsers);
+  const loading = useUsersStore(selectLoading);
   
   return { users, loading };
 }
 
 export function useCurrentUser() {
-  const users = useUsersStore((state) => state.users);
+  const users = useUsersStore(selectUsers);
   return users.find((user) => user.id === 'user-1') || null;
 }
