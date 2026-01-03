@@ -1,11 +1,12 @@
 import { useState, useRef, forwardRef, useMemo } from "react";
 import { format } from "date-fns";
-import { Check, CheckCheck, Smile, Reply, Forward, Pencil, Trash2, Pin, PinOff } from "lucide-react";
+import { Smile, Reply, Forward, Pencil, Trash2, Pin, PinOff } from "lucide-react";
 import { Message, InlineButton, User } from "@/services/mockData";
 import { MessageAttachments } from "./MessageAttachments";
 import { ReplyPreview } from "./ReplyPreview";
 import { VoicePlayer } from "./VoicePlayer";
 import { ReadReceipts } from "./ReadReceipts";
+import { DeliveryStatusIcon } from "./DeliveryStatusIcon";
 import { highlightText } from "./MessageSearch";
 import { cn } from "@/lib/utils";
 import {
@@ -205,11 +206,10 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
               <span className="text-[10px] italic">edited</span>
             )}
             {isOwn && (
-              message.isRead ? (
-                <CheckCheck className="h-3.5 w-3.5" />
-              ) : (
-                <Check className="h-3.5 w-3.5" />
-              )
+              <DeliveryStatusIcon 
+                status={message.deliveryStatus || (message.isRead ? 'read' : 'sent')} 
+                isOwn={isOwn} 
+              />
             )}
           </div>
 
