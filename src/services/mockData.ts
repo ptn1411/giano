@@ -30,6 +30,8 @@ export interface ReadReceipt {
   readAt: Date;
 }
 
+export type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+
 export interface Message {
   id: string;
   chatId: string;
@@ -49,6 +51,7 @@ export interface Message {
   };
   inlineKeyboard?: InlineButton[][];
   readBy?: ReadReceipt[]; // For group chat read receipts
+  deliveryStatus?: DeliveryStatus; // Message delivery status
 }
 
 export interface Chat {
@@ -106,6 +109,16 @@ const createMessages = (chatId: string, participants: string[] = []): Message[] 
     }));
   };
 
+  // Generate delivery status based on message age and sender
+  const generateDeliveryStatus = (senderId: string, msgIndex: number): DeliveryStatus => {
+    if (senderId !== 'user-1') return 'read'; // Received messages are always "read" by us
+    
+    // Simulate different statuses for user's own messages
+    if (msgIndex === messageTemplates.length - 1) return 'delivered'; // Latest message just delivered
+    if (msgIndex === messageTemplates.length - 2) return 'read'; // Second to last is read
+    return 'read'; // Older messages are read
+  };
+
   return messageTemplates.map((msg, index) => ({
     id: `msg-${chatId}-${index}`,
     chatId,
@@ -115,6 +128,7 @@ const createMessages = (chatId: string, participants: string[] = []): Message[] 
     isRead: index < messageTemplates.length - 1,
     reactions: index === 3 ? [{ emoji: '🔥', userId: 'user-2' }] : [],
     readBy: generateReadBy(msg.senderId, index),
+    deliveryStatus: generateDeliveryStatus(msg.senderId, index),
   }));
 };
 
@@ -443,6 +457,7 @@ export const chatApi = {
       reactions: [],
       attachments,
       replyTo,
+      deliveryStatus: 'sent', // Initially sent, will update to delivered/read
     };
     
     if (!messagesStore[chatId]) {
