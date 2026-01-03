@@ -133,16 +133,30 @@ export const useThemeStore = create<ThemeState>()(
   ),
 );
 
+// Stable selectors
+const selectResolvedTheme = (state: ThemeState) => state.resolvedTheme;
+const selectThemeMode = (state: ThemeState) => state.themeMode;
+const selectToggleTheme = (state: ThemeState) => state.toggleTheme;
+const selectSetTheme = (state: ThemeState) => state.setTheme;
+const selectColorTheme = (state: ThemeState) => state.colorTheme;
+const selectSetColorTheme = (state: ThemeState) => state.setColorTheme;
+
 // Hook for compatibility with existing code
 export function useTheme() {
-  const store = useThemeStore();
+  const theme = useThemeStore(selectResolvedTheme);
+  const themeMode = useThemeStore(selectThemeMode);
+  const toggleTheme = useThemeStore(selectToggleTheme);
+  const setTheme = useThemeStore(selectSetTheme);
+  const colorTheme = useThemeStore(selectColorTheme);
+  const setColorTheme = useThemeStore(selectSetColorTheme);
+
   return {
-    theme: store.resolvedTheme,
-    themeMode: store.themeMode,
-    toggleTheme: store.toggleTheme,
-    setTheme: store.setTheme,
-    colorTheme: store.colorTheme,
-    setColorTheme: store.setColorTheme,
+    theme,
+    themeMode,
+    toggleTheme,
+    setTheme,
+    colorTheme,
+    setColorTheme,
     colorThemes,
   };
 }

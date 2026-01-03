@@ -62,17 +62,18 @@ export const useChatsStore = create<ChatsState>()((set, get) => ({
   },
 }));
 
+// Stable selectors to avoid infinite loops
+const selectChats = (state: ChatsState) => state.chats;
+const selectLoading = (state: ChatsState) => state.loading;
+const selectFetchChats = (state: ChatsState) => state.fetchChats;
+const selectSearchChats = (state: ChatsState) => state.searchChats;
+
 // Selector hook for backward compatibility
 export function useChats() {
-  const chats = useChatsStore((state) => state.chats);
-  const loading = useChatsStore((state) => state.loading);
-  const fetchChats = useChatsStore((state) => state.fetchChats);
-  const searchChats = useChatsStore((state) => state.searchChats);
+  const chats = useChatsStore(selectChats);
+  const loading = useChatsStore(selectLoading);
+  const refetch = useChatsStore(selectFetchChats);
+  const searchChats = useChatsStore(selectSearchChats);
   
-  return {
-    chats,
-    loading,
-    refetch: fetchChats,
-    searchChats,
-  };
+  return { chats, loading, refetch, searchChats };
 }

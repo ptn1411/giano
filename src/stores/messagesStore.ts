@@ -165,12 +165,20 @@ export const useMessagesStore = create<MessagesState>()((set, get) => ({
   },
 }));
 
+// Empty array constant to avoid creating new references
+const EMPTY_MESSAGES: Message[] = [];
+
+// Stable selectors
+const selectLoading = (state: MessagesState) => state.loading;
+const selectAddMessage = (state: MessagesState) => state.addMessage;
+
 // Selector hooks for better performance
 export const useMessages = (chatId: string | null) => {
   const messages = useMessagesStore((state) => 
-    chatId ? state.messages[chatId] || [] : []
+    chatId ? (state.messages[chatId] ?? EMPTY_MESSAGES) : EMPTY_MESSAGES
   );
-  const loading = useMessagesStore((state) => state.loading);
+  const loading = useMessagesStore(selectLoading);
+  const addMessage = useMessagesStore(selectAddMessage);
 
   // Memoize actions to prevent infinite loops in useCallback dependencies
   const actions = useMemo(() => {
@@ -178,7 +186,6 @@ export const useMessages = (chatId: string | null) => {
     return {
       sendMessage: (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) =>
         chatId ? store.sendMessage(chatId, text, attachments, replyTo) : Promise.resolve(undefined),
-      addMessage: store.addMessage,
       addReaction: (messageId: string, emoji: string) =>
         chatId ? store.addReaction(chatId, messageId, emoji) : Promise.resolve(),
       deleteMessage: (messageId: string) =>
@@ -196,6 +203,7 @@ export const useMessages = (chatId: string | null) => {
   return {
     messages,
     loading,
+    addMessage,
     ...actions,
   };
 };
