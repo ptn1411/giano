@@ -136,6 +136,7 @@ export function ChatArea({
       />
       <MessageList
         messages={messages}
+        users={participants}
         onReaction={onReaction}
         onReply={onReply}
         onForward={onForward}

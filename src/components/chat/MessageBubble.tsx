@@ -1,12 +1,17 @@
-import { useState, useRef, forwardRef } from "react";
+import { useState, useRef, forwardRef, useMemo } from "react";
 import { format } from "date-fns";
 import { Check, CheckCheck, Smile, Reply, Forward, Pencil, Trash2, Pin, PinOff } from "lucide-react";
-import { Message, InlineButton } from "@/services/mockData";
+import { Message, InlineButton, User } from "@/services/mockData";
 import { MessageAttachments } from "./MessageAttachments";
 import { ReplyPreview } from "./ReplyPreview";
 import { VoicePlayer } from "./VoicePlayer";
 import { highlightText } from "./MessageSearch";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface MessageBubbleProps {
   message: Message;
@@ -20,6 +25,7 @@ interface MessageBubbleProps {
   onUnpin: (messageId: string) => void;
   searchQuery?: string;
   onInlineButtonClick?: (button: InlineButton, messageId: string) => void;
+  users?: User[];
 }
 
 const quickReactions = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
@@ -65,7 +71,8 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     onPin, 
     onUnpin, 
     searchQuery,
-    onInlineButtonClick 
+    onInlineButtonClick,
+    users = []
   }, ref) {
     const [showReactions, setShowReactions] = useState(false);
     const timeoutRef = useRef<NodeJS.Timeout>();
@@ -78,6 +85,23 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     const handleMouseLeave = () => {
       timeoutRef.current = setTimeout(() => setShowReactions(false), 300);
     };
+
+    // Group reactions by emoji with user names
+    const groupedReactions = useMemo(() => {
+      const groups: Record<string, { emoji: string; users: string[]; count: number }> = {};
+      
+      message.reactions.forEach((reaction) => {
+        if (!groups[reaction.emoji]) {
+          groups[reaction.emoji] = { emoji: reaction.emoji, users: [], count: 0 };
+        }
+        const user = users.find((u) => u.id === reaction.userId);
+        const userName = user?.name || (reaction.userId === 'user-1' ? 'You' : 'Someone');
+        groups[reaction.emoji].users.push(userName);
+        groups[reaction.emoji].count++;
+      });
+      
+      return Object.values(groups);
+    }, [message.reactions, users]);
 
     const hasAttachments = message.attachments && message.attachments.length > 0;
     const hasText = message.text && message.text.trim().length > 0;
@@ -188,16 +212,40 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
             )}
           </div>
 
-          {/* Reactions display */}
-          {message.reactions.length > 0 && (
-            <div className={cn(
-              "absolute -bottom-3 flex gap-0.5 rounded-full bg-card px-1.5 py-0.5 shadow-md",
-              isOwn ? "left-2" : "right-2"
-            )}>
-              {message.reactions.map((reaction, index) => (
-                <span key={index} className="text-xs">{reaction.emoji}</span>
-              ))}
-            </div>
+          {/* Reactions display with tooltip */}
+          {groupedReactions.length > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className={cn(
+                  "absolute -bottom-3 flex gap-0.5 rounded-full bg-card px-1.5 py-0.5 shadow-md cursor-pointer hover:shadow-lg transition-shadow",
+                  isOwn ? "left-2" : "right-2"
+                )}>
+                  {groupedReactions.map((group, index) => (
+                    <span key={index} className="text-xs flex items-center gap-0.5">
+                      {group.emoji}
+                      {group.count > 1 && (
+                        <span className="text-[10px] text-muted-foreground">{group.count}</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent 
+                side="top" 
+                className="max-w-[200px] p-2"
+              >
+                <div className="space-y-1">
+                  {groupedReactions.map((group, index) => (
+                    <div key={index} className="flex items-start gap-2 text-xs">
+                      <span className="text-base">{group.emoji}</span>
+                      <span className="text-muted-foreground">
+                        {group.users.join(', ')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
           )}
 
           {/* Reaction picker */}

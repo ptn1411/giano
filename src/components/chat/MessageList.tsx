@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 interface MessageListProps {
   messages: Message[];
+  users: User[];
   onReaction: (messageId: string, emoji: string) => void;
   onReply: (message: Message) => void;
   onForward: (message: Message) => void;
@@ -21,7 +22,8 @@ interface MessageListProps {
 }
 
 export function MessageList({ 
-  messages, 
+  messages,
+  users,
   onReaction, 
   onReply, 
   onForward, 
@@ -87,6 +89,7 @@ export function MessageList({
               onUnpin={onUnpin}
               searchQuery={searchQuery}
               onInlineButtonClick={onInlineButtonClick}
+              users={users}
             />
           </div>
         ))}
