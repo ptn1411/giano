@@ -15,6 +15,7 @@ interface MessageListProps {
   onDelete: (message: Message) => void;
   onPin: (message: Message) => void;
   onUnpin: (messageId: string) => void;
+  onRetry?: (messageId: string) => void;
   onInlineButtonClick?: (button: InlineButton, messageId: string) => void;
   loading?: boolean;
   searchQuery?: string;
@@ -30,7 +31,8 @@ export function MessageList({
   onEdit, 
   onDelete, 
   onPin, 
-  onUnpin, 
+  onUnpin,
+  onRetry,
   onInlineButtonClick,
   loading, 
   searchQuery, 
@@ -87,6 +89,7 @@ export function MessageList({
               onDelete={onDelete}
               onPin={onPin}
               onUnpin={onUnpin}
+              onRetry={onRetry}
               searchQuery={searchQuery}
               onInlineButtonClick={onInlineButtonClick}
               users={users}

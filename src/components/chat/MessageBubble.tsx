@@ -25,6 +25,7 @@ interface MessageBubbleProps {
   onDelete: (message: Message) => void;
   onPin: (message: Message) => void;
   onUnpin: (messageId: string) => void;
+  onRetry?: (messageId: string) => void;
   searchQuery?: string;
   onInlineButtonClick?: (button: InlineButton, messageId: string) => void;
   users?: User[];
@@ -71,7 +72,8 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     onEdit, 
     onDelete, 
     onPin, 
-    onUnpin, 
+    onUnpin,
+    onRetry,
     searchQuery,
     onInlineButtonClick,
     users = []
@@ -114,21 +116,27 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       message.attachments!.length === 1 && 
       message.attachments![0].name === 'Voice message';
     
+    const isSending = message.deliveryStatus === 'sending';
+    const isFailed = message.deliveryStatus === 'failed';
+    
     return (
       <div
         ref={ref}
         className={cn(
           "group flex w-full gap-2 min-w-0",
-          isOwn ? "justify-end" : "justify-start"
+          isOwn ? "justify-end" : "justify-start",
+          isSending && "animate-fade-in"
         )}
       >
         <div
           className={cn(
-            "relative max-w-[75%] rounded-2xl min-w-0 break-words",
+            "relative max-w-[75%] rounded-2xl min-w-0 break-words transition-opacity",
             hasText ? "px-4 py-2" : hasAttachments ? "p-1.5" : "px-4 py-2",
             isOwn
               ? "bg-primary text-primary-foreground rounded-br-md"
-              : "bg-card text-card-foreground rounded-bl-md shadow-sm"
+              : "bg-card text-card-foreground rounded-bl-md shadow-sm",
+            isSending && "opacity-70",
+            isFailed && "opacity-90"
           )}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
@@ -208,7 +216,8 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
             {isOwn && (
               <DeliveryStatusIcon 
                 status={message.deliveryStatus || (message.isRead ? 'read' : 'sent')} 
-                isOwn={isOwn} 
+                isOwn={isOwn}
+                onRetry={isFailed && onRetry ? () => onRetry(message.id) : undefined}
               />
             )}
           </div>

@@ -37,7 +37,7 @@ const Index = () => {
   } = useChatStore();
   
   const { chats, loading: chatsLoading, searchChats } = useChats();
-  const { messages, loading: messagesLoading, sendMessage, addReaction, deleteMessage, editMessage, pinMessage, unpinMessage, addMessage } = useMessages(activeChatId);
+  const { messages, loading: messagesLoading, sendMessage, addReaction, deleteMessage, editMessage, pinMessage, unpinMessage, addMessage, retryMessage } = useMessages(activeChatId);
   const { users } = useUsers();
   const { session } = useAuthStore();
   const botResponseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -217,6 +217,7 @@ const Index = () => {
           onDelete={setDeletingMessage}
           onPin={(msg) => pinMessage(msg.id)}
           onUnpin={unpinMessage}
+          onRetry={retryMessage}
           onInlineButtonClick={handleInlineButtonClick}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
