@@ -5,6 +5,7 @@ import { Message, InlineButton, User } from "@/services/mockData";
 import { MessageAttachments } from "./MessageAttachments";
 import { ReplyPreview } from "./ReplyPreview";
 import { VoicePlayer } from "./VoicePlayer";
+import { ReadReceipts } from "./ReadReceipts";
 import { highlightText } from "./MessageSearch";
 import { cn } from "@/lib/utils";
 import {
@@ -316,6 +317,15 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
             </div>
           )}
         </div>
+        
+        {/* Read receipts for group chats */}
+        {isOwn && message.readBy && message.readBy.length > 0 && (
+          <ReadReceipts 
+            readBy={message.readBy} 
+            users={users} 
+            isOwn={isOwn} 
+          />
+        )}
       </div>
     );
   }

@@ -25,6 +25,11 @@ export interface Attachment {
   duration?: number; // for voice messages, in seconds
 }
 
+export interface ReadReceipt {
+  userId: string;
+  readAt: Date;
+}
+
 export interface Message {
   id: string;
   chatId: string;
@@ -43,6 +48,7 @@ export interface Message {
     senderName: string;
   };
   inlineKeyboard?: InlineButton[][];
+  readBy?: ReadReceipt[]; // For group chat read receipts
 }
 
 export interface Chat {
@@ -74,7 +80,7 @@ export const mockUsers: User[] = [
 ];
 
 // Mock Messages
-const createMessages = (chatId: string): Message[] => {
+const createMessages = (chatId: string, participants: string[] = []): Message[] => {
   const messageTemplates = [
     { text: "Hey! How's it going?", senderId: 'user-2' },
     { text: "I'm doing great, thanks for asking! Working on some new projects.", senderId: 'user-1' },
@@ -84,6 +90,22 @@ const createMessages = (chatId: string): Message[] => {
     { text: "Will do! Thanks 😊", senderId: 'user-1' },
   ];
 
+  // Generate read receipts for group chats (messages from user-1)
+  const generateReadBy = (senderId: string, msgIndex: number): ReadReceipt[] | undefined => {
+    if (senderId !== 'user-1' || participants.length <= 2) return undefined;
+    
+    // Other participants who could have read the message
+    const otherParticipants = participants.filter(p => p !== 'user-1');
+    
+    // Older messages are read by more people
+    const readCount = Math.min(otherParticipants.length, messageTemplates.length - msgIndex);
+    
+    return otherParticipants.slice(0, readCount).map((userId, i) => ({
+      userId,
+      readAt: new Date(Date.now() - (messageTemplates.length - msgIndex - i) * 60000),
+    }));
+  };
+
   return messageTemplates.map((msg, index) => ({
     id: `msg-${chatId}-${index}`,
     chatId,
@@ -92,6 +114,7 @@ const createMessages = (chatId: string): Message[] => {
     timestamp: new Date(Date.now() - (messageTemplates.length - index) * 300000),
     isRead: index < messageTemplates.length - 1,
     reactions: index === 3 ? [{ emoji: '🔥', userId: 'user-2' }] : [],
+    readBy: generateReadBy(msg.senderId, index),
   }));
 };
 
@@ -384,7 +407,7 @@ mockChats.forEach((chat) => {
     const botId = chat.participants.find(p => p.startsWith('bot-')) || 'bot-1';
     messagesStore[chat.id] = createBotMessages(chat.id, botId);
   } else {
-    messagesStore[chat.id] = createMessages(chat.id);
+    messagesStore[chat.id] = createMessages(chat.id, chat.participants);
   }
 });
 
