@@ -21,6 +21,7 @@ interface ChatAreaProps {
   onDelete: (message: Message) => void;
   onPin: (message: Message) => void;
   onUnpin: (messageId: string) => void;
+  onRetry?: (messageId: string) => void;
   onInlineButtonClick?: (button: InlineButton, messageId: string) => void;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
@@ -46,6 +47,7 @@ export function ChatArea({
   onDelete,
   onPin,
   onUnpin,
+  onRetry,
   onInlineButtonClick,
   replyingTo,
   onCancelReply,
@@ -145,6 +147,7 @@ export function ChatArea({
         onPin={onPin}
         typingUsers={chat.isTyping ? participants.filter(p => p.id !== 'user-1').slice(0, 1) : []}
         onUnpin={onUnpin}
+        onRetry={onRetry}
         onInlineButtonClick={handleInlineButtonClick}
         loading={loading}
         searchQuery={isSearchOpen ? searchQuery : undefined}
