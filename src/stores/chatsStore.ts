@@ -3,8 +3,13 @@ import { Chat, chatApi } from '@/services/mockData';
 
 interface ChatsState {
   chats: Chat[];
+  /**
+   * `loading` is used for the initial chat list skeleton only.
+   * Subsequent refreshes should not blank the list.
+   */
   loading: boolean;
-  
+  hasLoaded: boolean;
+
   // Actions
   fetchChats: () => Promise<void>;
   searchChats: (query: string) => Promise<void>;
@@ -16,17 +21,25 @@ interface ChatsState {
 export const useChatsStore = create<ChatsState>()((set, get) => ({
   chats: [],
   loading: true,
-  
+  hasLoaded: false,
+
   fetchChats: async () => {
-    set({ loading: true });
+    const isInitialLoad = !get().hasLoaded;
+
+    // Only show skeleton on first load; keep current list during refresh
+    if (isInitialLoad) {
+      set({ loading: true });
+    }
+
     try {
       const data = await chatApi.getChats();
-      set({ chats: data });
-    } finally {
-      set({ loading: false });
+      set({ chats: data, loading: false, hasLoaded: true });
+    } catch {
+      // Avoid getting stuck in loading state
+      set({ loading: false, hasLoaded: true });
     }
   },
-  
+
   searchChats: async (query: string) => {
     if (!query.trim()) {
       get().fetchChats();
@@ -37,7 +50,7 @@ export const useChatsStore = create<ChatsState>()((set, get) => ({
       const data = await chatApi.searchChats(query);
       set({ chats: data });
     } finally {
-      set({ loading: false });
+      set({ loading: false, hasLoaded: true });
     }
   },
   
