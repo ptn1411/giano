@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { Message, Attachment, chatApi, DeliveryStatus } from '@/services/mockData';
-
+import { useMessageQueueStore } from './messageQueueStore';
 interface MessagesState {
   // State
   messages: Record<string, Message[]>; // chatId -> messages
@@ -60,6 +60,37 @@ export const useMessagesStore = create<MessagesState>()((set, get) => ({
   sendMessage: async (chatId, text, attachments, replyTo) => {
     if (!text.trim() && (!attachments || attachments.length === 0)) return;
     
+    const queueStore = useMessageQueueStore.getState();
+    const isOnline = queueStore.isOnline;
+    
+    // If offline, queue the message
+    if (!isOnline) {
+      const queuedId = queueStore.addToQueue({ chatId, text, attachments, replyTo });
+      
+      // Add queued message to UI with 'queued' visual
+      const queuedMessage: Message = {
+        id: queuedId,
+        chatId,
+        senderId: 'user-1',
+        text,
+        timestamp: new Date(),
+        isRead: false,
+        reactions: [],
+        attachments,
+        replyTo,
+        deliveryStatus: 'sending',
+      };
+      
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [chatId]: [...(state.messages[chatId] || []), queuedMessage],
+        },
+      }));
+      
+      return undefined;
+    }
+    
     // Create optimistic message with 'sending' status
     const tempId = `temp-${Date.now()}`;
     const optimisticMessage: Message = {
@@ -116,7 +147,9 @@ export const useMessagesStore = create<MessagesState>()((set, get) => ({
       
       return newMessage;
     } catch (error) {
-      // Mark message as failed
+      // Mark message as failed and add to queue for retry
+      queueStore.addToQueue({ chatId, text, attachments, replyTo });
+      
       set((state) => ({
         messages: {
           ...state.messages,

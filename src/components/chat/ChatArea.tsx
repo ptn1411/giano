@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Chat, User, Attachment, Message, InlineButton } from "@/services/mockData";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
@@ -6,8 +6,10 @@ import { MessageInput } from "./MessageInput";
 import { PinnedMessagesBar } from "./PinnedMessage";
 import { MessageSearch } from "./MessageSearch";
 import { BotReplyKeyboard } from "./BotReplyKeyboard";
+import { NetworkStatusIndicator } from "./NetworkStatusIndicator";
 import { MessageSquare, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 interface ChatAreaProps {
   chat: Chat | null;
@@ -60,6 +62,9 @@ export function ChatArea({
 }: ChatAreaProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Initialize network status monitoring
+  useNetworkStatus();
 
   const scrollToMessage = useCallback((messageId: string) => {
     const element = document.getElementById(`message-${messageId}`);
@@ -121,6 +126,7 @@ export function ChatArea({
         onSearchClick={() => setIsSearchOpen(true)}
         showBackButton
       />
+      <NetworkStatusIndicator />
       <MessageSearch
         messages={messages}
         isOpen={isSearchOpen}
