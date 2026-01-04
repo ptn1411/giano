@@ -70,6 +70,7 @@ export function CallModal({ open, onOpenChange }: CallModalProps) {
 
   // Video refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
+  const localVideoFullscreenRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoFullscreenRef = useRef<HTMLVideoElement>(null);
 
@@ -78,14 +79,29 @@ export function CallModal({ open, onOpenChange }: CallModalProps) {
 
   // Attach local stream to video element
   useEffect(() => {
-    if (localVideoRef.current && localStream) {
+    if (localStream) {
       console.log("[CallModal] Attaching local stream to video element");
-      localVideoRef.current.srcObject = localStream;
 
-      // Force play
-      localVideoRef.current.play().catch((err) => {
-        console.error("[CallModal] Failed to play local video:", err);
-      });
+      // Attach to both refs
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = localStream;
+        localVideoRef.current.play().catch((err) => {
+          console.error(
+            "[CallModal] Failed to play local video (non-fullscreen):",
+            err
+          );
+        });
+      }
+
+      if (localVideoFullscreenRef.current) {
+        localVideoFullscreenRef.current.srcObject = localStream;
+        localVideoFullscreenRef.current.play().catch((err) => {
+          console.error(
+            "[CallModal] Failed to play local video (fullscreen):",
+            err
+          );
+        });
+      }
 
       // Log local video tracks state
       const videoTracks = localStream.getVideoTracks();
@@ -108,7 +124,8 @@ export function CallModal({ open, onOpenChange }: CallModalProps) {
       });
     } else {
       console.log("[CallModal] Local stream not ready:", {
-        hasRef: !!localVideoRef.current,
+        hasLocalVideoRef: !!localVideoRef.current,
+        hasLocalVideoFullscreenRef: !!localVideoFullscreenRef.current,
         hasStream: !!localStream,
       });
     }
@@ -297,7 +314,7 @@ export function CallModal({ open, onOpenChange }: CallModalProps) {
               className="flex-1 relative bg-gradient-to-br from-primary/20 via-background to-accent/20 animate-scale-in"
               style={{ animationDelay: "100ms" }}>
               {/* Remote Video - Requirement 7.1 */}
-              {isRemoteVideoEnabled && remoteStream ? (
+              {remoteStream ? (
                 <video
                   ref={remoteVideoFullscreenRef}
                   autoPlay
@@ -305,7 +322,7 @@ export function CallModal({ open, onOpenChange }: CallModalProps) {
                   className="absolute inset-0 w-full h-full object-cover"
                 />
               ) : (
-                /* Avatar when remote video is off - Requirement 7.3 */
+                /* Avatar when no remote stream - Requirement 7.3 */
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80">
                   <Avatar className="h-32 w-32 border-4 border-green-500 mb-4">
                     <AvatarImage
@@ -329,7 +346,7 @@ export function CallModal({ open, onOpenChange }: CallModalProps) {
               {!isVideoOff && localStream && (
                 <div className="absolute bottom-4 right-4 w-40 h-28 rounded-xl bg-muted border-2 border-background shadow-xl overflow-hidden">
                   <video
-                    ref={localVideoRef}
+                    ref={localVideoFullscreenRef}
                     autoPlay
                     playsInline
                     muted
