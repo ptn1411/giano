@@ -1,20 +1,19 @@
-import { useEffect } from "react";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useWebSocket } from "@/hooks/useWebSocket";
+import { setupCallEventHandlers, wsClient } from "@/services/websocket";
 import { useAuthStore } from "@/stores/authStore";
 import { useThemeStore } from "@/stores/themeStore";
-import { useWebSocket } from "@/hooks/useWebSocket";
-import { wsClient, setupCallEventHandlers } from "@/services/websocket";
-import { IncomingCallNotification } from "@/components/chat/IncomingCallNotification";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import Auth from "./pages/Auth";
 import Index from "./pages/Index";
+import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
 import TelegramDemo from "./pages/TelegramDemo";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -30,7 +29,7 @@ function ThemeInitializer({ children }: { children: React.ReactNode }) {
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, isLoading, isInitialized } = useAuthStore();
-  
+
   // Connect WebSocket when user is authenticated
   useWebSocket();
 
@@ -45,35 +44,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!session) return;
 
-    // Setup call event handlers
-    let cleanupCallHandlers: (() => void) | null = null;
+    // Setup call event handlers once - they persist across reconnections
+    // The wsClient.on() method adds handlers to a Map that persists across disconnect/reconnect
+    const cleanupCallHandlers = setupCallEventHandlers();
+    console.log("[App] Call event handlers initialized");
 
-    // Listen for WebSocket connection state changes
+    // Log connection state changes for debugging
     const unsubscribeState = wsClient.onStateChange((state) => {
-      if (state === 'connected') {
-        // Setup call event handlers when connected
-        cleanupCallHandlers = setupCallEventHandlers();
-        console.log('[App] Call event handlers initialized');
-      } else if (state === 'disconnected') {
-        // Cleanup handlers when disconnected
-        if (cleanupCallHandlers) {
-          cleanupCallHandlers();
-          cleanupCallHandlers = null;
-        }
-      }
+      console.log("[App] WebSocket state changed:", state);
     });
-
-    // If already connected, setup handlers immediately
-    if (wsClient.isConnected()) {
-      cleanupCallHandlers = setupCallEventHandlers();
-      console.log('[App] Call event handlers initialized (already connected)');
-    }
 
     return () => {
       unsubscribeState();
-      if (cleanupCallHandlers) {
-        cleanupCallHandlers();
-      }
+      cleanupCallHandlers();
     };
   }, [session]);
 
@@ -89,13 +72,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" replace />;
   }
 
-  return (
-    <>
-      {/* Global incoming call notification - Requirement 2.1 */}
-      <IncomingCallNotification />
-      {children}
-    </>
-  );
+  return <>{children}</>;
 }
 
 // Public route wrapper (redirects to home if already logged in)

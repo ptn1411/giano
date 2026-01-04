@@ -10,10 +10,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::{
-    services::AuthService,
-    AppState,
-};
+use crate::{services::AuthService, AppState};
 
 use super::{
     events::{ClientEvent, ServerEvent},
@@ -69,7 +66,6 @@ pub async fn ws_handler(
 
     ws.on_upgrade(move |socket| handle_socket(socket, user_id, user_name, state, ws_manager))
 }
-
 
 /// Handle an individual WebSocket connection
 async fn handle_socket(
@@ -142,7 +138,14 @@ async fn handle_socket(
         while let Some(result) = ws_receiver.next().await {
             match result {
                 Ok(Message::Text(text)) => {
-                    handle_client_message(&text, user_id, &user_name, &state_clone, &ws_manager_clone).await;
+                    handle_client_message(
+                        &text,
+                        user_id,
+                        &user_name,
+                        &state_clone,
+                        &ws_manager_clone,
+                    )
+                    .await;
                 }
                 Ok(Message::Ping(data)) => {
                     // Pong is handled automatically by axum
@@ -193,7 +196,6 @@ async fn handle_socket(
     }
 }
 
-
 /// Handle incoming client messages
 async fn handle_client_message(
     text: &str,
@@ -202,10 +204,11 @@ async fn handle_client_message(
     state: &Arc<AppState>,
     ws_manager: &Arc<WsManager>,
 ) {
+    tracing::debug!("Received message: {}", text);
     let event: ClientEvent = match serde_json::from_str(text) {
         Ok(e) => e,
         Err(e) => {
-            tracing::warn!("Failed to parse client event: {}", e);
+            tracing::warn!("Failed to parse client event: {}. Raw message: {}", e, text);
             return;
         }
     };
@@ -223,7 +226,9 @@ async fn handle_client_message(
                 user_name: user_name.to_string(),
                 is_typing: true,
             };
-            ws_manager.broadcast_to_room(chat_id, typing_event, Some(user_id)).await;
+            ws_manager
+                .broadcast_to_room(chat_id, typing_event, Some(user_id))
+                .await;
         }
         ClientEvent::StopTyping { chat_id } => {
             // Verify user is participant of the chat
@@ -237,7 +242,9 @@ async fn handle_client_message(
                 user_name: user_name.to_string(),
                 is_typing: false,
             };
-            ws_manager.broadcast_to_room(chat_id, typing_event, Some(user_id)).await;
+            ws_manager
+                .broadcast_to_room(chat_id, typing_event, Some(user_id))
+                .await;
         }
         ClientEvent::JoinChat { chat_id } => {
             // Verify user is participant of the chat
@@ -253,7 +260,11 @@ async fn handle_client_message(
             // Client ping - no action needed, connection is alive
             tracing::debug!("Received ping from user {}", user_id);
         }
-        ClientEvent::InitiateCall { target_user_id, chat_id, call_type } => {
+        ClientEvent::InitiateCall {
+            target_user_id,
+            chat_id,
+            call_type,
+        } => {
             handle_initiate_call(
                 user_id,
                 user_name,
@@ -262,7 +273,8 @@ async fn handle_client_message(
                 call_type,
                 state,
                 ws_manager,
-            ).await;
+            )
+            .await;
         }
         ClientEvent::AcceptCall { call_id } => {
             handle_accept_call(user_id, call_id, state, ws_manager).await;
@@ -277,54 +289,69 @@ async fn handle_client_message(
 }
 
 /// Update user online/offline status in database
-async fn update_user_status(state: &Arc<AppState>, user_id: Uuid, status: &str) -> Result<(), sqlx::Error> {
+async fn update_user_status(
+    state: &Arc<AppState>,
+    user_id: Uuid,
+    status: &str,
+) -> Result<(), sqlx::Error> {
     if status == "offline" {
-        sqlx::query(
-            "UPDATE users SET status = $1, last_seen = NOW() WHERE id = $2"
-        )
-        .bind(status)
-        .bind(user_id)
-        .execute(&state.db.pool)
-        .await?;
+        sqlx::query("UPDATE users SET status = $1, last_seen = NOW() WHERE id = $2")
+            .bind(status)
+            .bind(user_id)
+            .execute(&state.db.pool)
+            .await?;
     } else {
-        sqlx::query(
-            "UPDATE users SET status = $1, last_seen = NULL WHERE id = $2"
-        )
-        .bind(status)
-        .bind(user_id)
-        .execute(&state.db.pool)
-        .await?;
+        sqlx::query("UPDATE users SET status = $1, last_seen = NULL WHERE id = $2")
+            .bind(status)
+            .bind(user_id)
+            .execute(&state.db.pool)
+            .await?;
     }
     Ok(())
 }
 
 /// Get all chat IDs for a user
 async fn get_user_chat_ids(state: &Arc<AppState>, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
-    let chat_ids: Vec<(Uuid,)> = sqlx::query_as(
-        "SELECT chat_id FROM chat_participants WHERE user_id = $1"
-    )
-    .bind(user_id)
-    .fetch_all(&state.db.pool)
-    .await?;
+    let chat_ids: Vec<(Uuid,)> =
+        sqlx::query_as("SELECT chat_id FROM chat_participants WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_all(&state.db.pool)
+            .await?;
 
     Ok(chat_ids.into_iter().map(|(id,)| id).collect())
 }
 
 /// Check if user is a participant of a chat
 async fn is_chat_participant(state: &Arc<AppState>, chat_id: Uuid, user_id: Uuid) -> bool {
-    let result: Option<(i64,)> = sqlx::query_as(
-        "SELECT 1 FROM chat_participants WHERE chat_id = $1 AND user_id = $2"
+    tracing::debug!(
+        "Checking chat participant: chat_id={}, user_id={}",
+        chat_id,
+        user_id
+    );
+
+    let query_result = sqlx::query_as::<_, (i32,)>(
+        "SELECT 1 FROM chat_participants WHERE chat_id = $1 AND user_id = $2",
     )
     .bind(chat_id)
     .bind(user_id)
     .fetch_optional(&state.db.pool)
-    .await
-    .ok()
-    .flatten();
+    .await;
 
-    result.is_some()
+    match query_result {
+        Ok(Some(_)) => {
+            tracing::debug!("User {} IS participant of chat {}", user_id, chat_id);
+            true
+        }
+        Ok(None) => {
+            tracing::warn!("User {} is NOT participant of chat {}", user_id, chat_id);
+            false
+        }
+        Err(e) => {
+            tracing::error!("Database error checking participation: {}", e);
+            false
+        }
+    }
 }
-
 
 // ==================== Call Signaling Handlers ====================
 
@@ -350,6 +377,11 @@ async fn handle_initiate_call(
 
     // Validate that caller and target have an existing chat
     if !is_chat_participant(state, chat_id, caller_id).await {
+        tracing::error!(
+            "Caller is not participant of chat: caller_id={}, chat_id={}",
+            caller_id,
+            chat_id
+        );
         let error = ServerEvent::Error {
             code: "NOT_CHAT_PARTICIPANT".to_string(),
             message: "You are not a participant of this chat".to_string(),
@@ -359,6 +391,11 @@ async fn handle_initiate_call(
     }
 
     if !is_chat_participant(state, chat_id, target_user_id).await {
+        tracing::error!(
+            "Target is not participant of chat: target_user_id={}, chat_id={}",
+            target_user_id,
+            chat_id
+        );
         let error = ServerEvent::Error {
             code: "TARGET_NOT_PARTICIPANT".to_string(),
             message: "Target user is not a participant of this chat".to_string(),
@@ -390,33 +427,33 @@ async fn handle_initiate_call(
     // Check if target user is already in a call
     if ws_manager.is_user_in_call(target_user_id).await {
         // Create a temporary call session to get call_id for UserBusy event
-        let session = ws_manager.create_call_session(
-            caller_id,
-            target_user_id,
-            chat_id,
-            call_type.clone(),
-        ).await;
-        
+        let session = ws_manager
+            .create_call_session(caller_id, target_user_id, chat_id, call_type.clone())
+            .await;
+
         let busy_event = ServerEvent::UserBusy {
             call_id: session.call_id,
         };
         ws_manager.send_to_user(caller_id, busy_event).await;
-        
+
         // Clean up the temporary session
         ws_manager.end_call(session.call_id).await;
         return;
     }
 
     // Create call session
-    let session = ws_manager.create_call_session(
-        caller_id,
-        target_user_id,
-        chat_id,
-        call_type.clone(),
-    ).await;
+    let session = ws_manager
+        .create_call_session(caller_id, target_user_id, chat_id, call_type.clone())
+        .await;
 
     // Get caller avatar
     let caller_avatar = ws_manager.get_user_avatar(caller_id).await;
+
+    // Send CallInitiated to caller with the real call ID
+    let call_initiated = ServerEvent::CallInitiated {
+        call_id: session.call_id,
+    };
+    ws_manager.send_to_user(caller_id, call_initiated).await;
 
     // Send IncomingCall to target user
     let incoming_call = ServerEvent::IncomingCall {
@@ -431,7 +468,9 @@ async fn handle_initiate_call(
 
     tracing::info!(
         "Call initiated: call_id={}, caller={}, callee={}",
-        session.call_id, caller_id, target_user_id
+        session.call_id,
+        caller_id,
+        target_user_id
     );
 }
 
@@ -488,21 +527,22 @@ async fn handle_accept_call(
         mediasoup_url,
     };
 
-    ws_manager.send_to_user(session.caller_id, accepted_event.clone()).await;
-    ws_manager.send_to_user(session.callee_id, accepted_event).await;
+    ws_manager
+        .send_to_user(session.caller_id, accepted_event.clone())
+        .await;
+    ws_manager
+        .send_to_user(session.callee_id, accepted_event)
+        .await;
 
     tracing::info!(
         "Call accepted: call_id={}, room_id={}",
-        session.call_id, session.room_id
+        session.call_id,
+        session.room_id
     );
 }
 
 /// Handle DeclineCall event
-async fn handle_decline_call(
-    user_id: Uuid,
-    call_id: Uuid,
-    ws_manager: &Arc<WsManager>,
-) {
+async fn handle_decline_call(user_id: Uuid, call_id: Uuid, ws_manager: &Arc<WsManager>) {
     // Get the call session
     let session = match ws_manager.get_call_session(call_id).await {
         Some(s) => s,
@@ -531,17 +571,15 @@ async fn handle_decline_call(
 
     // Send CallDeclined to caller
     let declined_event = ServerEvent::CallDeclined { call_id };
-    ws_manager.send_to_user(session.caller_id, declined_event).await;
+    ws_manager
+        .send_to_user(session.caller_id, declined_event)
+        .await;
 
     tracing::info!("Call declined: call_id={}", call_id);
 }
 
 /// Handle EndCall event
-async fn handle_end_call(
-    user_id: Uuid,
-    call_id: Uuid,
-    ws_manager: &Arc<WsManager>,
-) {
+async fn handle_end_call(user_id: Uuid, call_id: Uuid, ws_manager: &Arc<WsManager>) {
     // Get the call session
     let session = match ws_manager.get_call_session(call_id).await {
         Some(s) => s,
@@ -574,8 +612,12 @@ async fn handle_end_call(
         reason: "ended".to_string(),
     };
 
-    ws_manager.send_to_user(session.caller_id, ended_event.clone()).await;
-    ws_manager.send_to_user(session.callee_id, ended_event).await;
+    ws_manager
+        .send_to_user(session.caller_id, ended_event.clone())
+        .await;
+    ws_manager
+        .send_to_user(session.callee_id, ended_event)
+        .await;
 
     tracing::info!("Call ended: call_id={}", call_id);
 }

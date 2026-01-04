@@ -123,6 +123,11 @@ pub enum ServerEvent {
         #[serde(rename = "callId")]
         call_id: Uuid,
     },
+    /// Call initiated - sent to caller with real call ID
+    CallInitiated {
+        #[serde(rename = "callId")]
+        call_id: Uuid,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

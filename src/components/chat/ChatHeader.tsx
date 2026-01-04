@@ -1,7 +1,3 @@
-import { useState } from "react";
-import { Menu, Phone, Video, MoreVertical, ArrowLeft, Search, Info, BellOff, Pin, Trash2, LogOut, MessageSquare, Mic, Radio, Monitor } from "lucide-react";
-import { Chat, User, Attachment } from "@/services/api/types";
-import { AvatarWithStatus } from "./AvatarWithStatus";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,16 +5,35 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { Attachment, Chat, User } from "@/services/api/types";
+import { useAuthStore } from "@/stores/authStore";
+import { selectIsInCall, useCallStore } from "@/stores/callStore";
+import {
+  ArrowLeft,
+  BellOff,
+  Info,
+  LogOut,
+  Menu,
+  MessageSquare,
+  Mic,
+  Monitor,
+  MoreVertical,
+  Phone,
+  Pin,
+  Radio,
+  Search,
+  Trash2,
+  Video,
+} from "lucide-react";
+import { useState } from "react";
+import { AvatarWithStatus } from "./AvatarWithStatus";
 import { ContactInfoModal } from "./ContactInfoModal";
-import { CallModal } from "./CallModal";
-import { VoiceRoomModal } from "./VoiceRoomModal";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { LiveStreamModal } from "./LiveStreamModal";
 import { ScreenShareModal } from "./ScreenShareModal";
-import { DeleteConfirmModal } from "./DeleteConfirmModal";
-import { useAuthStore } from "@/stores/authStore";
-import { useCallStore, selectIsInCall } from "@/stores/callStore";
+import { VoiceRoomModal } from "./VoiceRoomModal";
 
 interface ChatHeaderProps {
   chat: Chat;
@@ -46,7 +61,6 @@ export function ChatHeader({
   showBackButton,
 }: ChatHeaderProps) {
   const [showContactInfo, setShowContactInfo] = useState(false);
-  const [showCallModal, setShowCallModal] = useState(false);
   const [showVoiceRoom, setShowVoiceRoom] = useState(false);
   const [showLiveStream, setShowLiveStream] = useState(false);
   const [showScreenShare, setShowScreenShare] = useState(false);
@@ -61,19 +75,21 @@ export function ChatHeader({
   const isInCall = useCallStore(selectIsInCall);
 
   // Get the other participant for private chats
-  const otherParticipant = chat.type === 'private' 
-    ? participants.find(p => p.id !== currentUser?.id) 
-    : null;
+  const otherParticipant =
+    chat.type === "private"
+      ? participants.find((p) => p.id !== currentUser?.id)
+      : null;
 
-  const isOnline = chat.type === 'private' && participants.some(
-    (p) => p.id !== currentUser?.id && p.status === 'online'
-  );
+  const isOnline =
+    chat.type === "private" &&
+    participants.some((p) => p.id !== currentUser?.id && p.status === "online");
 
-  const statusText = chat.type === 'group'
-    ? `${participants.length} members`
-    : isOnline
-    ? 'online'
-    : 'offline';
+  const statusText =
+    chat.type === "group"
+      ? `${participants.length} members`
+      : isOnline
+      ? "online"
+      : "offline";
 
   const handleViewInfo = () => {
     setShowContactInfo(true);
@@ -86,32 +102,32 @@ export function ChatHeader({
   const handleVoiceCall = async () => {
     if (isInCall) {
       toast({
-        title: 'Already in a call',
-        description: 'Please end your current call first',
-        variant: 'destructive',
+        title: "Already in a call",
+        description: "Please end your current call first",
+        variant: "destructive",
       });
       return;
     }
 
-    if (chat.type === 'private' && otherParticipant) {
-      console.log('[ChatHeader] Initiating voice call:', {
+    if (chat.type === "private" && otherParticipant) {
+      console.log("[ChatHeader] Initiating voice call:", {
         userId: otherParticipant.id,
         userName: otherParticipant.name,
         chatId: chat.id,
         currentUserId: currentUser?.id,
       });
-      setShowCallModal(true);
       await initiateCall(
         otherParticipant.id,
         otherParticipant.name,
-        otherParticipant.avatar || '',
+        otherParticipant.avatar || "",
         chat.id,
-        'voice'
+        "voice",
+        currentUser?.id || ""
       );
     } else {
       toast({
-        title: 'Voice call',
-        description: 'Voice calls are only available for private chats',
+        title: "Voice call",
+        description: "Voice calls are only available for private chats",
       });
     }
   };
@@ -123,46 +139,46 @@ export function ChatHeader({
   const handleVideoCall = async () => {
     if (isInCall) {
       toast({
-        title: 'Already in a call',
-        description: 'Please end your current call first',
-        variant: 'destructive',
+        title: "Already in a call",
+        description: "Please end your current call first",
+        variant: "destructive",
       });
       return;
     }
 
-    if (chat.type === 'private' && otherParticipant) {
-      console.log('[ChatHeader] Initiating video call:', {
+    if (chat.type === "private" && otherParticipant) {
+      console.log("[ChatHeader] Initiating video call:", {
         userId: otherParticipant.id,
         userName: otherParticipant.name,
         chatId: chat.id,
         currentUserId: currentUser?.id,
       });
-      setShowCallModal(true);
       await initiateCall(
         otherParticipant.id,
         otherParticipant.name,
-        otherParticipant.avatar || '',
+        otherParticipant.avatar || "",
         chat.id,
-        'video'
+        "video",
+        currentUser?.id || ""
       );
     } else {
       toast({
-        title: 'Video call',
-        description: 'Video calls are only available for private chats',
+        title: "Video call",
+        description: "Video calls are only available for private chats",
       });
     }
   };
 
   const handleMuteNotifications = () => {
     toast({
-      title: 'Notifications muted',
+      title: "Notifications muted",
       description: `You won't receive notifications from ${chat.name}`,
     });
   };
 
   const handlePinChat = () => {
     toast({
-      title: 'Chat pinned',
+      title: "Chat pinned",
       description: `${chat.name} has been pinned to the top`,
     });
   };
@@ -177,8 +193,8 @@ export function ChatHeader({
       onClearChat();
     }
     toast({
-      title: 'Chat cleared',
-      description: 'All messages have been cleared',
+      title: "Chat cleared",
+      description: "All messages have been cleared",
     });
   };
 
@@ -192,9 +208,9 @@ export function ChatHeader({
       onDeleteChat();
     }
     toast({
-      title: 'Chat deleted',
+      title: "Chat deleted",
       description: `${chat.name} has been deleted`,
-      variant: 'destructive',
+      variant: "destructive",
     });
   };
 
@@ -208,7 +224,7 @@ export function ChatHeader({
       onLeaveGroup();
     }
     toast({
-      title: 'Left group',
+      title: "Left group",
       description: `You have left ${chat.name}`,
     });
   };
@@ -219,127 +235,157 @@ export function ChatHeader({
         {showBackButton && (
           <button
             onClick={onBack}
-            className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent lg:hidden"
-          >
+            className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent lg:hidden">
             <ArrowLeft className="h-5 w-5" />
           </button>
         )}
-        
+
         <button
           onClick={onMenuClick}
-          className="hidden h-9 w-9 items-center justify-center rounded-full hover:bg-accent lg:flex"
-        >
+          className="hidden h-9 w-9 items-center justify-center rounded-full hover:bg-accent lg:flex">
           <Menu className="h-5 w-5" />
         </button>
 
         <AvatarWithStatus
           src={chat.avatar}
           alt={chat.name}
-          status={chat.type === 'private' ? (isOnline ? 'online' : 'offline') : undefined}
+          status={
+            chat.type === "private"
+              ? isOnline
+                ? "online"
+                : "offline"
+              : undefined
+          }
           size="md"
         />
 
         <div>
           <h2 className="font-semibold text-foreground">{chat.name}</h2>
-          <p className={cn(
-            "text-xs",
-            chat.isTyping ? "text-primary" : "text-muted-foreground"
-          )}>
+          <p
+            className={cn(
+              "text-xs",
+              chat.isTyping ? "text-primary" : "text-muted-foreground"
+            )}>
             {chat.isTyping
-              ? `${chat.typingUser || 'Someone'} is typing...`
+              ? `${chat.typingUser || "Someone"} is typing...`
               : statusText}
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-1">
-        <button 
+        <button
           onClick={onSearchClick}
           className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground"
-          title="Search messages"
-        >
+          title="Search messages">
           <Search className="h-5 w-5" />
         </button>
-        <button 
+        <button
           onClick={handleVoiceCall}
           className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground"
-          title="Voice call"
-        >
+          title="Voice call">
           <Phone className="h-5 w-5" />
         </button>
-        <button 
+        <button
           onClick={handleVideoCall}
           className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground"
-          title="Video call"
-        >
+          title="Video call">
           <Video className="h-5 w-5" />
         </button>
-        
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground">
               <MoreVertical className="h-5 w-5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 bg-card border-border">
-            <DropdownMenuItem onClick={handleViewInfo} className="gap-3 cursor-pointer">
+          <DropdownMenuContent
+            align="end"
+            className="w-56 bg-card border-border">
+            <DropdownMenuItem
+              onClick={handleViewInfo}
+              className="gap-3 cursor-pointer">
               <Info className="h-4 w-4" />
-              <span>{chat.type === 'group' ? 'Group info' : 'View contact'}</span>
+              <span>
+                {chat.type === "group" ? "Group info" : "View contact"}
+              </span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onSearchClick} className="gap-3 cursor-pointer">
+            <DropdownMenuItem
+              onClick={onSearchClick}
+              className="gap-3 cursor-pointer">
               <Search className="h-4 w-4" />
               <span>Search in conversation</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            
+
             {/* Call & Stream Options */}
-            <DropdownMenuItem onClick={handleVoiceCall} className="gap-3 cursor-pointer">
+            <DropdownMenuItem
+              onClick={handleVoiceCall}
+              className="gap-3 cursor-pointer">
               <Phone className="h-4 w-4" />
               <span>Voice call</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleVideoCall} className="gap-3 cursor-pointer">
+            <DropdownMenuItem
+              onClick={handleVideoCall}
+              className="gap-3 cursor-pointer">
               <Video className="h-4 w-4" />
               <span>Video call</span>
             </DropdownMenuItem>
-            {chat.type === 'group' && (
+            {chat.type === "group" && (
               <>
-                <DropdownMenuItem onClick={() => setShowVoiceRoom(true)} className="gap-3 cursor-pointer">
+                <DropdownMenuItem
+                  onClick={() => setShowVoiceRoom(true)}
+                  className="gap-3 cursor-pointer">
                   <Mic className="h-4 w-4" />
                   <span>Start voice room</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowLiveStream(true)} className="gap-3 cursor-pointer">
+                <DropdownMenuItem
+                  onClick={() => setShowLiveStream(true)}
+                  className="gap-3 cursor-pointer">
                   <Radio className="h-4 w-4" />
                   <span>Go live</span>
                 </DropdownMenuItem>
               </>
             )}
-            <DropdownMenuItem onClick={() => setShowScreenShare(true)} className="gap-3 cursor-pointer">
+            <DropdownMenuItem
+              onClick={() => setShowScreenShare(true)}
+              className="gap-3 cursor-pointer">
               <Monitor className="h-4 w-4" />
               <span>Share screen</span>
             </DropdownMenuItem>
-            
+
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleMuteNotifications} className="gap-3 cursor-pointer">
+            <DropdownMenuItem
+              onClick={handleMuteNotifications}
+              className="gap-3 cursor-pointer">
               <BellOff className="h-4 w-4" />
               <span>Mute notifications</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handlePinChat} className="gap-3 cursor-pointer">
+            <DropdownMenuItem
+              onClick={handlePinChat}
+              className="gap-3 cursor-pointer">
               <Pin className="h-4 w-4" />
               <span>Pin chat</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleClearChat} className="gap-3 cursor-pointer">
+            <DropdownMenuItem
+              onClick={handleClearChat}
+              className="gap-3 cursor-pointer">
               <MessageSquare className="h-4 w-4" />
               <span>Clear chat</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDeleteChat} className="gap-3 cursor-pointer text-destructive focus:text-destructive">
+            <DropdownMenuItem
+              onClick={handleDeleteChat}
+              className="gap-3 cursor-pointer text-destructive focus:text-destructive">
               <Trash2 className="h-4 w-4" />
               <span>Delete chat</span>
             </DropdownMenuItem>
-            {chat.type === 'group' && (
+            {chat.type === "group" && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLeaveGroup} className="gap-3 cursor-pointer text-destructive focus:text-destructive">
+                <DropdownMenuItem
+                  onClick={handleLeaveGroup}
+                  className="gap-3 cursor-pointer text-destructive focus:text-destructive">
                   <LogOut className="h-4 w-4" />
                   <span>Leave group</span>
                 </DropdownMenuItem>
@@ -358,13 +404,7 @@ export function ChatHeader({
         sharedMedia={sharedMedia}
       />
 
-      {/* Call Modal - integrated with callStore */}
-      <CallModal
-        open={showCallModal}
-        onOpenChange={setShowCallModal}
-      />
-
-      {chat.type === 'group' && (
+      {chat.type === "group" && (
         <>
           <VoiceRoomModal
             open={showVoiceRoom}
@@ -379,7 +419,10 @@ export function ChatHeader({
             isHost={true}
             streamTitle={`Live in ${chat.name}`}
             hostName={currentUser?.name || "You"}
-            hostAvatar={currentUser?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=You"}
+            hostAvatar={
+              currentUser?.avatar ||
+              "https://api.dicebear.com/7.x/avataaars/svg?seed=You"
+            }
           />
         </>
       )}
@@ -389,7 +432,10 @@ export function ChatHeader({
         onOpenChange={setShowScreenShare}
         isSharing={isScreenSharing}
         sharerName={currentUser?.name || "You"}
-        sharerAvatar={currentUser?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=You"}
+        sharerAvatar={
+          currentUser?.avatar ||
+          "https://api.dicebear.com/7.x/avataaars/svg?seed=You"
+        }
         onStartSharing={() => setIsScreenSharing(true)}
         onStopSharing={() => setIsScreenSharing(false)}
       />
@@ -409,7 +455,7 @@ export function ChatHeader({
         messagePreview={`Delete chat "${chat.name}"?`}
       />
 
-      {chat.type === 'group' && (
+      {chat.type === "group" && (
         <DeleteConfirmModal
           isOpen={showLeaveConfirm}
           onClose={() => setShowLeaveConfirm(false)}

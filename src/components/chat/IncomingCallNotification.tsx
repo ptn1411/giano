@@ -4,16 +4,16 @@
  * Requirements: 2.1, 2.2, 2.5
  */
 
-import { useEffect, useRef, useState } from "react";
-import { Phone, PhoneOff, Video } from "lucide-react";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { 
-  useCallStore, 
-  selectCallState, 
+import {
+  selectCallState,
   selectCurrentCall,
   selectIsRinging,
+  useCallStore,
 } from "@/stores/callStore";
+import { Phone, PhoneOff, Video } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 // Ringtone audio (using a simple beep pattern)
 const RINGTONE_FREQUENCY = 440; // Hz
@@ -24,7 +24,9 @@ interface IncomingCallNotificationProps {
   className?: string;
 }
 
-export function IncomingCallNotification({ className }: IncomingCallNotificationProps) {
+export function IncomingCallNotification({
+  className,
+}: IncomingCallNotificationProps) {
   // Store state
   const callState = useCallStore(selectCallState);
   const currentCall = useCallStore(selectCurrentCall);
@@ -36,13 +38,16 @@ export function IncomingCallNotification({ className }: IncomingCallNotification
 
   // Countdown timer for auto-decline (30 seconds)
   const [countdown, setCountdown] = useState(30);
-  
+
   // Audio context for ringtone
   const audioContextRef = useRef<AudioContext | null>(null);
-  const ringtoneIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const ringtoneIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null
+  );
 
-  // Only show for incoming calls in ringing state
-  const shouldShow = isRinging && currentCall?.isIncoming;
+  // Only show for incoming calls in ringing state, hide when accepted (joining/producing/connected)
+  const shouldShow =
+    callState === "ringing" && isRinging && currentCall?.isIncoming;
 
   /**
    * Play ringtone sound
@@ -50,12 +55,15 @@ export function IncomingCallNotification({ className }: IncomingCallNotification
    */
   const playRingtone = () => {
     if (!audioContextRef.current) {
-      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
       audioContextRef.current = new AudioContextClass();
     }
 
     const ctx = audioContextRef.current;
-    if (ctx.state === 'suspended') {
+    if (ctx.state === "suspended") {
       ctx.resume();
     }
 
@@ -66,10 +74,13 @@ export function IncomingCallNotification({ className }: IncomingCallNotification
     gainNode.connect(ctx.destination);
 
     oscillator.frequency.value = RINGTONE_FREQUENCY;
-    oscillator.type = 'sine';
+    oscillator.type = "sine";
 
     gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + RINGTONE_DURATION / 1000);
+    gainNode.gain.exponentialRampToValueAtTime(
+      0.01,
+      ctx.currentTime + RINGTONE_DURATION / 1000
+    );
 
     oscillator.start(ctx.currentTime);
     oscillator.stop(ctx.currentTime + RINGTONE_DURATION / 1000);
@@ -94,7 +105,10 @@ export function IncomingCallNotification({ className }: IncomingCallNotification
     if (shouldShow) {
       // Start ringtone
       playRingtone();
-      ringtoneIntervalRef.current = setInterval(playRingtone, RINGTONE_INTERVAL);
+      ringtoneIntervalRef.current = setInterval(
+        playRingtone,
+        RINGTONE_INTERVAL
+      );
 
       // Reset countdown
       setCountdown(30);
@@ -148,30 +162,37 @@ export function IncomingCallNotification({ className }: IncomingCallNotification
     return null;
   }
 
-  const isVideoCall = currentCall.type === 'video';
+  const isVideoCall = currentCall.type === "video";
 
   return (
-    <div 
+    <div
       className={cn(
         "fixed top-4 left-1/2 -translate-x-1/2 z-[100]",
         "w-full max-w-sm mx-auto px-4",
         "animate-in slide-in-from-top-4 fade-in duration-300",
         className
-      )}
-    >
+      )}>
       <div className="bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
         {/* Animated gradient background */}
         <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 animate-pulse" />
-        
+
         <div className="relative p-4">
           {/* Header */}
           <div className="flex items-center gap-3 mb-4">
             {/* Avatar with pulse animation */}
             <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-primary animate-ping opacity-25" style={{ animationDuration: '1.5s' }} />
+              <div
+                className="absolute inset-0 rounded-full bg-primary animate-ping opacity-25"
+                style={{ animationDuration: "1.5s" }}
+              />
               <Avatar className="h-14 w-14 border-2 border-primary">
-                <AvatarImage src={currentCall.remoteUserAvatar} alt={currentCall.remoteUserName} />
-                <AvatarFallback className="text-lg">{currentCall.remoteUserName.charAt(0)}</AvatarFallback>
+                <AvatarImage
+                  src={currentCall.remoteUserAvatar}
+                  alt={currentCall.remoteUserName}
+                />
+                <AvatarFallback className="text-lg">
+                  {currentCall.remoteUserName.charAt(0)}
+                </AvatarFallback>
               </Avatar>
             </div>
 
@@ -211,8 +232,7 @@ export function IncomingCallNotification({ className }: IncomingCallNotification
                 "bg-destructive text-destructive-foreground",
                 "hover:bg-destructive/90 transition-all",
                 "shadow-lg hover:shadow-xl"
-              )}
-            >
+              )}>
               <PhoneOff className="h-5 w-5" />
               <span className="font-medium">Decline</span>
             </button>
@@ -227,8 +247,7 @@ export function IncomingCallNotification({ className }: IncomingCallNotification
                 "shadow-lg hover:shadow-xl",
                 "animate-pulse"
               )}
-              style={{ animationDuration: '2s' }}
-            >
+              style={{ animationDuration: "2s" }}>
               {isVideoCall ? (
                 <Video className="h-5 w-5" />
               ) : (

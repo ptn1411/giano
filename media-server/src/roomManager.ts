@@ -1,7 +1,7 @@
-import { Router, WebRtcTransport, Producer, Consumer } from 'mediasoup/node/lib/types';
-import { workerManager } from './workerManager';
-import { config } from './config';
-import { Room, Participant } from './types';
+import { WebRtcTransport } from "mediasoup/node/lib/types";
+import { config } from "./config";
+import { Participant, Room } from "./types";
+import { workerManager } from "./workerManager";
 
 class RoomManager {
   private rooms: Map<string, Room> = new Map();
@@ -48,7 +48,11 @@ class RoomManager {
     console.log(`Room ${roomId} deleted`);
   }
 
-  async addParticipant(roomId: string, oderId: string, socketId: string): Promise<Participant> {
+  async addParticipant(
+    roomId: string,
+    oderId: string,
+    socketId: string
+  ): Promise<Participant> {
     const room = this.rooms.get(roomId);
     if (!room) {
       throw new Error(`Room ${roomId} not found`);
@@ -70,21 +74,37 @@ class RoomManager {
     };
 
     room.participants.set(oderId, participant);
-    console.log(`Participant ${oderId} joined room ${roomId}`);
+    console.log(
+      `[RoomManager] Participant ${oderId} joined room ${roomId} (socketId: ${socketId}, total participants: ${room.participants.size})`
+    );
 
     return participant;
   }
 
-  async removeParticipant(roomId: string, oderId: string): Promise<void> {
+  async removeParticipant(
+    roomId: string,
+    oderId: string,
+    socketId: string
+  ): Promise<void> {
     const room = this.rooms.get(roomId);
     if (!room) return;
 
     const participant = room.participants.get(oderId);
     if (!participant) return;
 
+    // Only remove if socket ID matches (prevents race condition during reconnection)
+    if (participant.socketId !== socketId) {
+      console.log(
+        `[RoomManager] Ignoring removeParticipant for ${oderId}: socketId mismatch`
+      );
+      return;
+    }
+
     this.cleanupParticipant(participant);
     room.participants.delete(oderId);
-    console.log(`Participant ${oderId} left room ${roomId}`);
+    console.log(
+      `[RoomManager] Participant ${oderId} left room ${roomId} (socketId: ${socketId}, remaining: ${room.participants.size})`
+    );
 
     // Delete room if empty
     if (room.participants.size === 0) {
@@ -114,14 +134,26 @@ class RoomManager {
     }
   }
 
-  async createProducerTransport(roomId: string, oderId: string): Promise<WebRtcTransport> {
+  async createProducerTransport(
+    roomId: string,
+    oderId: string
+  ): Promise<WebRtcTransport> {
     const room = this.rooms.get(roomId);
     if (!room) {
       throw new Error(`Room ${roomId} not found`);
     }
 
+    console.log(
+      `[RoomManager] createProducerTransport - Looking for participant ${oderId} in room ${roomId}`
+    );
+    console.log(
+      `[RoomManager] Room has ${room.participants.size} participants:`,
+      Array.from(room.participants.keys())
+    );
+
     const participant = room.participants.get(oderId);
     if (!participant) {
+      this.debugRoomState(roomId);
       throw new Error(`Participant ${oderId} not found in room ${roomId}`);
     }
 
@@ -130,11 +162,12 @@ class RoomManager {
       enableUdp: true,
       enableTcp: true,
       preferUdp: true,
-      initialAvailableOutgoingBitrate: config.mediasoup.webRtcTransport.initialAvailableOutgoingBitrate,
+      initialAvailableOutgoingBitrate:
+        config.mediasoup.webRtcTransport.initialAvailableOutgoingBitrate,
     });
 
-    transport.on('dtlsstatechange', (dtlsState) => {
-      if (dtlsState === 'closed') {
+    transport.on("dtlsstatechange", (dtlsState) => {
+      if (dtlsState === "closed") {
         transport.close();
       }
     });
@@ -143,7 +176,10 @@ class RoomManager {
     return transport;
   }
 
-  async createConsumerTransport(roomId: string, oderId: string): Promise<WebRtcTransport> {
+  async createConsumerTransport(
+    roomId: string,
+    oderId: string
+  ): Promise<WebRtcTransport> {
     const room = this.rooms.get(roomId);
     if (!room) {
       throw new Error(`Room ${roomId} not found`);
@@ -159,11 +195,12 @@ class RoomManager {
       enableUdp: true,
       enableTcp: true,
       preferUdp: true,
-      initialAvailableOutgoingBitrate: config.mediasoup.webRtcTransport.initialAvailableOutgoingBitrate,
+      initialAvailableOutgoingBitrate:
+        config.mediasoup.webRtcTransport.initialAvailableOutgoingBitrate,
     });
 
-    transport.on('dtlsstatechange', (dtlsState) => {
-      if (dtlsState === 'closed') {
+    transport.on("dtlsstatechange", (dtlsState) => {
+      if (dtlsState === "closed") {
         transport.close();
       }
     });
@@ -180,11 +217,18 @@ class RoomManager {
     return room.router.rtpCapabilities;
   }
 
-  getExistingProducers(roomId: string, excludeOderId?: string): Array<{ oderId: string; producerId: string; kind: string }> {
+  getExistingProducers(
+    roomId: string,
+    excludeOderId?: string
+  ): Array<{ oderId: string; producerId: string; kind: string }> {
     const room = this.rooms.get(roomId);
     if (!room) return [];
 
-    const producers: Array<{ oderId: string; producerId: string; kind: string }> = [];
+    const producers: Array<{
+      oderId: string;
+      producerId: string;
+      kind: string;
+    }> = [];
 
     for (const [oderId, participant] of room.participants) {
       if (oderId === excludeOderId) continue;
@@ -201,7 +245,10 @@ class RoomManager {
     return producers;
   }
 
-  getParticipantBySocketId(roomId: string, socketId: string): Participant | undefined {
+  getParticipantBySocketId(
+    roomId: string,
+    socketId: string
+  ): Participant | undefined {
     const room = this.rooms.get(roomId);
     if (!room) return undefined;
 
@@ -224,6 +271,25 @@ class RoomManager {
       }
     }
     return others;
+  }
+
+  // Debug helper
+  debugRoomState(roomId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      console.log(`[RoomManager DEBUG] Room ${roomId} does not exist`);
+      console.log(
+        `[RoomManager DEBUG] Available rooms:`,
+        Array.from(this.rooms.keys())
+      );
+      return;
+    }
+    console.log(
+      `[RoomManager DEBUG] Room ${roomId} has ${room.participants.size} participants:`
+    );
+    for (const [oderId, participant] of room.participants) {
+      console.log(`  - ${oderId} (socketId: ${participant.socketId})`);
+    }
   }
 }
 

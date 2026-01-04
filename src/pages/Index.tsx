@@ -1,20 +1,28 @@
-import { useEffect, useCallback, useRef } from "react";
-import { ChatSidebar } from "@/components/chat/ChatSidebar";
+import { CallModal } from "@/components/chat/CallModal";
 import { ChatArea } from "@/components/chat/ChatArea";
-import { FloatingActionButton } from "@/components/chat/FloatingActionButton";
-import { NewGroupModal } from "@/components/chat/NewGroupModal";
-import { ForwardModal } from "@/components/chat/ForwardModal";
+import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { DeleteConfirmModal } from "@/components/chat/DeleteConfirmModal";
+import { FloatingActionButton } from "@/components/chat/FloatingActionButton";
+import { ForwardModal } from "@/components/chat/ForwardModal";
+import { NewGroupModal } from "@/components/chat/NewGroupModal";
 import { SearchUserModal } from "@/components/chat/SearchUserModal";
 import { ErrorAlert } from "@/components/ui/error-alert";
-import { useChats, useChatsStore } from "@/stores/chatsStore";
-import { useUsers, useUsersStore } from "@/stores/usersStore";
-import { useMessages, useMessagesStore } from "@/stores/messagesStore";
-import { useAuthStore } from "@/stores/authStore";
-import { useChatStore } from "@/stores/chatStore";
-import { Attachment, Message, InlineButton, User, Chat } from "@/services/api/types";
 import { toast } from "@/hooks/use-toast";
 import { botsService, chatsService, messagesService } from "@/services/api";
+import {
+  Attachment,
+  Chat,
+  InlineButton,
+  Message,
+  User,
+} from "@/services/api/types";
+import { useAuthStore } from "@/stores/authStore";
+import { selectCallState, useCallStore } from "@/stores/callStore";
+import { useChats, useChatsStore } from "@/stores/chatsStore";
+import { useChatStore } from "@/stores/chatStore";
+import { useMessages, useMessagesStore } from "@/stores/messagesStore";
+import { useUsers, useUsersStore } from "@/stores/usersStore";
+import { useCallback, useEffect, useRef } from "react";
 
 const Index = () => {
   // Use Zustand store for UI state
@@ -39,14 +47,38 @@ const Index = () => {
     deletingMessage,
     setDeletingMessage,
   } = useChatStore();
-  
-  const { chats, loading: chatsLoading, error: chatsError, searchChats } = useChats();
-  const { messages, loading: messagesLoading, error: messagesError, sendMessage, addReaction, deleteMessage, editMessage, pinMessage, unpinMessage, addMessage, retryMessage, clearError: clearMessagesError } = useMessages(activeChatId);
-  const clearChatMessages = useMessagesStore((state) => state.clearChatMessages);
+
+  const {
+    chats,
+    loading: chatsLoading,
+    error: chatsError,
+    searchChats,
+  } = useChats();
+  const {
+    messages,
+    loading: messagesLoading,
+    error: messagesError,
+    sendMessage,
+    addReaction,
+    deleteMessage,
+    editMessage,
+    pinMessage,
+    unpinMessage,
+    addMessage,
+    retryMessage,
+    clearError: clearMessagesError,
+  } = useMessages(activeChatId);
+  const clearChatMessages = useMessagesStore(
+    (state) => state.clearChatMessages
+  );
   const deleteChatAsync = useChatsStore((state) => state.deleteChatAsync);
   const { users } = useUsers();
   const { session } = useAuthStore();
   const botResponseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Call modal state
+  const callState = useCallStore(selectCallState);
+  const showCallModal = callState !== "idle";
 
   // Fetch chats and users on mount only
   useEffect(() => {
@@ -55,13 +87,15 @@ const Index = () => {
   }, []);
 
   // Convert auth session to User format for sidebar
-  const currentUser: User | null = session ? {
-    id: session.user.id,
-    name: session.user.name,
-    avatar: session.user.avatar,
-    status: 'online' as const,
-    isBot: false,
-  } : null;
+  const currentUser: User | null = session
+    ? {
+        id: session.user.id,
+        name: session.user.name,
+        avatar: session.user.avatar,
+        status: "online" as const,
+        isBot: false,
+      }
+    : null;
 
   // Fetch active chat details
   useEffect(() => {
@@ -84,83 +118,101 @@ const Index = () => {
   }, [activeChatId]);
 
   // Close sidebar on mobile when chat is selected
-  const handleSelectChat = useCallback((chatId: string) => {
-    setActiveChatId(chatId);
-    if (window.innerWidth < 1024) {
-      setSidebarOpen(false);
-    }
-  }, [setActiveChatId, setSidebarOpen]);
+  const handleSelectChat = useCallback(
+    (chatId: string) => {
+      setActiveChatId(chatId);
+      if (window.innerWidth < 1024) {
+        setSidebarOpen(false);
+      }
+    },
+    [setActiveChatId, setSidebarOpen]
+  );
 
   const handleBack = useCallback(() => {
     setActiveChatId(null);
     setSidebarOpen(true);
   }, [setActiveChatId, setSidebarOpen]);
 
-  const handleSendMessage = useCallback(async (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) => {
-    await sendMessage(text, attachments, replyTo);
-    setReplyingTo(null);
-    useChatsStore.getState().fetchChats();
-  }, [sendMessage, setReplyingTo]);
+  const handleSendMessage = useCallback(
+    async (
+      text: string,
+      attachments?: Attachment[],
+      replyTo?: Message["replyTo"]
+    ) => {
+      await sendMessage(text, attachments, replyTo);
+      setReplyingTo(null);
+      useChatsStore.getState().fetchChats();
+    },
+    [sendMessage, setReplyingTo]
+  );
 
-  const handleInlineButtonClick = useCallback(async (button: InlineButton, messageId: string) => {
-    if (!activeChat?.isBot || !activeChatId) return;
-    
-    const botId = activeChat.participants.find(p => p.startsWith('bot-'));
-    if (!botId) return;
+  const handleInlineButtonClick = useCallback(
+    async (button: InlineButton, messageId: string) => {
+      if (!activeChat?.isBot || !activeChatId) return;
 
-    // Show toast for button click
-    toast({
-      title: `${button.text}`,
-      description: button.callbackData ? `Processing...` : undefined,
-    });
+      const botId = activeChat.participants.find((p) => p.startsWith("bot-"));
+      if (!botId) return;
 
-    // Handle callback data via real API
-    if (button.callbackData) {
-      try {
-        const result = await botsService.handleCallback(botId, {
-          chatId: activeChatId,
-          messageId: messageId,
-          callbackData: button.callbackData,
-        });
+      // Show toast for button click
+      toast({
+        title: `${button.text}`,
+        description: button.callbackData ? `Processing...` : undefined,
+      });
 
-        if (result.success && result.message) {
-          // Add the bot's response message to the store
-          addMessage(result.message);
-          useChatsStore.getState().fetchChats();
-        } else if (result.error) {
+      // Handle callback data via real API
+      if (button.callbackData) {
+        try {
+          const result = await botsService.handleCallback(botId, {
+            chatId: activeChatId,
+            messageId: messageId,
+            callbackData: button.callbackData,
+          });
+
+          if (result.success && result.message) {
+            // Add the bot's response message to the store
+            addMessage(result.message);
+            useChatsStore.getState().fetchChats();
+          } else if (result.error) {
+            toast({
+              title: "Error",
+              description: result.error.message,
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
           toast({
             title: "Error",
-            description: result.error.message,
+            description: "Failed to process bot callback",
             variant: "destructive",
           });
         }
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to process bot callback",
-          variant: "destructive",
-        });
       }
-    }
 
-    // Open URL if present
-    if (button.url) {
-      window.open(button.url, '_blank');
-    }
-  }, [activeChat, activeChatId, addMessage]);
+      // Open URL if present
+      if (button.url) {
+        window.open(button.url, "_blank");
+      }
+    },
+    [activeChat, activeChatId, addMessage]
+  );
 
-  const handleForwardMessage = useCallback(async (chatId: string, message: Message) => {
-    const forwardedText = message.text ? `[Forwarded]\n${message.text}` : '[Forwarded message]';
-    await messagesService.sendMessage(chatId, { 
-      text: forwardedText, 
-      attachments: message.attachments 
-    });
-    useChatsStore.getState().fetchChats();
-    toast({
-      title: "Message forwarded",
-      description: "Your message has been forwarded successfully",
-    });
-  }, []);
+  const handleForwardMessage = useCallback(
+    async (chatId: string, message: Message) => {
+      const forwardedText = message.text
+        ? `[Forwarded]\n${message.text}`
+        : "[Forwarded message]";
+      await messagesService.sendMessage(chatId, {
+        text: forwardedText,
+        attachments: message.attachments,
+      });
+      useChatsStore.getState().fetchChats();
+      toast({
+        title: "Message forwarded",
+        description: "Your message has been forwarded successfully",
+      });
+    },
+    []
+  );
 
   const handleDeleteMessage = useCallback(async () => {
     if (deletingMessage) {
@@ -174,36 +226,45 @@ const Index = () => {
     }
   }, [deletingMessage, deleteMessage, setDeletingMessage]);
 
-  const handleEditMessage = useCallback(async (messageId: string, newText: string) => {
-    await editMessage(messageId, newText);
-    setEditingMessage(null);
-    toast({
-      title: "Message edited",
-      description: "Your message has been updated",
-    });
-  }, [editMessage, setEditingMessage]);
+  const handleEditMessage = useCallback(
+    async (messageId: string, newText: string) => {
+      await editMessage(messageId, newText);
+      setEditingMessage(null);
+      toast({
+        title: "Message edited",
+        description: "Your message has been updated",
+      });
+    },
+    [editMessage, setEditingMessage]
+  );
 
   const handleNewChat = useCallback(() => {
     setShowSearchUserModal(true);
   }, [setShowSearchUserModal]);
 
-  const handleGroupCreated = useCallback((chatId: string) => {
-    useChatsStore.getState().fetchChats();
-    setActiveChatId(chatId);
-    setShowNewGroupModal(false);
-    toast({
-      title: "Group created",
-      description: "Your new group has been created successfully",
-    });
-  }, [setActiveChatId, setShowNewGroupModal]);
+  const handleGroupCreated = useCallback(
+    (chatId: string) => {
+      useChatsStore.getState().fetchChats();
+      setActiveChatId(chatId);
+      setShowNewGroupModal(false);
+      toast({
+        title: "Group created",
+        description: "Your new group has been created successfully",
+      });
+    },
+    [setActiveChatId, setShowNewGroupModal]
+  );
 
-  const handleChatCreated = useCallback((chatId: string) => {
-    useChatsStore.getState().fetchChats();
-    setActiveChatId(chatId);
-    if (window.innerWidth < 1024) {
-      setSidebarOpen(false);
-    }
-  }, [setActiveChatId, setSidebarOpen]);
+  const handleChatCreated = useCallback(
+    (chatId: string) => {
+      useChatsStore.getState().fetchChats();
+      setActiveChatId(chatId);
+      if (window.innerWidth < 1024) {
+        setSidebarOpen(false);
+      }
+    },
+    [setActiveChatId, setSidebarOpen]
+  );
 
   // Get participants for active chat
   const participants = activeChat
@@ -217,7 +278,7 @@ const Index = () => {
         <div className="fixed top-4 right-4 z-50 max-w-md">
           {chatsError && (
             <ErrorAlert
-              error={{ type: 'server', message: chatsError }}
+              error={{ type: "server", message: chatsError }}
               onRetry={() => useChatsStore.getState().fetchChats()}
               onDismiss={() => useChatsStore.getState().clearError()}
               className="mb-2"
@@ -225,8 +286,11 @@ const Index = () => {
           )}
           {messagesError && (
             <ErrorAlert
-              error={{ type: 'server', message: messagesError }}
-              onRetry={() => activeChatId && useMessagesStore.getState().fetchMessages(activeChatId)}
+              error={{ type: "server", message: messagesError }}
+              onRetry={() =>
+                activeChatId &&
+                useMessagesStore.getState().fetchMessages(activeChatId)
+              }
               onDismiss={clearMessagesError}
             />
           )}
@@ -267,14 +331,20 @@ const Index = () => {
           onEditSubmit={handleEditMessage}
           onMenuClick={toggleSidebar}
           onBack={handleBack}
-          onClearChat={activeChatId ? () => clearChatMessages(activeChatId) : undefined}
-          onDeleteChat={activeChatId ? async () => {
-            const success = await deleteChatAsync(activeChatId);
-            if (success) {
-              setActiveChatId(null);
-              setActiveChat(null);
-            }
-          } : undefined}
+          onClearChat={
+            activeChatId ? () => clearChatMessages(activeChatId) : undefined
+          }
+          onDeleteChat={
+            activeChatId
+              ? async () => {
+                  const success = await deleteChatAsync(activeChatId);
+                  if (success) {
+                    setActiveChatId(null);
+                    setActiveChat(null);
+                  }
+                }
+              : undefined
+          }
           loading={messagesLoading}
         />
       </main>
@@ -305,7 +375,12 @@ const Index = () => {
         isOpen={!!deletingMessage}
         onClose={() => setDeletingMessage(null)}
         onConfirm={handleDeleteMessage}
-        messagePreview={deletingMessage?.text || (deletingMessage?.attachments?.length ? `${deletingMessage.attachments.length} attachment(s)` : "")}
+        messagePreview={
+          deletingMessage?.text ||
+          (deletingMessage?.attachments?.length
+            ? `${deletingMessage.attachments.length} attachment(s)`
+            : "")
+        }
       />
 
       <SearchUserModal
@@ -313,6 +388,9 @@ const Index = () => {
         onClose={() => setShowSearchUserModal(false)}
         onChatCreated={handleChatCreated}
       />
+
+      {/* Global Call Modal */}
+      <CallModal open={showCallModal} onOpenChange={() => {}} />
     </div>
   );
 };
