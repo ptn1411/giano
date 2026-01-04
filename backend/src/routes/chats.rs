@@ -10,9 +10,9 @@ use uuid::Uuid;
 
 use crate::{
     error::AppResult,
-    models::{ChatDetailResponse, ChatResponse, MessageResponse},
+    models::{BotPublicResponse, ChatDetailResponse, ChatResponse, MessageResponse},
     routes::auth::get_current_user_id,
-    services::{ChatService, MessageService, WebSocketService, message::{AttachmentInput, ReplyToInput}},
+    services::{bot_engine::BotEngineService, ChatService, MessageService, MessageProcessor, WebSocketService, message::{AttachmentInput, ReplyToInput}},
     AppState,
 };
 
@@ -27,6 +27,9 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/:chat_id/messages/:message_id", axum::routing::put(edit_message).delete(delete_message))
         .route("/:chat_id/messages/:message_id/reactions", post(toggle_reaction))
         .route("/:chat_id/messages/:message_id/pin", post(pin_message).delete(unpin_message))
+        // Bot-Chat management routes (Requirements 4.1, 4.2)
+        .route("/:chat_id/bots", get(list_chat_bots).post(add_bot_to_chat))
+        .route("/:chat_id/bots/:bot_id", axum::routing::delete(remove_bot_from_chat))
 }
 
 #[derive(Debug, Deserialize)]
@@ -270,6 +273,16 @@ async fn send_message(
     )
     .await;
 
+    // Process message for bot commands (Requirements 6.1, 6.2)
+    // This will parse commands and dispatch to subscribed bots
+    if let Err(e) = MessageProcessor::process_message(
+        &state.db,
+        state.ws_manager.clone(),
+        &message,
+    ).await {
+        tracing::error!("Failed to process message for bots: {}", e);
+    }
+
     Ok(Json(MessageResponseWrapper { message }))
 }
 
@@ -414,4 +427,125 @@ async fn unpin_message(
     .await;
 
     Ok(Json(MessageResponseWrapper { message }))
+}
+
+
+// ==================== Bot-Chat Management Routes ====================
+// Requirements: 4.1, 4.2
+
+/// Request to add a bot to a chat
+#[derive(Debug, Deserialize)]
+pub struct AddBotToChatRequest {
+    #[serde(rename = "botId")]
+    bot_id: Uuid,
+}
+
+/// Response wrapper for a list of bots in a chat
+#[derive(Debug, Serialize)]
+pub struct ChatBotsResponse {
+    bots: Vec<BotPublicResponse>,
+}
+
+/// Response wrapper for bot-chat operation
+#[derive(Debug, Serialize)]
+pub struct BotChatOperationResponse {
+    success: bool,
+    message: String,
+}
+
+/// Add a bot to a chat.
+///
+/// POST /api/v1/chats/:chat_id/bots
+///
+/// # Request Body
+/// ```json
+/// {
+///   "botId": "uuid"
+/// }
+/// ```
+///
+/// # Requirements
+/// - 4.1: Create a bot_chats record linking the bot and chat
+async fn add_bot_to_chat(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path(chat_id): Path<Uuid>,
+    Json(req): Json<AddBotToChatRequest>,
+) -> AppResult<Json<BotChatOperationResponse>> {
+    let user_id = get_current_user_id(&state, &headers).await?;
+
+    // Verify user is a participant of the chat (authorization)
+    let is_participant = ChatService::is_participant(&state.db, chat_id, user_id).await?;
+    if !is_participant {
+        return Err(crate::error::AppError::AccessDenied);
+    }
+
+    // Add bot to chat
+    BotEngineService::add_bot_to_chat(&state.db, req.bot_id, chat_id).await?;
+
+    Ok(Json(BotChatOperationResponse {
+        success: true,
+        message: "Bot added to chat successfully".to_string(),
+    }))
+}
+
+/// Remove a bot from a chat.
+///
+/// DELETE /api/v1/chats/:chat_id/bots/:bot_id
+///
+/// # Requirements
+/// - 4.2: Delete the bot_chats record
+async fn remove_bot_from_chat(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path((chat_id, bot_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<BotChatOperationResponse>> {
+    let user_id = get_current_user_id(&state, &headers).await?;
+
+    // Verify user is a participant of the chat (authorization)
+    let is_participant = ChatService::is_participant(&state.db, chat_id, user_id).await?;
+    if !is_participant {
+        return Err(crate::error::AppError::AccessDenied);
+    }
+
+    // Remove bot from chat
+    let removed = BotEngineService::remove_bot_from_chat(&state.db, bot_id, chat_id).await?;
+
+    if removed {
+        Ok(Json(BotChatOperationResponse {
+            success: true,
+            message: "Bot removed from chat successfully".to_string(),
+        }))
+    } else {
+        Ok(Json(BotChatOperationResponse {
+            success: false,
+            message: "Bot was not in this chat".to_string(),
+        }))
+    }
+}
+
+/// List all bots in a chat.
+///
+/// GET /api/v1/chats/:chat_id/bots
+///
+/// # Returns
+/// List of bots subscribed to the chat.
+async fn list_chat_bots(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path(chat_id): Path<Uuid>,
+) -> AppResult<Json<ChatBotsResponse>> {
+    let user_id = get_current_user_id(&state, &headers).await?;
+
+    // Verify user is a participant of the chat (authorization)
+    let is_participant = ChatService::is_participant(&state.db, chat_id, user_id).await?;
+    if !is_participant {
+        return Err(crate::error::AppError::AccessDenied);
+    }
+
+    // Get bots in chat
+    let bots = BotEngineService::get_chat_bots(&state.db, chat_id).await?;
+    let bot_responses: Vec<BotPublicResponse> = bots.into_iter().map(BotPublicResponse::from).collect();
+
+    Ok(Json(ChatBotsResponse { bots: bot_responses }))
 }

@@ -1498,21 +1498,14 @@ export function formatCallDuration(seconds: number): string {
  */
 export function getRemoteStream(state: CallStoreState): MediaStream | null {
   const participants = Array.from(state.remoteParticipants.values());
-  console.log(
-    "[CallStore] getRemoteStream - participants count:",
-    participants.length
-  );
+
 
   if (participants.length > 0 && participants[0].stream) {
-    console.log("[CallStore] getRemoteStream - returning stream with tracks:", {
-      audio: participants[0].stream.getAudioTracks().length,
-      video: participants[0].stream.getVideoTracks().length,
-      participantId: participants[0].oderId,
-    });
+
     return participants[0].stream;
   }
 
-  console.log("[CallStore] getRemoteStream - no stream available");
+ 
   return null;
 }
 

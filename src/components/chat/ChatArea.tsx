@@ -25,6 +25,7 @@ interface ChatAreaProps {
   onUnpin: (messageId: string) => void;
   onRetry?: (messageId: string) => void;
   onInlineButtonClick?: (button: InlineButton, messageId: string) => void;
+  onCommandClick?: (command: string) => void;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
   editingMessage?: Message | null;
@@ -53,6 +54,7 @@ export function ChatArea({
   onUnpin,
   onRetry,
   onInlineButtonClick,
+  onCommandClick,
   replyingTo,
   onCancelReply,
   editingMessage,
@@ -169,6 +171,7 @@ export function ChatArea({
         onUnpin={onUnpin}
         onRetry={onRetry}
         onInlineButtonClick={handleInlineButtonClick}
+        onCommandClick={onCommandClick || ((cmd) => onSendMessage(cmd))}
         loading={loading}
         searchQuery={isSearchOpen ? searchQuery : undefined}
       />

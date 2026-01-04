@@ -18,6 +18,7 @@ interface MessageListProps {
   onUnpin: (messageId: string) => void;
   onRetry?: (messageId: string) => void;
   onInlineButtonClick?: (button: InlineButton, messageId: string) => void;
+  onCommandClick?: (command: string) => void;
   loading?: boolean;
   searchQuery?: string;
   typingUsers?: User[];
@@ -35,6 +36,7 @@ export function MessageList({
   onUnpin,
   onRetry,
   onInlineButtonClick,
+  onCommandClick,
   loading, 
   searchQuery, 
   typingUsers = [] 
@@ -95,6 +97,7 @@ export function MessageList({
               onRetry={onRetry}
               searchQuery={searchQuery}
               onInlineButtonClick={onInlineButtonClick}
+              onCommandClick={onCommandClick}
               users={users}
             />
           </div>

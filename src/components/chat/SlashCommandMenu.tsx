@@ -1,5 +1,6 @@
 import { Command } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BOTFATHER_COMMANDS, isBotFatherChat } from "@/lib/botfather";
 
 interface SlashCommand {
   command: string;
@@ -54,7 +55,11 @@ const defaultCommands: SlashCommand[] = [
   { command: "/settings", description: "Settings" },
 ];
 
-export function getCommandsForBot(botId: string | null): SlashCommand[] {
+export function getCommandsForBot(botId: string | null, chatId?: string | null): SlashCommand[] {
+  // Check if this is BotFather chat
+  if (chatId && isBotFatherChat(chatId)) {
+    return BOTFATHER_COMMANDS;
+  }
   if (!botId) return defaultCommands;
   return botCommands[botId] || defaultCommands;
 }

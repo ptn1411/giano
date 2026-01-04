@@ -5,6 +5,8 @@ pub mod settings;
 pub mod upload;
 pub mod ws;
 pub mod bots;
+pub mod bot_api;
+pub mod botfather;
 
 use axum::Router;
 use std::sync::Arc;
@@ -19,4 +21,8 @@ pub fn api_routes() -> Router<Arc<AppState>> {
         .nest("/upload", upload::routes())
         .nest("/ws", ws::routes())
         .nest("/bots", bots::routes())
+        .nest("/botfather", botfather::routes())
 }
+
+/// Bot API routes (Telegram-style /bot:token/* endpoints)
+pub use bot_api::bot_api_routes;

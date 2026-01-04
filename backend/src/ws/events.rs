@@ -4,6 +4,57 @@ use uuid::Uuid;
 
 use crate::models::MessageResponse;
 
+// ==================== Bot WebSocket Events ====================
+
+/// Bot-specific server events sent to connected bots
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "event", content = "data")]
+#[serde(rename_all = "snake_case")]
+pub enum BotServerEvent {
+    /// Update sent to bot (message in subscribed chat)
+    BotUpdate {
+        #[serde(rename = "updateId")]
+        update_id: Uuid,
+        message: BotUpdateMessage,
+    },
+    /// Bot authenticated successfully
+    BotConnected {
+        #[serde(rename = "botId")]
+        bot_id: Uuid,
+        #[serde(rename = "botName")]
+        bot_name: String,
+    },
+    /// Error event for bots
+    BotError {
+        code: String,
+        message: String,
+    },
+}
+
+/// Message data in bot update (matches webhook payload format per Requirement 9.6)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BotUpdateMessage {
+    #[serde(rename = "messageId")]
+    pub message_id: Uuid,
+    pub chat: BotUpdateChat,
+    pub from: BotUpdateUser,
+    pub text: String,
+}
+
+/// Chat info in bot update
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BotUpdateChat {
+    pub id: Uuid,
+}
+
+/// User info in bot update
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BotUpdateUser {
+    pub id: Uuid,
+}
+
+// ==================== User WebSocket Events ====================
+
 /// Events sent from server to client
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "event", content = "data")]

@@ -51,6 +51,10 @@ export type {
 export { botsService } from './bots';
 export type { BotCallbackRequest, BotCallbackResponse, BotCallbackResult } from './bots';
 
+// BotFather Service
+export { botfatherService } from './botfather';
+export type { BotFatherMessageRequest, BotFatherMessageResponse, BotFatherResult } from './botfather';
+
 // Error Utilities
 export {
   parseApiError as parseError,

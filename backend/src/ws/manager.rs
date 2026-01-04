@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
 
-use super::events::ServerEvent;
+use super::events::{BotServerEvent, ServerEvent};
 
 /// Represents a connected WebSocket client
 #[derive(Debug, Clone)]
@@ -11,6 +11,14 @@ pub struct Client {
     pub user_id: Uuid,
     pub user_name: String,
     pub sender: mpsc::UnboundedSender<ServerEvent>,
+}
+
+/// Represents a connected bot WebSocket client
+#[derive(Debug, Clone)]
+pub struct BotClient {
+    pub bot_id: Uuid,
+    pub bot_name: String,
+    pub sender: mpsc::UnboundedSender<BotServerEvent>,
 }
 
 /// Represents an active call session
@@ -47,6 +55,8 @@ pub struct WsManager {
     active_calls: RwLock<HashMap<Uuid, CallSession>>,
     /// Map of user_id to their current call_id (if in a call)
     user_calls: RwLock<HashMap<Uuid, Uuid>>,
+    /// Map of bot_id to their connected bot clients (supports multiple connections per bot)
+    bot_clients: RwLock<HashMap<Uuid, Vec<BotClient>>>,
 }
 
 impl WsManager {
@@ -57,6 +67,7 @@ impl WsManager {
             user_rooms: RwLock::new(HashMap::new()),
             active_calls: RwLock::new(HashMap::new()),
             user_calls: RwLock::new(HashMap::new()),
+            bot_clients: RwLock::new(HashMap::new()),
         })
     }
 
@@ -310,5 +321,88 @@ impl WsManager {
         // In a real implementation, this would look up the user's avatar from DB
         // For now, return None as avatar is not stored in Client struct
         None
+    }
+
+    // ==================== Bot Client Management ====================
+    // Requirements: 9.1, 9.2, 9.3, 9.4, 9.5
+
+    /// Register a new bot client connection
+    ///
+    /// # Arguments
+    /// * `client` - The bot client to register
+    ///
+    /// # Requirements
+    /// - 9.1: Authenticate and establish bot WebSocket connection
+    pub async fn add_bot_client(&self, client: BotClient) {
+        let bot_id = client.bot_id;
+        let mut bot_clients = self.bot_clients.write().await;
+        bot_clients.entry(bot_id).or_default().push(client);
+        tracing::info!("Bot client connected: bot_id={}", bot_id);
+    }
+
+    /// Remove a bot client connection
+    ///
+    /// # Arguments
+    /// * `bot_id` - The bot's UUID
+    /// * `sender` - The sender channel to identify the specific connection
+    pub async fn remove_bot_client(&self, bot_id: Uuid, sender: &mpsc::UnboundedSender<BotServerEvent>) {
+        let mut bot_clients = self.bot_clients.write().await;
+        if let Some(clients) = bot_clients.get_mut(&bot_id) {
+            clients.retain(|c| !c.sender.same_channel(sender));
+            if clients.is_empty() {
+                bot_clients.remove(&bot_id);
+            }
+        }
+        tracing::info!("Bot client disconnected: bot_id={}", bot_id);
+    }
+
+    /// Check if a bot is currently connected via WebSocket
+    ///
+    /// # Arguments
+    /// * `bot_id` - The bot's UUID
+    ///
+    /// # Returns
+    /// * `bool` - True if the bot has at least one active WebSocket connection
+    ///
+    /// # Requirements
+    /// - 9.4: Check if bot has WebSocket connection (for delivery preference)
+    pub async fn is_bot_connected(&self, bot_id: Uuid) -> bool {
+        let bot_clients = self.bot_clients.read().await;
+        bot_clients.contains_key(&bot_id)
+    }
+
+    /// Send event to a specific bot (all their connections)
+    ///
+    /// # Arguments
+    /// * `bot_id` - The bot's UUID
+    /// * `event` - The event to send
+    ///
+    /// # Returns
+    /// * `bool` - True if the event was sent to at least one connection
+    ///
+    /// # Requirements
+    /// - 9.2: Push message updates directly to bot's WebSocket
+    /// - 9.3: Deliver updates via WebSocket when bot is subscribed to chat
+    pub async fn send_to_bot(&self, bot_id: Uuid, event: BotServerEvent) -> bool {
+        let bot_clients = self.bot_clients.read().await;
+        if let Some(clients) = bot_clients.get(&bot_id) {
+            let mut sent = false;
+            for client in clients {
+                if client.sender.send(event.clone()).is_ok() {
+                    sent = true;
+                } else {
+                    tracing::warn!("Failed to send to bot {}", bot_id);
+                }
+            }
+            sent
+        } else {
+            false
+        }
+    }
+
+    /// Get all connected bot IDs
+    pub async fn get_connected_bots(&self) -> Vec<Uuid> {
+        let bot_clients = self.bot_clients.read().await;
+        bot_clients.keys().cloned().collect()
     }
 }

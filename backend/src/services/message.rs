@@ -83,11 +83,11 @@ impl MessageService {
 
         let reply_to_id = reply_to.as_ref().map(|r| r.id);
 
-        // Create message
+        // Create message with sender_type = 'user'
         let message: Message = sqlx::query_as(
             r#"
-            INSERT INTO messages (chat_id, sender_id, text, reply_to_id, delivery_status)
-            VALUES ($1, $2, $3, $4, 'sent')
+            INSERT INTO messages (chat_id, sender_id, sender_type, text, reply_to_id, delivery_status)
+            VALUES ($1, $2, 'user', $3, $4, 'sent')
             RETURNING *
             "#,
         )
@@ -132,6 +132,72 @@ impl MessageService {
         )
         .bind(chat_id)
         .bind(sender_id)
+        .execute(&db.pool)
+        .await?;
+
+        Self::build_message_response(db, message).await
+    }
+
+    /// Send a message from a bot.
+    /// 
+    /// This function creates a message with sender_type = 'bot'.
+    /// Unlike send_message, it doesn't check if the sender is a chat participant
+    /// because bots use their own subscription system (bot_chats table).
+    /// 
+    /// # Arguments
+    /// * `db` - Database connection
+    /// * `chat_id` - The chat to send the message to
+    /// * `bot_id` - The bot's UUID
+    /// * `text` - The message text
+    /// * `reply_to_id` - Optional message ID to reply to
+    /// 
+    /// # Returns
+    /// * `AppResult<MessageResponse>` - The created message
+    /// 
+    /// # Requirements
+    /// - 7.3: Mark the sender as Bot(bot_id)
+    pub async fn send_bot_message(
+        db: &Database,
+        chat_id: Uuid,
+        bot_id: Uuid,
+        text: String,
+        reply_to_id: Option<Uuid>,
+    ) -> AppResult<MessageResponse> {
+        // Validate message
+        if text.trim().is_empty() {
+            return Err(AppError::EmptyMessage);
+        }
+
+        // Create message with sender_type = 'bot'
+        let message: Message = sqlx::query_as(
+            r#"
+            INSERT INTO messages (chat_id, sender_id, sender_type, text, reply_to_id, delivery_status)
+            VALUES ($1, $2, 'bot', $3, $4, 'sent')
+            RETURNING *
+            "#,
+        )
+        .bind(chat_id)
+        .bind(bot_id)
+        .bind(&text)
+        .bind(reply_to_id)
+        .fetch_one(&db.pool)
+        .await?;
+
+        // Update chat timestamp
+        sqlx::query("UPDATE chats SET updated_at = NOW() WHERE id = $1")
+            .bind(chat_id)
+            .execute(&db.pool)
+            .await?;
+
+        // Increment unread count for all participants (bots don't have unread counts)
+        sqlx::query(
+            r#"
+            UPDATE chat_participants
+            SET unread_count = unread_count + 1
+            WHERE chat_id = $1
+            "#,
+        )
+        .bind(chat_id)
         .execute(&db.pool)
         .await?;
 
@@ -381,6 +447,7 @@ impl MessageService {
             id: message.id,
             chat_id: message.chat_id,
             sender_id: message.sender_id,
+            sender_type: message.sender_type.clone().unwrap_or_else(|| "user".to_string()),
             text: message.text,
             timestamp: message.created_at,
             is_read: message.is_read,

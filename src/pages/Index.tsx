@@ -22,6 +22,8 @@ import { useChats, useChatsStore } from "@/stores/chatsStore";
 import { useChatStore } from "@/stores/chatStore";
 import { useMessages, useMessagesStore } from "@/stores/messagesStore";
 import { useUsers, useUsersStore } from "@/stores/usersStore";
+import { useBotFatherStore } from "@/stores/botfatherStore";
+import { isBotFatherChat, BOTFATHER_CHAT, BOTFATHER_ID } from "@/lib/botfather";
 import { useCallback, useEffect, useRef } from "react";
 
 const Index = () => {
@@ -76,6 +78,14 @@ const Index = () => {
   const { session } = useAuthStore();
   const botResponseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // BotFather store
+  const botfatherMessages = useBotFatherStore((state) => state.messages);
+  const sendBotFatherMessage = useBotFatherStore((state) => state.sendMessage);
+  const botfatherLoading = useBotFatherStore((state) => state.loading);
+
+  // Check if current chat is BotFather
+  const isBotFather = activeChatId ? isBotFatherChat(activeChatId) : false;
+
   // Call modal state
   const callState = useCallStore(selectCallState);
   const showCallModal = callState !== "idle";
@@ -101,6 +111,11 @@ const Index = () => {
   useEffect(() => {
     const fetchChat = async () => {
       if (activeChatId) {
+        // Handle BotFather chat specially
+        if (isBotFatherChat(activeChatId)) {
+          setActiveChat(BOTFATHER_CHAT);
+          return;
+        }
         const result = await chatsService.getChat(activeChatId);
         setActiveChat(result.chat || null);
       } else {
@@ -110,9 +125,9 @@ const Index = () => {
     fetchChat();
   }, [activeChatId, setActiveChat]);
 
-  // Fetch messages when active chat changes
+  // Fetch messages when active chat changes (skip for BotFather)
   useEffect(() => {
-    if (activeChatId) {
+    if (activeChatId && !isBotFatherChat(activeChatId)) {
       useMessagesStore.getState().fetchMessages(activeChatId);
     }
   }, [activeChatId]);
@@ -139,11 +154,18 @@ const Index = () => {
       attachments?: Attachment[],
       replyTo?: Message["replyTo"]
     ) => {
+      // Handle BotFather messages specially
+      if (isBotFather) {
+        await sendBotFatherMessage(text);
+        setReplyingTo(null);
+        return;
+      }
+      
       await sendMessage(text, attachments, replyTo);
       setReplyingTo(null);
       useChatsStore.getState().fetchChats();
     },
-    [sendMessage, setReplyingTo]
+    [sendMessage, setReplyingTo, isBotFather, sendBotFatherMessage]
   );
 
   const handleInlineButtonClick = useCallback(
@@ -268,8 +290,14 @@ const Index = () => {
 
   // Get participants for active chat
   const participants = activeChat
-    ? users.filter((u) => activeChat.participants.includes(u.id))
+    ? isBotFather
+      ? [{ id: BOTFATHER_ID, name: 'BotFather', avatar: BOTFATHER_CHAT.avatar, status: 'online' as const, isBot: true }]
+      : users.filter((u) => activeChat.participants.includes(u.id))
     : [];
+
+  // Get messages - use BotFather store for BotFather chat
+  const displayMessages = isBotFather ? botfatherMessages : messages;
+  const displayLoading = isBotFather ? botfatherLoading : messagesLoading;
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
@@ -312,7 +340,7 @@ const Index = () => {
       <main className="flex flex-1 flex-col min-w-0">
         <ChatArea
           chat={activeChat as Chat | null}
-          messages={messages}
+          messages={displayMessages}
           participants={participants}
           onSendMessage={handleSendMessage}
           onReaction={addReaction}
@@ -332,10 +360,10 @@ const Index = () => {
           onMenuClick={toggleSidebar}
           onBack={handleBack}
           onClearChat={
-            activeChatId ? () => clearChatMessages(activeChatId) : undefined
+            activeChatId && !isBotFather ? () => clearChatMessages(activeChatId) : undefined
           }
           onDeleteChat={
-            activeChatId
+            activeChatId && !isBotFather
               ? async () => {
                   const success = await deleteChatAsync(activeChatId);
                   if (success) {
@@ -345,7 +373,7 @@ const Index = () => {
                 }
               : undefined
           }
-          loading={messagesLoading}
+          loading={displayLoading}
         />
       </main>
 

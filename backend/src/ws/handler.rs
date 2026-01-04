@@ -10,15 +10,20 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::{services::AuthService, AppState};
+use crate::{services::AuthService, services::bot_engine::BotEngineService, AppState};
 
 use super::{
-    events::{ClientEvent, ServerEvent},
-    manager::{Client, WsManager},
+    events::{BotServerEvent, ClientEvent, ServerEvent},
+    manager::{BotClient, Client, WsManager},
 };
 
 #[derive(Debug, serde::Deserialize)]
 pub struct WsQuery {
+    token: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct BotWsQuery {
     token: String,
 }
 
@@ -65,6 +70,147 @@ pub async fn ws_handler(
     let user_name = claims.name.clone();
 
     ws.on_upgrade(move |socket| handle_socket(socket, user_id, user_name, state, ws_manager))
+}
+
+/// Bot WebSocket upgrade handler with token authentication
+///
+/// # Requirements
+/// - 9.1: Authenticate bot via token and establish WebSocket connection
+pub async fn bot_ws_handler(
+    ws: WebSocketUpgrade,
+    Query(query): Query<BotWsQuery>,
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let ws_manager = state.ws_manager.clone();
+    
+    // Verify bot token and get bot info
+    let bot = match BotEngineService::get_bot_by_token(&state.db, &query.token).await {
+        Ok(bot) => bot,
+        Err(_) => {
+            return ws.on_upgrade(|mut socket| async move {
+                let error = BotServerEvent::BotError {
+                    code: "INVALID_TOKEN".to_string(),
+                    message: "Invalid bot token".to_string(),
+                };
+                let _ = socket
+                    .send(Message::Text(serde_json::to_string(&error).unwrap()))
+                    .await;
+                let _ = socket.close().await;
+            });
+        }
+    };
+
+    // Check if bot is active
+    if !bot.is_active {
+        return ws.on_upgrade(|mut socket| async move {
+            let error = BotServerEvent::BotError {
+                code: "BOT_INACTIVE".to_string(),
+                message: "Bot is not active".to_string(),
+            };
+            let _ = socket
+                .send(Message::Text(serde_json::to_string(&error).unwrap()))
+                .await;
+            let _ = socket.close().await;
+        });
+    }
+
+    let bot_id = bot.id;
+    let bot_name = bot.name.clone();
+
+    ws.on_upgrade(move |socket| handle_bot_socket(socket, bot_id, bot_name, state, ws_manager))
+}
+
+/// Handle an individual bot WebSocket connection
+///
+/// # Requirements
+/// - 9.1: Authenticate and establish bot WebSocket connection
+/// - 9.3: Track bot connections in WsManager
+async fn handle_bot_socket(
+    socket: WebSocket,
+    bot_id: Uuid,
+    bot_name: String,
+    _state: Arc<AppState>,
+    ws_manager: Arc<WsManager>,
+) {
+    let (mut ws_sender, mut ws_receiver) = socket.split();
+
+    // Create channel for sending messages to this bot
+    let (tx, mut rx) = mpsc::unbounded_channel::<BotServerEvent>();
+
+    // Register bot client
+    let client = BotClient {
+        bot_id,
+        bot_name: bot_name.clone(),
+        sender: tx.clone(),
+    };
+    ws_manager.add_bot_client(client).await;
+
+    // Send connected confirmation
+    let connected_event = BotServerEvent::BotConnected {
+        bot_id,
+        bot_name: bot_name.clone(),
+    };
+    let _ = tx.send(connected_event);
+
+    tracing::info!("Bot WebSocket connected: bot_id={}, bot_name={}", bot_id, bot_name);
+
+    // Task to forward messages from channel to WebSocket
+    let ws_manager_clone = ws_manager.clone();
+    let tx_clone = tx.clone();
+    let send_task = tokio::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            match serde_json::to_string(&event) {
+                Ok(json) => {
+                    if ws_sender.send(Message::Text(json)).await.is_err() {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Failed to serialize bot event: {}", e);
+                }
+            }
+        }
+        ws_manager_clone.remove_bot_client(bot_id, &tx_clone).await;
+    });
+
+    // Task to receive messages from WebSocket (bots don't send events, just keep-alive)
+    let recv_task = tokio::spawn(async move {
+        while let Some(result) = ws_receiver.next().await {
+            match result {
+                Ok(Message::Text(text)) => {
+                    // Bots don't send events, but we log any received messages
+                    tracing::debug!("Received message from bot {}: {}", bot_id, text);
+                }
+                Ok(Message::Ping(data)) => {
+                    tracing::debug!("Received ping from bot {}: {:?}", bot_id, data);
+                }
+                Ok(Message::Pong(_)) => {
+                    tracing::debug!("Received pong from bot {}", bot_id);
+                }
+                Ok(Message::Close(_)) => {
+                    tracing::info!("Bot {} requested close", bot_id);
+                    break;
+                }
+                Ok(Message::Binary(_)) => {
+                    tracing::warn!("Received unexpected binary message from bot {}", bot_id);
+                }
+                Err(e) => {
+                    tracing::error!("WebSocket error for bot {}: {}", bot_id, e);
+                    break;
+                }
+            }
+        }
+    });
+
+    // Wait for either task to complete
+    tokio::select! {
+        _ = send_task => {},
+        _ = recv_task => {},
+    }
+
+    // Cleanup: remove bot client
+    ws_manager.remove_bot_client(bot_id, &tx).await;
+    tracing::info!("Bot WebSocket disconnected: bot_id={}", bot_id);
 }
 
 /// Handle an individual WebSocket connection

@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import { chatsService } from '@/services/api';
 import { Chat } from '@/services/api/types';
+import { BOTFATHER_CHAT, matchesBotFather } from '@/lib/botfather';
 
 interface ChatsState {
   chats: Chat[];
@@ -61,8 +62,14 @@ export const useChatsStore = create<ChatsState>()((set, get) => ({
       return;
     }
 
+    // Always include BotFather at the end of the list
+    const chatsWithBotFather = [...result.chats];
+    if (!chatsWithBotFather.some(c => c.id === BOTFATHER_CHAT.id)) {
+      chatsWithBotFather.push(BOTFATHER_CHAT);
+    }
+
     set({ 
-      chats: result.chats, 
+      chats: chatsWithBotFather, 
       loading: false, 
       hasLoaded: true,
       error: null 
@@ -92,8 +99,14 @@ export const useChatsStore = create<ChatsState>()((set, get) => ({
       return;
     }
 
+    // Include BotFather if query matches
+    const chats = [...result.chats];
+    if (matchesBotFather(query) && !chats.some(c => c.id === BOTFATHER_CHAT.id)) {
+      chats.unshift(BOTFATHER_CHAT); // Add at the beginning for search results
+    }
+
     set({ 
-      chats: result.chats, 
+      chats, 
       loading: false, 
       hasLoaded: true,
       error: null 

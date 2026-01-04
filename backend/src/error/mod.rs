@@ -40,6 +40,20 @@ pub enum AppError {
     #[error("Bot not found")]
     BotNotFound,
 
+    // Bot-specific errors
+    #[error("Bot is not active")]
+    BotInactive,
+    #[error("Bot not subscribed to chat")]
+    BotNotSubscribed,
+    #[error("Permission denied: missing scope {0}")]
+    BotPermissionDenied(String),
+    #[error("Rate limit exceeded, retry after {0} seconds")]
+    BotRateLimitExceeded(u32),
+    #[error("Invalid webhook URL")]
+    InvalidWebhookUrl,
+    #[error("Webhook error: {0}")]
+    WebhookError(String),
+
     // Validation errors
     #[error("Empty message")]
     EmptyMessage,
@@ -86,6 +100,12 @@ impl IntoResponse for AppError {
             AppError::ChatNotFound => (StatusCode::NOT_FOUND, "CHAT_NOT_FOUND"),
             AppError::MessageNotFound => (StatusCode::NOT_FOUND, "MESSAGE_NOT_FOUND"),
             AppError::BotNotFound => (StatusCode::NOT_FOUND, "BOT_NOT_FOUND"),
+            AppError::BotInactive => (StatusCode::FORBIDDEN, "BOT_INACTIVE"),
+            AppError::BotNotSubscribed => (StatusCode::FORBIDDEN, "BOT_NOT_SUBSCRIBED"),
+            AppError::BotPermissionDenied(_) => (StatusCode::FORBIDDEN, "BOT_PERMISSION_DENIED"),
+            AppError::BotRateLimitExceeded(_) => (StatusCode::TOO_MANY_REQUESTS, "RATE_LIMIT_EXCEEDED"),
+            AppError::InvalidWebhookUrl => (StatusCode::BAD_REQUEST, "INVALID_WEBHOOK_URL"),
+            AppError::WebhookError(_) => (StatusCode::BAD_GATEWAY, "WEBHOOK_ERROR"),
             AppError::EmptyMessage => (StatusCode::BAD_REQUEST, "EMPTY_MESSAGE"),
             AppError::InvalidParticipants => (StatusCode::BAD_REQUEST, "INVALID_PARTICIPANTS"),
             AppError::FileTooLarge => (StatusCode::BAD_REQUEST, "FILE_TOO_LARGE"),

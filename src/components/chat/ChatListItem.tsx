@@ -1,8 +1,9 @@
 import { formatDistanceToNow } from "date-fns";
-import { Bot } from "lucide-react";
+import { Bot, Crown } from "lucide-react";
 import { Chat } from "@/services/api/types";
 import { AvatarWithStatus } from "./AvatarWithStatus";
 import { cn } from "@/lib/utils";
+import { isBotFatherChat } from "@/lib/botfather";
 
 interface ChatListItemProps {
   chat: Chat;
@@ -15,13 +16,16 @@ export function ChatListItem({ chat, isActive, onClick }: ChatListItemProps) {
     ? formatDistanceToNow(new Date(chat.lastMessage.timestamp), { addSuffix: false })
     : '';
 
+  const isBotFather = isBotFatherChat(chat.id);
+
   return (
     <button
       onClick={onClick}
       className={cn(
         "flex w-full items-center gap-3 px-4 py-3 transition-colors",
         "hover:bg-accent/50",
-        isActive && "bg-primary/10"
+        isActive && "bg-primary/10",
+        isBotFather && "bg-gradient-to-r from-primary/5 to-transparent"
       )}
     >
       <AvatarWithStatus
@@ -34,10 +38,18 @@ export function ChatListItem({ chat, isActive, onClick }: ChatListItemProps) {
       <div className="flex-1 min-w-0 text-left">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="font-semibold text-foreground truncate">
+            <span className={cn(
+              "font-semibold truncate",
+              isBotFather ? "text-primary" : "text-foreground"
+            )}>
               {chat.name}
             </span>
-            {chat.isBot && (
+            {isBotFather ? (
+              <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/20 text-primary text-[10px] font-medium shrink-0">
+                <Crown className="h-3 w-3" />
+                OFFICIAL
+              </span>
+            ) : chat.isBot && (
               <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-medium shrink-0">
                 <Bot className="h-3 w-3" />
                 BOT
@@ -55,6 +67,8 @@ export function ChatListItem({ chat, isActive, onClick }: ChatListItemProps) {
               <span className="text-primary italic">
                 {chat.typingUser ? `${chat.typingUser} is typing...` : 'typing...'}
               </span>
+            ) : isBotFather ? (
+              'Create and manage your bots'
             ) : (
               chat.lastMessage?.text || 'No messages yet'
             )}

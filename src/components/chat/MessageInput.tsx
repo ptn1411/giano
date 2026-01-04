@@ -10,6 +10,7 @@ import { SlashCommandMenu, getCommandsForBot } from "./SlashCommandMenu";
 import { Attachment, Message, User } from "@/services/api/types";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { uploadService } from "@/services/api/upload";
+import { isBotFatherChat } from "@/lib/botfather";
 
 interface MessageInputProps {
   onSend: (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) => void;
@@ -252,8 +253,9 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
       onType();
     }
 
-    // Check for slash commands (only for bots)
-    if (botId && newText.startsWith("/")) {
+    // Check for slash commands (for bots or BotFather chat)
+    const isBotChat = botId || (chatId && isBotFatherChat(chatId));
+    if (isBotChat && newText.startsWith("/")) {
       setShowSlashCommands(true);
     } else {
       setShowSlashCommands(false);
@@ -452,9 +454,9 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
 
         <div className="relative flex-1">
           {/* Slash Command Menu */}
-          {botId && showSlashCommands && (
+          {(botId || (chatId && isBotFatherChat(chatId))) && showSlashCommands && (
             <SlashCommandMenu
-              commands={getCommandsForBot(botId)}
+              commands={getCommandsForBot(botId, chatId)}
               onSelect={handleSlashCommandSelect}
               filterQuery={text}
             />
@@ -471,7 +473,7 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
             value={text}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
-            placeholder={botId ? "Type / for commands..." : "Write a message..."}
+            placeholder={(botId || (chatId && isBotFatherChat(chatId))) ? "Type / for commands..." : "Write a message..."}
             rows={1}
             disabled={disabled}
             className={cn(

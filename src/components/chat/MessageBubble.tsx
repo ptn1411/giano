@@ -9,6 +9,7 @@ import { ReadReceipts } from "./ReadReceipts";
 import { DeliveryStatusIcon } from "./DeliveryStatusIcon";
 import { AvatarWithStatus } from "./AvatarWithStatus";
 import { highlightText } from "./MessageSearch";
+import { formatTextWithClickableCommands } from "./ClickableCommand";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -30,16 +31,29 @@ interface MessageBubbleProps {
   onRetry?: (messageId: string) => void;
   searchQuery?: string;
   onInlineButtonClick?: (button: InlineButton, messageId: string) => void;
+  onCommandClick?: (command: string) => void;
   users?: User[];
 }
 
 const quickReactions = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
 // Highlight @mentions in text
-function formatTextWithMentions(text: string, isOwn: boolean, searchQuery?: string): React.ReactNode {
+function formatTextWithMentions(
+  text: string, 
+  isOwn: boolean, 
+  searchQuery?: string,
+  onCommandClick?: (command: string) => void
+): React.ReactNode {
   // First apply search highlighting if needed
   if (searchQuery) {
     return highlightText(text, searchQuery);
+  }
+
+  // Check if text contains commands (starts with /)
+  const hasCommands = /\/[a-zA-Z_][a-zA-Z0-9_]*/.test(text);
+  
+  if (hasCommands && onCommandClick) {
+    return formatTextWithClickableCommands(text, isOwn, onCommandClick);
   }
 
   // Split by @mentions pattern
@@ -79,6 +93,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     onRetry,
     searchQuery,
     onInlineButtonClick,
+    onCommandClick,
     users = []
   }, ref) {
     const [showReactions, setShowReactions] = useState(false);
@@ -201,7 +216,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
               "text-sm whitespace-pre-wrap break-words",
               hasAttachments && "mt-2 px-2"
             )}>
-              {formatTextWithMentions(message.text, isOwn, searchQuery)}
+              {formatTextWithMentions(message.text, isOwn, searchQuery, onCommandClick)}
             </p>
           )}
 
