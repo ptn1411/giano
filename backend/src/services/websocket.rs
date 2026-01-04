@@ -148,4 +148,79 @@ impl WebSocketService {
         // Send to the message sender
         ws_manager.send_to_user(sender_id, event).await;
     }
+
+    // ==================== Call Events ====================
+
+    /// Send incoming call notification to a user
+    pub async fn send_incoming_call(
+        ws_manager: &Arc<WsManager>,
+        call_id: Uuid,
+        caller_id: Uuid,
+        caller_name: String,
+        caller_avatar: Option<String>,
+        chat_id: Uuid,
+        call_type: String,
+        target_user_id: Uuid,
+    ) {
+        let event = ServerEvent::IncomingCall {
+            call_id,
+            caller_id,
+            caller_name,
+            caller_avatar,
+            chat_id,
+            call_type,
+        };
+        ws_manager.send_to_user(target_user_id, event).await;
+    }
+
+    /// Send call accepted notification to both parties
+    pub async fn send_call_accepted(
+        ws_manager: &Arc<WsManager>,
+        call_id: Uuid,
+        room_id: String,
+        mediasoup_url: String,
+        caller_id: Uuid,
+        callee_id: Uuid,
+    ) {
+        let event = ServerEvent::CallAccepted {
+            call_id,
+            room_id,
+            mediasoup_url,
+        };
+        ws_manager.send_to_user(caller_id, event.clone()).await;
+        ws_manager.send_to_user(callee_id, event).await;
+    }
+
+    /// Send call declined notification to caller
+    pub async fn send_call_declined(
+        ws_manager: &Arc<WsManager>,
+        call_id: Uuid,
+        caller_id: Uuid,
+    ) {
+        let event = ServerEvent::CallDeclined { call_id };
+        ws_manager.send_to_user(caller_id, event).await;
+    }
+
+    /// Send call ended notification to both parties
+    pub async fn send_call_ended(
+        ws_manager: &Arc<WsManager>,
+        call_id: Uuid,
+        reason: String,
+        caller_id: Uuid,
+        callee_id: Uuid,
+    ) {
+        let event = ServerEvent::CallEnded { call_id, reason };
+        ws_manager.send_to_user(caller_id, event.clone()).await;
+        ws_manager.send_to_user(callee_id, event).await;
+    }
+
+    /// Send user busy notification to caller
+    pub async fn send_user_busy(
+        ws_manager: &Arc<WsManager>,
+        call_id: Uuid,
+        caller_id: Uuid,
+    ) {
+        let event = ServerEvent::UserBusy { call_id };
+        ws_manager.send_to_user(caller_id, event).await;
+    }
 }

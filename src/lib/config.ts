@@ -55,6 +55,13 @@ export const getMaxUploadSize = (): number => {
   return size ? parseInt(size, 10) : 10485760; // 10MB default
 };
 
+/**
+ * Get the Mediasoup server URL for voice/video calling
+ */
+export const getMediasoupUrl = (): string => {
+  return import.meta.env.VITE_MEDIASOUP_URL || 'ws://localhost:3001';
+};
+
 // ============================================
 // Configuration Object
 // ============================================
@@ -66,6 +73,7 @@ export const config = {
   isDebugMode: isDebugMode(),
   apiTimeout: getApiTimeout(),
   maxUploadSize: getMaxUploadSize(),
+  mediasoupUrl: getMediasoupUrl(),
 } as const;
 
 export default config;

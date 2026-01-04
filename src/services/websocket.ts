@@ -18,6 +18,16 @@ import {
   MessageStatusEvent,
   MessageReadEvent,
 } from '@/services/api/types';
+import {
+  useCallStore,
+  injectWebSocketFunctions,
+  IncomingCallEvent,
+  CallAcceptedEvent,
+  CallDeclinedEvent,
+  CallEndedEvent,
+  UserBusyEvent,
+} from '@/stores/callStore';
+import type { CallType } from '@/services/mediaHandler';
 
 // ============================================
 // Types
@@ -34,7 +44,19 @@ export type WebSocketEventType =
   | 'typing'
   | 'user_status'
   | 'message_status'
-  | 'message_read';
+  | 'message_read'
+  | 'incoming_call'
+  | 'call_accepted'
+  | 'call_declined'
+  | 'call_ended'
+  | 'user_busy'
+  | 'error';
+
+// Server error event
+export interface ServerErrorEvent {
+  code: string;
+  message: string;
+}
 
 export type WebSocketEventData =
   | NewMessageEvent
@@ -45,7 +67,13 @@ export type WebSocketEventData =
   | TypingEvent
   | UserStatusEvent
   | MessageStatusEvent
-  | MessageReadEvent;
+  | MessageReadEvent
+  | IncomingCallEvent
+  | CallAcceptedEvent
+  | CallDeclinedEvent
+  | CallEndedEvent
+  | UserBusyEvent
+  | ServerErrorEvent;
 
 export interface WebSocketEventHandler<T = WebSocketEventData> {
   (data: T): void;
@@ -228,6 +256,48 @@ class WebSocketClient {
   }
 
   // ============================================
+  // Call Event Send Functions
+  // Requirements: 1.1, 1.2, 2.4, 5.1
+  // ============================================
+
+  /**
+   * Send initiate call signal
+   * Requirement 1.1: Voice call initiation
+   * Requirement 1.2: Video call initiation
+   */
+  sendInitiateCall(targetUserId: string, chatId: string, callType: CallType): boolean {
+    return this.send('initiate_call', {
+      targetUserId,
+      chatId,
+      callType,
+    });
+  }
+
+  /**
+   * Send accept call signal
+   * Requirement 2.3: Accept incoming call
+   */
+  sendAcceptCall(callId: string): boolean {
+    return this.send('accept_call', { callId });
+  }
+
+  /**
+   * Send decline call signal
+   * Requirement 2.4: Decline incoming call
+   */
+  sendDeclineCall(callId: string): boolean {
+    return this.send('decline_call', { callId });
+  }
+
+  /**
+   * Send end call signal
+   * Requirement 5.1: End ongoing call
+   */
+  sendEndCall(callId: string): boolean {
+    return this.send('end_call', { callId });
+  }
+
+  // ============================================
   // Private Methods
   // ============================================
 
@@ -372,6 +442,86 @@ class WebSocketClient {
 
 export const wsClient = new WebSocketClient();
 
+// Inject WebSocket functions into callStore to avoid circular dependency
+injectWebSocketFunctions({
+  sendInitiateCall: (targetUserId: string, chatId: string, callType: CallType) => 
+    wsClient.sendInitiateCall(targetUserId, chatId, callType),
+  sendAcceptCall: (callId: string) => wsClient.sendAcceptCall(callId),
+  sendDeclineCall: (callId: string) => wsClient.sendDeclineCall(callId),
+  sendEndCall: (callId: string) => wsClient.sendEndCall(callId),
+});
+
+// ============================================
+// Call Event Handlers Setup
+// Requirements: 2.1, 5.2
+// ============================================
+
+/**
+ * Setup call event handlers that integrate with callStore
+ * Should be called once when WebSocket connects
+ * Requirement 2.1: Handle incoming call notifications
+ * Requirement 5.2: Handle call end events
+ */
+export function setupCallEventHandlers(): () => void {
+  // Handle incoming call notification
+  const unsubIncoming = wsClient.on<IncomingCallEvent>('incoming_call', (data) => {
+    console.log('[WebSocket] Incoming call event:', data);
+    useCallStore.getState().handleIncomingCall(data);
+  });
+
+  // Handle call accepted
+  const unsubAccepted = wsClient.on<CallAcceptedEvent>('call_accepted', (data) => {
+    console.log('[WebSocket] Call accepted event:', data);
+    useCallStore.getState().handleCallAccepted(data);
+  });
+
+  // Handle call declined
+  const unsubDeclined = wsClient.on<CallDeclinedEvent>('call_declined', (data) => {
+    console.log('[WebSocket] Call declined event:', data);
+    useCallStore.getState().handleCallDeclined(data);
+  });
+
+  // Handle call ended
+  const unsubEnded = wsClient.on<CallEndedEvent>('call_ended', (data) => {
+    console.log('[WebSocket] Call ended event:', data);
+    useCallStore.getState().handleCallEnded(data);
+  });
+
+  // Handle user busy
+  const unsubBusy = wsClient.on<UserBusyEvent>('user_busy', (data) => {
+    console.log('[WebSocket] User busy event:', data);
+    useCallStore.getState().handleUserBusy(data);
+  });
+
+  // Handle error events from server (e.g., NOT_CHAT_PARTICIPANT)
+  const unsubError = wsClient.on<ServerErrorEvent>('error', (data) => {
+    console.log('[WebSocket] Error event:', data);
+    const callState = useCallStore.getState().callState;
+    
+    // Only handle call-related errors when in a call state
+    if (callState !== 'idle') {
+      if (data.code === 'NOT_CHAT_PARTICIPANT') {
+        useCallStore.getState()._setErrorFromType('not_chat_participant', data.message);
+        useCallStore.getState()._cleanup();
+      } else if (data.code === 'USER_OFFLINE') {
+        useCallStore.getState()._setErrorFromType('user_offline', data.message);
+        useCallStore.getState()._cleanup();
+      }
+      // Other call-related errors can be added here
+    }
+  });
+
+  // Return cleanup function
+  return () => {
+    unsubIncoming();
+    unsubAccepted();
+    unsubDeclined();
+    unsubEnded();
+    unsubBusy();
+    unsubError();
+  };
+}
+
 // ============================================
 // Typing Indicator Helper
 // ============================================
@@ -446,4 +596,9 @@ export type {
   UserStatusEvent,
   MessageStatusEvent,
   MessageReadEvent,
+  IncomingCallEvent,
+  CallAcceptedEvent,
+  CallDeclinedEvent,
+  CallEndedEvent,
+  UserBusyEvent,
 };

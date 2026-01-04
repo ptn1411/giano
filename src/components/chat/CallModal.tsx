@@ -1,101 +1,131 @@
-import { useState, useEffect } from "react";
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, Volume2, VolumeX, X, Monitor, Maximize2 } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+/**
+ * Call Modal Component
+ * Displays voice/video call UI with real mediasoup streams
+ * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 8.1 (retry button)
+ */
 
-type CallState = 'ringing' | 'connecting' | 'connected' | 'ended';
-type CallType = 'voice' | 'video';
+import { useEffect, useRef, useState } from "react";
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, Volume2, VolumeX, X, Monitor, RefreshCw } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { cn } from "@/lib/utils";
+import { 
+  useCallStore, 
+  formatCallDuration, 
+  getRemoteStream,
+  selectCallState,
+  selectCurrentCall,
+  selectLocalStream,
+  selectIsMuted,
+  selectIsVideoOff,
+  selectIsScreenSharing,
+  selectCallDuration,
+  selectError,
+  selectCanRetry,
+  selectIsReconnecting,
+  selectReconnectAttempts,
+} from "@/stores/callStore";
 
 interface CallModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  callType: CallType;
-  contactName: string;
-  contactAvatar: string;
-  isIncoming?: boolean;
 }
 
-export function CallModal({
-  open,
-  onOpenChange,
-  callType,
-  contactName,
-  contactAvatar,
-  isIncoming = false,
-}: CallModalProps) {
-  const [callState, setCallState] = useState<CallState>('ringing');
-  const [duration, setDuration] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
+export function CallModal({ open, onOpenChange }: CallModalProps) {
+  // Store state
+  const callState = useCallStore(selectCallState);
+  const currentCall = useCallStore(selectCurrentCall);
+  const localStream = useCallStore(selectLocalStream);
+  const isMuted = useCallStore(selectIsMuted);
+  const isVideoOff = useCallStore(selectIsVideoOff);
+  const isScreenSharing = useCallStore(selectIsScreenSharing);
+  const callDuration = useCallStore(selectCallDuration);
+  const error = useCallStore(selectError);
+  const canRetry = useCallStore(selectCanRetry);
+  const isReconnecting = useCallStore(selectIsReconnecting);
+  const reconnectAttempts = useCallStore(selectReconnectAttempts);
+  const remoteStream = useCallStore(getRemoteStream);
+  const remoteParticipants = useCallStore((state) => state.remoteParticipants);
+
+  // Store actions
+  const endCall = useCallStore((state) => state.endCall);
+  const toggleMute = useCallStore((state) => state.toggleMute);
+  const toggleVideo = useCallStore((state) => state.toggleVideo);
+  const toggleScreenShare = useCallStore((state) => state.toggleScreenShare);
+  const retryCall = useCallStore((state) => state.retryCall);
+
+  // Video refs
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Speaker state (local UI only - not affecting actual audio output)
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
 
+  // Attach local stream to video element
   useEffect(() => {
-    if (!open) {
-      setCallState('ringing');
-      setDuration(0);
-      setIsMuted(false);
-      setIsVideoOff(false);
-      return;
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
     }
+  }, [localStream]);
 
-    // Simulate call connection
-    if (callState === 'ringing') {
-      const timer = setTimeout(() => {
-        setCallState('connecting');
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-
-    if (callState === 'connecting') {
-      const timer = setTimeout(() => {
-        setCallState('connected');
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [open, callState]);
-
-  // Duration timer
+  // Attach remote stream to video element
+  // Requirement 7.1: Display remote video stream in main view
   useEffect(() => {
-    if (callState !== 'connected') return;
-    
-    const interval = setInterval(() => {
-      setDuration(d => d + 1);
-    }, 1000);
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
 
-    return () => clearInterval(interval);
-  }, [callState]);
+  // Get remote participant info
+  const remoteParticipant = remoteParticipants.size > 0 
+    ? Array.from(remoteParticipants.values())[0] 
+    : null;
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  // Check if remote video is enabled
+  // Requirement 7.3: Display avatar when remote video is off
+  const isRemoteVideoEnabled = remoteParticipant?.videoEnabled ?? false;
+
+  // Determine if we should show the modal based on call state
+  const shouldShowModal = callState !== 'idle';
+
+  // Handle modal close - end call if in progress
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && callState !== 'idle') {
+      endCall();
+    }
+    onOpenChange(newOpen);
   };
 
+  // Get status text based on call state
   const getStatusText = () => {
     switch (callState) {
-      case 'ringing': return isIncoming ? 'Incoming call...' : 'Calling...';
-      case 'connecting': return 'Connecting...';
-      case 'connected': return formatDuration(duration);
-      case 'ended': return 'Call ended';
+      case 'calling': return 'Calling...';
+      case 'ringing': return 'Incoming call...';
+      case 'joining': return 'Connecting...';
+      case 'producing': return 'Setting up...';
+      case 'connected': return formatCallDuration(callDuration);
+      case 'reconnecting': return 'Reconnecting...';
+      default: return '';
     }
   };
 
+  // Handle end call button
   const handleEndCall = () => {
-    setCallState('ended');
-    setTimeout(() => onOpenChange(false), 500);
+    endCall();
   };
 
-  const handleAcceptCall = () => {
-    setCallState('connecting');
-  };
+  // Determine layout based on call type and state
+  const isVideoCall = currentCall?.type === 'video';
+  const isFullscreen = isVideoCall && (callState === 'connected' || callState === 'reconnecting');
 
-  const isFullscreen = callType === 'video' && callState === 'connected';
+  // Don't render if no call info
+  if (!currentCall) {
+    return null;
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={shouldShowModal && open} onOpenChange={handleOpenChange}>
       <DialogContent className={cn(
         "p-0 gap-0 overflow-hidden border-none [&>button]:hidden",
         "transition-all duration-500 ease-out",
@@ -103,29 +133,67 @@ export function CallModal({
           ? "sm:max-w-[100vw] sm:max-h-[100vh] w-screen h-screen rounded-none bg-background" 
           : "sm:max-w-md bg-gradient-to-b from-card to-background"
       )}>
-        {/* Fullscreen Video Layout */}
+        {/* Visually hidden title for accessibility */}
+        <VisuallyHidden>
+          <DialogTitle>
+            {currentCall.type === 'video' ? 'Video Call' : 'Voice Call'} with {currentCall.remoteUserName}
+          </DialogTitle>
+        </VisuallyHidden>
+
+        {/* Error display with retry button - Requirement 8.1 */}
+        {error && (
+          <div className="absolute top-4 left-4 right-4 z-50 p-3 rounded-lg bg-destructive/90 text-destructive-foreground text-sm">
+            <div className="flex items-start justify-between gap-2">
+              <span>{error.message}</span>
+              {canRetry && (
+                <button
+                  onClick={() => retryCall()}
+                  className="flex items-center gap-1 px-2 py-1 rounded bg-white/20 hover:bg-white/30 transition-colors text-xs font-medium"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Retry
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Fullscreen Video Layout - Requirement 7.4 */}
         {isFullscreen ? (
           <div className="relative w-full h-full flex flex-col animate-fade-in">
             {/* Video Area - takes most of the screen */}
             <div className="flex-1 relative bg-gradient-to-br from-primary/20 via-background to-accent/20 animate-scale-in" style={{ animationDelay: '100ms' }}>
-              {!isVideoOff ? (
-                <>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-muted-foreground text-lg">Video stream placeholder</div>
-                  </div>
-                  {/* Self video preview */}
-                  <div className="absolute bottom-4 right-4 w-40 h-28 rounded-xl bg-muted border-2 border-background shadow-xl flex items-center justify-center">
-                    <span className="text-sm text-muted-foreground">You</span>
-                  </div>
-                </>
+              {/* Remote Video - Requirement 7.1 */}
+              {isRemoteVideoEnabled && remoteStream ? (
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
               ) : (
+                /* Avatar when remote video is off - Requirement 7.3 */
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80">
                   <Avatar className="h-32 w-32 border-4 border-green-500 mb-4">
-                    <AvatarImage src={contactAvatar} alt={contactName} />
-                    <AvatarFallback className="text-4xl">{contactName.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={currentCall.remoteUserAvatar} alt={currentCall.remoteUserName} />
+                    <AvatarFallback className="text-4xl">{currentCall.remoteUserName.charAt(0)}</AvatarFallback>
                   </Avatar>
-                  <h2 className="text-2xl font-bold text-foreground">{contactName}</h2>
+                  <h2 className="text-2xl font-bold text-foreground">{currentCall.remoteUserName}</h2>
                   <p className="text-green-500 text-sm mt-1">{getStatusText()}</p>
+                </div>
+              )}
+
+              {/* Local video preview - Requirement 7.2, 7.5 */}
+              {!isVideoOff && localStream && (
+                <div className="absolute bottom-4 right-4 w-40 h-28 rounded-xl bg-muted border-2 border-background shadow-xl overflow-hidden">
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover mirror"
+                    style={{ transform: 'scaleX(-1)' }}
+                  />
                 </div>
               )}
 
@@ -133,16 +201,16 @@ export function CallModal({
               <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between bg-gradient-to-b from-background/80 to-transparent animate-fade-in" style={{ animationDelay: '200ms' }}>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10 border-2 border-green-500">
-                    <AvatarImage src={contactAvatar} alt={contactName} />
-                    <AvatarFallback>{contactName.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={currentCall.remoteUserAvatar} alt={currentCall.remoteUserName} />
+                    <AvatarFallback>{currentCall.remoteUserName.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <h3 className="font-semibold text-foreground">{contactName}</h3>
+                    <h3 className="font-semibold text-foreground">{currentCall.remoteUserName}</h3>
                     <p className="text-xs text-green-500">{getStatusText()}</p>
                   </div>
                 </div>
                 <button
-                  onClick={() => onOpenChange(false)}
+                  onClick={() => handleOpenChange(false)}
                   className="p-2 rounded-full hover:bg-accent/50 text-muted-foreground"
                 >
                   <X className="h-5 w-5" />
@@ -156,6 +224,14 @@ export function CallModal({
                   <span>Đang chia sẻ màn hình</span>
                 </div>
               )}
+
+              {/* Reconnecting indicator - Requirement 8.2 */}
+              {(callState === 'reconnecting' || isReconnecting) && (
+                <div className="absolute top-16 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-yellow-500/90 text-white text-sm flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span>Reconnecting{reconnectAttempts > 0 ? ` (${reconnectAttempts}/3)` : ''}...</span>
+                </div>
+              )}
             </div>
 
             {/* Bottom Controls */}
@@ -163,7 +239,7 @@ export function CallModal({
               <div className="flex items-center justify-center gap-4">
                 {/* Mute */}
                 <button
-                  onClick={() => setIsMuted(!isMuted)}
+                  onClick={() => toggleMute()}
                   className={cn(
                     "h-14 w-14 rounded-full flex items-center justify-center transition-all",
                     isMuted ? "bg-destructive text-destructive-foreground" : "bg-accent hover:bg-accent/80 text-foreground"
@@ -174,7 +250,7 @@ export function CallModal({
 
                 {/* Video toggle */}
                 <button
-                  onClick={() => setIsVideoOff(!isVideoOff)}
+                  onClick={() => toggleVideo()}
                   className={cn(
                     "h-14 w-14 rounded-full flex items-center justify-center transition-all",
                     isVideoOff ? "bg-destructive text-destructive-foreground" : "bg-accent hover:bg-accent/80 text-foreground"
@@ -185,7 +261,7 @@ export function CallModal({
 
                 {/* Screen Share */}
                 <button
-                  onClick={() => setIsScreenSharing(!isScreenSharing)}
+                  onClick={() => toggleScreenShare()}
                   className={cn(
                     "h-14 w-14 rounded-full flex items-center justify-center transition-all",
                     isScreenSharing ? "bg-primary text-primary-foreground" : "bg-accent hover:bg-accent/80 text-foreground"
@@ -216,10 +292,10 @@ export function CallModal({
             </div>
           </div>
         ) : (
-          /* Non-fullscreen layout (ringing/connecting states) */
+          /* Non-fullscreen layout (calling/ringing/connecting states) */
           <div className="relative flex flex-col items-center justify-center py-12 px-6 min-h-[400px]">
             {/* Blur background effect when connecting */}
-            {callState === 'connecting' && (
+            {(callState === 'joining' || callState === 'producing') && (
               <div className="absolute inset-0 overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-accent/20 to-primary/30 animate-pulse" />
                 <div className="absolute inset-0 backdrop-blur-sm" />
@@ -227,32 +303,33 @@ export function CallModal({
                 <div className="absolute bottom-1/4 right-1/4 w-40 h-40 bg-accent/40 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '500ms' }} />
               </div>
             )}
+            
             {/* Close button */}
             <button
-              onClick={() => onOpenChange(false)}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-accent/50 text-muted-foreground"
+              onClick={() => handleOpenChange(false)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-accent/50 text-muted-foreground z-10"
             >
               <X className="h-5 w-5" />
             </button>
 
             {/* Avatar with pulse animation */}
-            <div className="relative mb-6">
+            <div className="relative mb-6 z-10">
               <div className={cn(
                 "absolute inset-0 rounded-full animate-ping opacity-25",
-                callState === 'ringing' && "bg-primary",
-                callState === 'connecting' && "bg-yellow-500",
+                (callState === 'calling' || callState === 'ringing') && "bg-primary",
+                (callState === 'joining' || callState === 'producing') && "bg-yellow-500",
                 callState === 'connected' && "bg-green-500 animate-none opacity-0"
               )} style={{ animationDuration: '1.5s' }} />
               <Avatar className={cn(
                 "h-28 w-28 border-4 transition-all duration-300",
                 callState === 'connected' ? "border-green-500" : "border-primary"
               )}>
-                <AvatarImage src={contactAvatar} alt={contactName} />
-                <AvatarFallback className="text-3xl">{contactName.charAt(0)}</AvatarFallback>
+                <AvatarImage src={currentCall.remoteUserAvatar} alt={currentCall.remoteUserName} />
+                <AvatarFallback className="text-3xl">{currentCall.remoteUserName.charAt(0)}</AvatarFallback>
               </Avatar>
               {callState === 'connected' && (
                 <div className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-green-500 flex items-center justify-center">
-                  {callType === 'video' ? (
+                  {isVideoCall ? (
                     <Video className="h-4 w-4 text-white" />
                   ) : (
                     <Phone className="h-4 w-4 text-white" />
@@ -262,31 +339,31 @@ export function CallModal({
             </div>
 
             {/* Contact Info */}
-            <h2 className="text-2xl font-bold text-foreground mb-1">{contactName}</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-1 z-10">{currentCall.remoteUserName}</h2>
             <p className={cn(
-              "text-sm mb-8",
+              "text-sm mb-8 z-10",
               callState === 'connected' ? "text-green-500" : "text-muted-foreground"
             )}>
               {getStatusText()}
             </p>
 
             {/* Call Type Badge */}
-            <div className="flex items-center gap-2 mb-8 px-4 py-2 rounded-full bg-primary/10">
-              {callType === 'video' ? (
+            <div className="flex items-center gap-2 mb-8 px-4 py-2 rounded-full bg-primary/10 z-10">
+              {isVideoCall ? (
                 <Video className="h-4 w-4 text-primary" />
               ) : (
                 <Phone className="h-4 w-4 text-primary" />
               )}
               <span className="text-sm text-primary font-medium">
-                {callType === 'video' ? 'Video Call' : 'Voice Call'}
+                {isVideoCall ? 'Video Call' : 'Voice Call'}
               </span>
             </div>
 
             {/* Controls */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 z-10">
               {/* Mute */}
               <button
-                onClick={() => setIsMuted(!isMuted)}
+                onClick={() => toggleMute()}
                 className={cn(
                   "h-14 w-14 rounded-full flex items-center justify-center transition-all",
                   isMuted ? "bg-destructive text-destructive-foreground" : "bg-accent hover:bg-accent/80 text-foreground"
@@ -296,9 +373,9 @@ export function CallModal({
               </button>
 
               {/* Video toggle (for video calls) */}
-              {callType === 'video' && (
+              {isVideoCall && (
                 <button
-                  onClick={() => setIsVideoOff(!isVideoOff)}
+                  onClick={() => toggleVideo()}
                   className={cn(
                     "h-14 w-14 rounded-full flex items-center justify-center transition-all",
                     isVideoOff ? "bg-destructive text-destructive-foreground" : "bg-accent hover:bg-accent/80 text-foreground"
@@ -308,30 +385,13 @@ export function CallModal({
                 </button>
               )}
 
-              {/* End call / Accept call */}
-              {isIncoming && callState === 'ringing' ? (
-                <>
-                  <button
-                    onClick={handleEndCall}
-                    className="h-16 w-16 rounded-full bg-destructive flex items-center justify-center shadow-lg hover:bg-destructive/90 transition-all"
-                  >
-                    <PhoneOff className="h-7 w-7 text-destructive-foreground" />
-                  </button>
-                  <button
-                    onClick={handleAcceptCall}
-                    className="h-16 w-16 rounded-full bg-green-500 flex items-center justify-center shadow-lg hover:bg-green-600 transition-all"
-                  >
-                    <Phone className="h-7 w-7 text-white" />
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={handleEndCall}
-                  className="h-16 w-16 rounded-full bg-destructive flex items-center justify-center shadow-lg hover:bg-destructive/90 transition-all"
-                >
-                  <PhoneOff className="h-7 w-7 text-destructive-foreground" />
-                </button>
-              )}
+              {/* End call button */}
+              <button
+                onClick={handleEndCall}
+                className="h-16 w-16 rounded-full bg-destructive flex items-center justify-center shadow-lg hover:bg-destructive/90 transition-all"
+              >
+                <PhoneOff className="h-7 w-7 text-destructive-foreground" />
+              </button>
 
               {/* Speaker */}
               <button

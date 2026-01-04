@@ -1,0 +1,29 @@
+{
+  "name": "media-server",
+  "version": "1.0.0",
+  "description": "Mediasoup SFU server for voice and video calling",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "mediasoup": "^3.14.14",
+    "ws": "^8.18.0",
+    "dotenv": "^16.4.5",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.7.2",
+    "ts-node": "^10.9.2",
+    "rimraf": "^6.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

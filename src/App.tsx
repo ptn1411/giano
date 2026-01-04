@@ -8,6 +8,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { wsClient, setupCallEventHandlers } from "@/services/websocket";
+import { IncomingCallNotification } from "@/components/chat/IncomingCallNotification";
 import Index from "./pages/Index";
 import Settings from "./pages/Settings";
 import TelegramDemo from "./pages/TelegramDemo";
@@ -38,6 +40,43 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Initialize call event listeners when WebSocket connects
+  // Requirement 2.1: Handle incoming call notifications
+  useEffect(() => {
+    if (!session) return;
+
+    // Setup call event handlers
+    let cleanupCallHandlers: (() => void) | null = null;
+
+    // Listen for WebSocket connection state changes
+    const unsubscribeState = wsClient.onStateChange((state) => {
+      if (state === 'connected') {
+        // Setup call event handlers when connected
+        cleanupCallHandlers = setupCallEventHandlers();
+        console.log('[App] Call event handlers initialized');
+      } else if (state === 'disconnected') {
+        // Cleanup handlers when disconnected
+        if (cleanupCallHandlers) {
+          cleanupCallHandlers();
+          cleanupCallHandlers = null;
+        }
+      }
+    });
+
+    // If already connected, setup handlers immediately
+    if (wsClient.isConnected()) {
+      cleanupCallHandlers = setupCallEventHandlers();
+      console.log('[App] Call event handlers initialized (already connected)');
+    }
+
+    return () => {
+      unsubscribeState();
+      if (cleanupCallHandlers) {
+        cleanupCallHandlers();
+      }
+    };
+  }, [session]);
+
   if (isLoading || !isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -50,7 +89,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {/* Global incoming call notification - Requirement 2.1 */}
+      <IncomingCallNotification />
+      {children}
+    </>
+  );
 }
 
 // Public route wrapper (redirects to home if already logged in)

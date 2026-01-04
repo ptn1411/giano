@@ -253,6 +253,26 @@ async fn handle_client_message(
             // Client ping - no action needed, connection is alive
             tracing::debug!("Received ping from user {}", user_id);
         }
+        ClientEvent::InitiateCall { target_user_id, chat_id, call_type } => {
+            handle_initiate_call(
+                user_id,
+                user_name,
+                target_user_id,
+                chat_id,
+                call_type,
+                state,
+                ws_manager,
+            ).await;
+        }
+        ClientEvent::AcceptCall { call_id } => {
+            handle_accept_call(user_id, call_id, state, ws_manager).await;
+        }
+        ClientEvent::DeclineCall { call_id } => {
+            handle_decline_call(user_id, call_id, ws_manager).await;
+        }
+        ClientEvent::EndCall { call_id } => {
+            handle_end_call(user_id, call_id, ws_manager).await;
+        }
     }
 }
 
@@ -303,4 +323,259 @@ async fn is_chat_participant(state: &Arc<AppState>, chat_id: Uuid, user_id: Uuid
     .flatten();
 
     result.is_some()
+}
+
+
+// ==================== Call Signaling Handlers ====================
+
+/// Handle InitiateCall event
+async fn handle_initiate_call(
+    caller_id: Uuid,
+    caller_name: &str,
+    target_user_id: Uuid,
+    chat_id: Uuid,
+    call_type: String,
+    state: &Arc<AppState>,
+    ws_manager: &Arc<WsManager>,
+) {
+    // Validate call type
+    if call_type != "voice" && call_type != "video" {
+        let error = ServerEvent::Error {
+            code: "INVALID_CALL_TYPE".to_string(),
+            message: "Call type must be 'voice' or 'video'".to_string(),
+        };
+        ws_manager.send_to_user(caller_id, error).await;
+        return;
+    }
+
+    // Validate that caller and target have an existing chat
+    if !is_chat_participant(state, chat_id, caller_id).await {
+        let error = ServerEvent::Error {
+            code: "NOT_CHAT_PARTICIPANT".to_string(),
+            message: "You are not a participant of this chat".to_string(),
+        };
+        ws_manager.send_to_user(caller_id, error).await;
+        return;
+    }
+
+    if !is_chat_participant(state, chat_id, target_user_id).await {
+        let error = ServerEvent::Error {
+            code: "TARGET_NOT_PARTICIPANT".to_string(),
+            message: "Target user is not a participant of this chat".to_string(),
+        };
+        ws_manager.send_to_user(caller_id, error).await;
+        return;
+    }
+
+    // Check if target user is online
+    if !ws_manager.is_user_online(target_user_id).await {
+        let error = ServerEvent::Error {
+            code: "USER_OFFLINE".to_string(),
+            message: "User is not available".to_string(),
+        };
+        ws_manager.send_to_user(caller_id, error).await;
+        return;
+    }
+
+    // Check if caller is already in a call
+    if ws_manager.is_user_in_call(caller_id).await {
+        let error = ServerEvent::Error {
+            code: "ALREADY_IN_CALL".to_string(),
+            message: "You are already in a call".to_string(),
+        };
+        ws_manager.send_to_user(caller_id, error).await;
+        return;
+    }
+
+    // Check if target user is already in a call
+    if ws_manager.is_user_in_call(target_user_id).await {
+        // Create a temporary call session to get call_id for UserBusy event
+        let session = ws_manager.create_call_session(
+            caller_id,
+            target_user_id,
+            chat_id,
+            call_type.clone(),
+        ).await;
+        
+        let busy_event = ServerEvent::UserBusy {
+            call_id: session.call_id,
+        };
+        ws_manager.send_to_user(caller_id, busy_event).await;
+        
+        // Clean up the temporary session
+        ws_manager.end_call(session.call_id).await;
+        return;
+    }
+
+    // Create call session
+    let session = ws_manager.create_call_session(
+        caller_id,
+        target_user_id,
+        chat_id,
+        call_type.clone(),
+    ).await;
+
+    // Get caller avatar
+    let caller_avatar = ws_manager.get_user_avatar(caller_id).await;
+
+    // Send IncomingCall to target user
+    let incoming_call = ServerEvent::IncomingCall {
+        call_id: session.call_id,
+        caller_id,
+        caller_name: caller_name.to_string(),
+        caller_avatar,
+        chat_id,
+        call_type,
+    };
+    ws_manager.send_to_user(target_user_id, incoming_call).await;
+
+    tracing::info!(
+        "Call initiated: call_id={}, caller={}, callee={}",
+        session.call_id, caller_id, target_user_id
+    );
+}
+
+/// Handle AcceptCall event
+async fn handle_accept_call(
+    user_id: Uuid,
+    call_id: Uuid,
+    state: &Arc<AppState>,
+    ws_manager: &Arc<WsManager>,
+) {
+    // Get the call session
+    let session = match ws_manager.get_call_session(call_id).await {
+        Some(s) => s,
+        None => {
+            let error = ServerEvent::Error {
+                code: "CALL_NOT_FOUND".to_string(),
+                message: "Call not found or already ended".to_string(),
+            };
+            ws_manager.send_to_user(user_id, error).await;
+            return;
+        }
+    };
+
+    // Verify the user is the callee
+    if session.callee_id != user_id {
+        let error = ServerEvent::Error {
+            code: "NOT_CALLEE".to_string(),
+            message: "You are not the callee of this call".to_string(),
+        };
+        ws_manager.send_to_user(user_id, error).await;
+        return;
+    }
+
+    // Accept the call
+    let session = match ws_manager.accept_call(call_id).await {
+        Some(s) => s,
+        None => {
+            let error = ServerEvent::Error {
+                code: "CALL_ACCEPT_FAILED".to_string(),
+                message: "Failed to accept call".to_string(),
+            };
+            ws_manager.send_to_user(user_id, error).await;
+            return;
+        }
+    };
+
+    // Get mediasoup URL from config
+    let mediasoup_url = state.config.mediasoup_url.clone();
+
+    // Send CallAccepted to both parties
+    let accepted_event = ServerEvent::CallAccepted {
+        call_id: session.call_id,
+        room_id: session.room_id.clone(),
+        mediasoup_url,
+    };
+
+    ws_manager.send_to_user(session.caller_id, accepted_event.clone()).await;
+    ws_manager.send_to_user(session.callee_id, accepted_event).await;
+
+    tracing::info!(
+        "Call accepted: call_id={}, room_id={}",
+        session.call_id, session.room_id
+    );
+}
+
+/// Handle DeclineCall event
+async fn handle_decline_call(
+    user_id: Uuid,
+    call_id: Uuid,
+    ws_manager: &Arc<WsManager>,
+) {
+    // Get the call session
+    let session = match ws_manager.get_call_session(call_id).await {
+        Some(s) => s,
+        None => {
+            let error = ServerEvent::Error {
+                code: "CALL_NOT_FOUND".to_string(),
+                message: "Call not found or already ended".to_string(),
+            };
+            ws_manager.send_to_user(user_id, error).await;
+            return;
+        }
+    };
+
+    // Verify the user is the callee
+    if session.callee_id != user_id {
+        let error = ServerEvent::Error {
+            code: "NOT_CALLEE".to_string(),
+            message: "You are not the callee of this call".to_string(),
+        };
+        ws_manager.send_to_user(user_id, error).await;
+        return;
+    }
+
+    // End the call
+    ws_manager.end_call(call_id).await;
+
+    // Send CallDeclined to caller
+    let declined_event = ServerEvent::CallDeclined { call_id };
+    ws_manager.send_to_user(session.caller_id, declined_event).await;
+
+    tracing::info!("Call declined: call_id={}", call_id);
+}
+
+/// Handle EndCall event
+async fn handle_end_call(
+    user_id: Uuid,
+    call_id: Uuid,
+    ws_manager: &Arc<WsManager>,
+) {
+    // Get the call session
+    let session = match ws_manager.get_call_session(call_id).await {
+        Some(s) => s,
+        None => {
+            let error = ServerEvent::Error {
+                code: "CALL_NOT_FOUND".to_string(),
+                message: "Call not found or already ended".to_string(),
+            };
+            ws_manager.send_to_user(user_id, error).await;
+            return;
+        }
+    };
+
+    // Verify the user is part of the call
+    if session.caller_id != user_id && session.callee_id != user_id {
+        let error = ServerEvent::Error {
+            code: "NOT_IN_CALL".to_string(),
+            message: "You are not part of this call".to_string(),
+        };
+        ws_manager.send_to_user(user_id, error).await;
+        return;
+    }
+
+    // End the call
+    ws_manager.end_call(call_id).await;
+
+    // Send CallEnded to both parties
+    let ended_event = ServerEvent::CallEnded {
+        call_id,
+        reason: "ended".to_string(),
+    };
+
+    ws_manager.send_to_user(session.caller_id, ended_event.clone()).await;
+    ws_manager.send_to_user(session.callee_id, ended_event).await;
+
+    tracing::info!("Call ended: call_id={}", call_id);
 }

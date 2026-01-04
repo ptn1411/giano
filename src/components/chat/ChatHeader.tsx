@@ -18,6 +18,7 @@ import { LiveStreamModal } from "./LiveStreamModal";
 import { ScreenShareModal } from "./ScreenShareModal";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { useAuthStore } from "@/stores/authStore";
+import { useCallStore, selectIsInCall } from "@/stores/callStore";
 
 interface ChatHeaderProps {
   chat: Chat;
@@ -45,8 +46,7 @@ export function ChatHeader({
   showBackButton,
 }: ChatHeaderProps) {
   const [showContactInfo, setShowContactInfo] = useState(false);
-  const [showVoiceCall, setShowVoiceCall] = useState(false);
-  const [showVideoCall, setShowVideoCall] = useState(false);
+  const [showCallModal, setShowCallModal] = useState(false);
   const [showVoiceRoom, setShowVoiceRoom] = useState(false);
   const [showLiveStream, setShowLiveStream] = useState(false);
   const [showScreenShare, setShowScreenShare] = useState(false);
@@ -55,6 +55,15 @@ export function ChatHeader({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const currentUser = useAuthStore((state) => state.session?.user);
+
+  // Call store integration
+  const initiateCall = useCallStore((state) => state.initiateCall);
+  const isInCall = useCallStore(selectIsInCall);
+
+  // Get the other participant for private chats
+  const otherParticipant = chat.type === 'private' 
+    ? participants.find(p => p.id !== currentUser?.id) 
+    : null;
 
   const isOnline = chat.type === 'private' && participants.some(
     (p) => p.id !== currentUser?.id && p.status === 'online'
@@ -68,6 +77,80 @@ export function ChatHeader({
 
   const handleViewInfo = () => {
     setShowContactInfo(true);
+  };
+
+  /**
+   * Handle voice call initiation
+   * Requirement 1.1: Voice call initiation
+   */
+  const handleVoiceCall = async () => {
+    if (isInCall) {
+      toast({
+        title: 'Already in a call',
+        description: 'Please end your current call first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (chat.type === 'private' && otherParticipant) {
+      console.log('[ChatHeader] Initiating voice call:', {
+        userId: otherParticipant.id,
+        userName: otherParticipant.name,
+        chatId: chat.id,
+        currentUserId: currentUser?.id,
+      });
+      setShowCallModal(true);
+      await initiateCall(
+        otherParticipant.id,
+        otherParticipant.name,
+        otherParticipant.avatar || '',
+        chat.id,
+        'voice'
+      );
+    } else {
+      toast({
+        title: 'Voice call',
+        description: 'Voice calls are only available for private chats',
+      });
+    }
+  };
+
+  /**
+   * Handle video call initiation
+   * Requirement 1.2: Video call initiation
+   */
+  const handleVideoCall = async () => {
+    if (isInCall) {
+      toast({
+        title: 'Already in a call',
+        description: 'Please end your current call first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (chat.type === 'private' && otherParticipant) {
+      console.log('[ChatHeader] Initiating video call:', {
+        userId: otherParticipant.id,
+        userName: otherParticipant.name,
+        chatId: chat.id,
+        currentUserId: currentUser?.id,
+      });
+      setShowCallModal(true);
+      await initiateCall(
+        otherParticipant.id,
+        otherParticipant.name,
+        otherParticipant.avatar || '',
+        chat.id,
+        'video'
+      );
+    } else {
+      toast({
+        title: 'Video call',
+        description: 'Video calls are only available for private chats',
+      });
+    }
   };
 
   const handleMuteNotifications = () => {
@@ -178,14 +261,14 @@ export function ChatHeader({
           <Search className="h-5 w-5" />
         </button>
         <button 
-          onClick={() => setShowVoiceCall(true)}
+          onClick={handleVoiceCall}
           className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground"
           title="Voice call"
         >
           <Phone className="h-5 w-5" />
         </button>
         <button 
-          onClick={() => setShowVideoCall(true)}
+          onClick={handleVideoCall}
           className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground"
           title="Video call"
         >
@@ -210,11 +293,11 @@ export function ChatHeader({
             <DropdownMenuSeparator />
             
             {/* Call & Stream Options */}
-            <DropdownMenuItem onClick={() => setShowVoiceCall(true)} className="gap-3 cursor-pointer">
+            <DropdownMenuItem onClick={handleVoiceCall} className="gap-3 cursor-pointer">
               <Phone className="h-4 w-4" />
               <span>Voice call</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setShowVideoCall(true)} className="gap-3 cursor-pointer">
+            <DropdownMenuItem onClick={handleVideoCall} className="gap-3 cursor-pointer">
               <Video className="h-4 w-4" />
               <span>Video call</span>
             </DropdownMenuItem>
@@ -275,20 +358,10 @@ export function ChatHeader({
         sharedMedia={sharedMedia}
       />
 
+      {/* Call Modal - integrated with callStore */}
       <CallModal
-        open={showVoiceCall}
-        onOpenChange={setShowVoiceCall}
-        callType="voice"
-        contactName={chat.name}
-        contactAvatar={chat.avatar}
-      />
-
-      <CallModal
-        open={showVideoCall}
-        onOpenChange={setShowVideoCall}
-        callType="video"
-        contactName={chat.name}
-        contactAvatar={chat.avatar}
+        open={showCallModal}
+        onOpenChange={setShowCallModal}
       />
 
       {chat.type === 'group' && (
