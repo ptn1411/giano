@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Search, X, ChevronUp, ChevronDown } from "lucide-react";
-import { Message } from "@/services/mockData";
+import { Message } from "@/services/api/types";
 import { cn } from "@/lib/utils";
 
 interface MessageSearchProps {

@@ -1,4 +1,4 @@
-import { X, FileText, Image as ImageIcon } from "lucide-react";
+import { X, FileText, Image as ImageIcon, AlertCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface FilePreview {
@@ -7,11 +7,20 @@ export interface FilePreview {
   type: 'image' | 'file';
   preview?: string;
   progress: number;
+  error?: string;
+  uploadedAttachment?: {
+    id: string;
+    url: string;
+    name: string;
+    size: number;
+    mimeType: string;
+  };
 }
 
 interface AttachmentPreviewProps {
   files: FilePreview[];
   onRemove: (id: string) => void;
+  onRetry?: (id: string) => void;
 }
 
 function formatFileSize(bytes: number): string {
@@ -20,7 +29,7 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-export function AttachmentPreview({ files, onRemove }: AttachmentPreviewProps) {
+export function AttachmentPreview({ files, onRemove, onRetry }: AttachmentPreviewProps) {
   if (files.length === 0) return null;
 
   return (
@@ -35,10 +44,13 @@ export function AttachmentPreview({ files, onRemove }: AttachmentPreviewProps) {
               <img
                 src={file.preview}
                 alt={file.file.name}
-                className="w-full h-full object-cover"
+                className={cn(
+                  "w-full h-full object-cover",
+                  file.error && "opacity-50"
+                )}
               />
               {/* Progress overlay */}
-              {file.progress < 100 && (
+              {file.progress < 100 && !file.error && (
                 <div className="absolute inset-0 bg-foreground/50 flex items-center justify-center">
                   <div className="w-12 h-12 relative">
                     <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
@@ -66,18 +78,57 @@ export function AttachmentPreview({ files, onRemove }: AttachmentPreviewProps) {
                   </div>
                 </div>
               )}
+              {/* Error overlay */}
+              {file.error && (
+                <div className="absolute inset-0 bg-destructive/50 flex flex-col items-center justify-center p-1">
+                  <AlertCircle className="h-5 w-5 text-destructive-foreground mb-1" />
+                  <span className="text-[10px] text-destructive-foreground text-center line-clamp-2">
+                    {file.error}
+                  </span>
+                  {onRetry && (
+                    <button
+                      onClick={() => onRetry(file.id)}
+                      className="mt-1 p-1 rounded-full bg-background/80 hover:bg-background transition-colors"
+                    >
+                      <RotateCcw className="h-3 w-3 text-foreground" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
-            <div className="relative w-32 h-20 rounded-lg bg-muted flex flex-col items-center justify-center p-2">
-              <FileText className="h-6 w-6 text-muted-foreground mb-1" />
-              <p className="text-xs text-foreground truncate w-full text-center font-medium">
-                {file.file.name}
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                {formatFileSize(file.file.size)}
-              </p>
+            <div className={cn(
+              "relative w-32 h-20 rounded-lg bg-muted flex flex-col items-center justify-center p-2",
+              file.error && "bg-destructive/10"
+            )}>
+              {file.error ? (
+                <>
+                  <AlertCircle className="h-5 w-5 text-destructive mb-1" />
+                  <p className="text-[10px] text-destructive text-center line-clamp-2">
+                    {file.error}
+                  </p>
+                  {onRetry && (
+                    <button
+                      onClick={() => onRetry(file.id)}
+                      className="mt-1 p-1 rounded-full bg-background hover:bg-accent transition-colors"
+                    >
+                      <RotateCcw className="h-3 w-3 text-foreground" />
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <FileText className="h-6 w-6 text-muted-foreground mb-1" />
+                  <p className="text-xs text-foreground truncate w-full text-center font-medium">
+                    {file.file.name}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {formatFileSize(file.file.size)}
+                  </p>
+                </>
+              )}
               {/* Progress bar */}
-              {file.progress < 100 && (
+              {file.progress < 100 && !file.error && (
                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-border rounded-b-lg overflow-hidden">
                   <div
                     className="h-full bg-primary transition-all duration-200"

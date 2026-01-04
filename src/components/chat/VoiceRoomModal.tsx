@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { User } from "@/services/mockData";
+import { User } from "@/services/api/types";
 
 interface VoiceRoomParticipant extends User {
   isSpeaking?: boolean;

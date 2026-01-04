@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Menu, Phone, Video, MoreVertical, ArrowLeft, Search, Info, BellOff, Pin, Trash2, LogOut, MessageSquare, Mic, Radio, Monitor } from "lucide-react";
-import { Chat, User } from "@/services/mockData";
+import { Chat, User, Attachment } from "@/services/api/types";
 import { AvatarWithStatus } from "./AvatarWithStatus";
 import {
   DropdownMenu,
@@ -16,22 +16,32 @@ import { CallModal } from "./CallModal";
 import { VoiceRoomModal } from "./VoiceRoomModal";
 import { LiveStreamModal } from "./LiveStreamModal";
 import { ScreenShareModal } from "./ScreenShareModal";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
+import { useAuthStore } from "@/stores/authStore";
 
 interface ChatHeaderProps {
   chat: Chat;
   participants: User[];
+  sharedMedia?: Attachment[];
   onMenuClick: () => void;
   onBack: () => void;
   onSearchClick: () => void;
+  onClearChat?: () => void;
+  onDeleteChat?: () => void;
+  onLeaveGroup?: () => void;
   showBackButton?: boolean;
 }
 
 export function ChatHeader({
   chat,
   participants,
+  sharedMedia = [],
   onMenuClick,
   onBack,
   onSearchClick,
+  onClearChat,
+  onDeleteChat,
+  onLeaveGroup,
   showBackButton,
 }: ChatHeaderProps) {
   const [showContactInfo, setShowContactInfo] = useState(false);
@@ -41,9 +51,13 @@ export function ChatHeader({
   const [showLiveStream, setShowLiveStream] = useState(false);
   const [showScreenShare, setShowScreenShare] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const currentUser = useAuthStore((state) => state.session?.user);
 
   const isOnline = chat.type === 'private' && participants.some(
-    (p) => p.id !== 'user-1' && p.status === 'online'
+    (p) => p.id !== currentUser?.id && p.status === 'online'
   );
 
   const statusText = chat.type === 'group'
@@ -71,6 +85,14 @@ export function ChatHeader({
   };
 
   const handleClearChat = () => {
+    setShowClearConfirm(true);
+  };
+
+  const handleConfirmClear = () => {
+    setShowClearConfirm(false);
+    if (onClearChat) {
+      onClearChat();
+    }
     toast({
       title: 'Chat cleared',
       description: 'All messages have been cleared',
@@ -78,6 +100,14 @@ export function ChatHeader({
   };
 
   const handleDeleteChat = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    setShowDeleteConfirm(false);
+    if (onDeleteChat) {
+      onDeleteChat();
+    }
     toast({
       title: 'Chat deleted',
       description: `${chat.name} has been deleted`,
@@ -86,6 +116,14 @@ export function ChatHeader({
   };
 
   const handleLeaveGroup = () => {
+    setShowLeaveConfirm(true);
+  };
+
+  const handleConfirmLeave = () => {
+    setShowLeaveConfirm(false);
+    if (onLeaveGroup) {
+      onLeaveGroup();
+    }
     toast({
       title: 'Left group',
       description: `You have left ${chat.name}`,
@@ -234,6 +272,7 @@ export function ChatHeader({
         onOpenChange={setShowContactInfo}
         chat={chat}
         participants={participants}
+        sharedMedia={sharedMedia}
       />
 
       <CallModal
@@ -266,8 +305,8 @@ export function ChatHeader({
             onOpenChange={setShowLiveStream}
             isHost={true}
             streamTitle={`Live in ${chat.name}`}
-            hostName="You"
-            hostAvatar="https://api.dicebear.com/7.x/avataaars/svg?seed=You"
+            hostName={currentUser?.name || "You"}
+            hostAvatar={currentUser?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=You"}
           />
         </>
       )}
@@ -276,11 +315,35 @@ export function ChatHeader({
         open={showScreenShare}
         onOpenChange={setShowScreenShare}
         isSharing={isScreenSharing}
-        sharerName="You"
-        sharerAvatar="https://api.dicebear.com/7.x/avataaars/svg?seed=You"
+        sharerName={currentUser?.name || "You"}
+        sharerAvatar={currentUser?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=You"}
         onStartSharing={() => setIsScreenSharing(true)}
         onStopSharing={() => setIsScreenSharing(false)}
       />
+
+      {/* Confirm Modals */}
+      <DeleteConfirmModal
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={handleConfirmClear}
+        messagePreview={`Clear all messages in "${chat.name}"?`}
+      />
+
+      <DeleteConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleConfirmDelete}
+        messagePreview={`Delete chat "${chat.name}"?`}
+      />
+
+      {chat.type === 'group' && (
+        <DeleteConfirmModal
+          isOpen={showLeaveConfirm}
+          onClose={() => setShowLeaveConfirm(false)}
+          onConfirm={handleConfirmLeave}
+          messagePreview={`Leave group "${chat.name}"?`}
+        />
+      )}
     </header>
   );
 }

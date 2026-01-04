@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { User, ReadReceipt } from "@/services/mockData";
+import { User, ReadReceipt } from "@/services/api/types";
 import { AvatarWithStatus } from "./AvatarWithStatus";
 import { cn } from "@/lib/utils";
 import {

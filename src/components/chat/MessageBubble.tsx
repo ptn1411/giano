@@ -1,12 +1,13 @@
 import { useState, useRef, forwardRef, useMemo } from "react";
 import { format } from "date-fns";
-import { Smile, Reply, Forward, Pencil, Trash2, Pin, PinOff } from "lucide-react";
-import { Message, InlineButton, User } from "@/services/mockData";
+import { Reply, Forward, Pencil, Trash2, Pin, PinOff, MoreHorizontal } from "lucide-react";
+import { Message, InlineButton, User } from "@/services/api/types";
 import { MessageAttachments } from "./MessageAttachments";
 import { ReplyPreview } from "./ReplyPreview";
 import { VoicePlayer } from "./VoicePlayer";
 import { ReadReceipts } from "./ReadReceipts";
 import { DeliveryStatusIcon } from "./DeliveryStatusIcon";
+import { AvatarWithStatus } from "./AvatarWithStatus";
 import { highlightText } from "./MessageSearch";
 import { cn } from "@/lib/utils";
 import {
@@ -18,6 +19,7 @@ import {
 interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
+  sender?: User;
   onReaction: (emoji: string) => void;
   onReply: (message: Message) => void;
   onForward: (message: Message) => void;
@@ -66,6 +68,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
   function MessageBubble({ 
     message, 
     isOwn, 
+    sender,
     onReaction, 
     onReply, 
     onForward, 
@@ -79,6 +82,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     users = []
   }, ref) {
     const [showReactions, setShowReactions] = useState(false);
+    const [showMoreActions, setShowMoreActions] = useState(false);
     const timeoutRef = useRef<NodeJS.Timeout>();
 
     const handleMouseEnter = () => {
@@ -87,7 +91,10 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     };
 
     const handleMouseLeave = () => {
-      timeoutRef.current = setTimeout(() => setShowReactions(false), 300);
+      timeoutRef.current = setTimeout(() => {
+        setShowReactions(false);
+        setShowMoreActions(false);
+      }, 200);
     };
 
     // Group reactions by emoji with user names
@@ -123,24 +130,44 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       <div
         ref={ref}
         className={cn(
-          "group flex w-full gap-2 min-w-0",
+          "group flex w-full gap-2 min-w-0 relative transition-all duration-200",
           isOwn ? "justify-end" : "justify-start",
-          isSending && "animate-fade-in"
+          showReactions && "z-40"
         )}
       >
+        {/* Avatar for other users (left side) */}
+        {!isOwn && sender && (
+          <div className="flex-shrink-0 self-end mb-1 transition-transform duration-200 group-hover:scale-105">
+            <AvatarWithStatus
+              src={sender.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${sender.id}`}
+              alt={sender.name}
+              size="sm"
+              status={sender.status}
+            />
+          </div>
+        )}
+        
         <div
           className={cn(
-            "relative max-w-[75%] rounded-2xl min-w-0 break-words transition-opacity",
+            "relative max-w-[75%] rounded-2xl min-w-0 break-words",
+            "transition-all duration-200 ease-out",
             hasText ? "px-4 py-2" : hasAttachments ? "p-1.5" : "px-4 py-2",
             isOwn
               ? "bg-primary text-primary-foreground rounded-br-md"
               : "bg-card text-card-foreground rounded-bl-md shadow-sm",
-            isSending && "opacity-70",
-            isFailed && "opacity-90"
+            isSending && "opacity-70 scale-[0.98]",
+            isFailed && "opacity-90",
+            "hover:shadow-md"
           )}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
+          {/* Sender name for other users */}
+          {!isOwn && sender && (
+            <p className="text-xs font-medium text-primary mb-1">
+              {sender.name}
+            </p>
+          )}
           {/* Reply preview */}
           {message.replyTo && (
             <ReplyPreview
@@ -227,7 +254,8 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className={cn(
-                  "absolute -bottom-3 flex gap-0.5 rounded-full bg-card px-1.5 py-0.5 shadow-md cursor-pointer hover:shadow-lg transition-shadow",
+                  "absolute -bottom-3 flex gap-0.5 rounded-full bg-card px-1.5 py-0.5 shadow-md cursor-pointer",
+                  "transition-all duration-200 hover:shadow-lg hover:scale-105",
                   isOwn ? "left-2" : "right-2"
                 )}>
                   {groupedReactions.map((group, index) => (
@@ -258,73 +286,133 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
             </Tooltip>
           )}
 
-          {/* Reaction picker */}
-          {showReactions && (
-            <div
-              className={cn(
-                "absolute -top-10 flex items-center gap-1 rounded-full bg-card px-2 py-1.5 shadow-lg z-10",
-                isOwn ? "right-0" : "left-0"
-              )}
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
-            >
+          {/* Reaction picker - smooth animation */}
+          <div
+            className={cn(
+              "absolute -top-11 flex items-center gap-0.5 rounded-full bg-card/95 backdrop-blur-sm px-1.5 py-1 shadow-xl z-50 border border-border/50",
+              "transition-all duration-200 ease-out origin-bottom",
+              isOwn ? "right-0" : "left-0",
+              showReactions 
+                ? "opacity-100 scale-100 translate-y-0" 
+                : "opacity-0 scale-95 translate-y-2 pointer-events-none"
+            )}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            {/* Quick reactions */}
+            {quickReactions.map((emoji, index) => (
               <button
-                onClick={() => onReply(message)}
-                className="p-1 rounded-full hover:bg-accent transition-colors"
-                title="Reply"
-              >
-                <Reply className="h-4 w-4 text-muted-foreground" />
-              </button>
-              <button
-                onClick={() => onForward(message)}
-                className="p-1 rounded-full hover:bg-accent transition-colors"
-                title="Forward"
-              >
-                <Forward className="h-4 w-4 text-muted-foreground" />
-              </button>
-              <button
-                onClick={() => message.isPinned ? onUnpin(message.id) : onPin(message)}
-                className="p-1 rounded-full hover:bg-accent transition-colors"
-                title={message.isPinned ? "Unpin" : "Pin"}
-              >
-                {message.isPinned ? (
-                  <PinOff className="h-4 w-4 text-primary" />
-                ) : (
-                  <Pin className="h-4 w-4 text-muted-foreground" />
+                key={emoji}
+                onClick={() => onReaction(emoji)}
+                className={cn(
+                  "text-lg p-1 rounded-full transition-all duration-150",
+                  "hover:scale-125 hover:bg-accent active:scale-110"
                 )}
+                style={{ transitionDelay: `${index * 20}ms` }}
+              >
+                {emoji}
               </button>
-              {isOwn && (
+            ))}
+            
+            <div className="w-px h-5 bg-border mx-1" />
+            
+            {/* Action buttons */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => onReply(message)}
+                  className="p-1.5 rounded-full hover:bg-accent transition-all duration-150 hover:scale-110"
+                >
+                  <Reply className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">Reply</TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => onForward(message)}
+                  className="p-1.5 rounded-full hover:bg-accent transition-all duration-150 hover:scale-110"
+                >
+                  <Forward className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">Forward</TooltipContent>
+            </Tooltip>
+
+            {/* More actions button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setShowMoreActions(!showMoreActions)}
+                  className={cn(
+                    "p-1.5 rounded-full transition-all duration-150 hover:scale-110",
+                    showMoreActions ? "bg-accent" : "hover:bg-accent"
+                  )}
+                >
+                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">More</TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* More actions dropdown */}
+          <div
+            className={cn(
+              "absolute -top-[5.5rem] flex flex-col gap-1 rounded-xl bg-card/95 backdrop-blur-sm p-1.5 shadow-xl z-50 border border-border/50",
+              "transition-all duration-200 ease-out origin-bottom",
+              isOwn ? "right-0" : "left-0",
+              showMoreActions && showReactions
+                ? "opacity-100 scale-100 translate-y-0" 
+                : "opacity-0 scale-95 translate-y-2 pointer-events-none"
+            )}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            <button
+              onClick={() => { 
+                if (message.isPinned) {
+                  onUnpin(message.id);
+                } else {
+                  onPin(message);
+                }
+                setShowMoreActions(false); 
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-accent transition-colors text-sm"
+            >
+              {message.isPinned ? (
                 <>
-                  <button
-                    onClick={() => onEdit(message)}
-                    className="p-1 rounded-full hover:bg-accent transition-colors"
-                    title="Edit"
-                  >
-                    <Pencil className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                  <button
-                    onClick={() => onDelete(message)}
-                    className="p-1 rounded-full hover:bg-destructive/10 transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </button>
+                  <PinOff className="h-4 w-4 text-primary" />
+                  <span>Unpin</span>
+                </>
+              ) : (
+                <>
+                  <Pin className="h-4 w-4 text-muted-foreground" />
+                  <span>Pin</span>
                 </>
               )}
-              {quickReactions.map((emoji) => (
+            </button>
+            {isOwn && (
+              <>
                 <button
-                  key={emoji}
-                  onClick={() => onReaction(emoji)}
-                  className="text-base hover:scale-125 transition-transform"
+                  onClick={() => { onEdit(message); setShowMoreActions(false); }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-accent transition-colors text-sm"
                 >
-                  {emoji}
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                  <span>Edit</span>
                 </button>
-              ))}
-              <button className="ml-1 rounded-full p-1 hover:bg-accent">
-                <Smile className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </div>
-          )}
+                <button
+                  onClick={() => { onDelete(message); setShowMoreActions(false); }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-sm text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Delete</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
         
         {/* Read receipts for group chats */}

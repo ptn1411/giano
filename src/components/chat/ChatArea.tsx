@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
-import { Chat, User, Attachment, Message, InlineButton } from "@/services/mockData";
+import { useState, useCallback, useMemo } from "react";
+import { Chat, User, Attachment, Message, InlineButton } from "@/services/api/types";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
@@ -32,6 +32,8 @@ interface ChatAreaProps {
   onEditSubmit?: (messageId: string, newText: string) => void;
   onMenuClick: () => void;
   onBack: () => void;
+  onClearChat?: () => void;
+  onDeleteChat?: () => void;
   loading?: boolean;
   searchQuery?: string;
   onSearchQueryChange?: (query: string) => void;
@@ -58,6 +60,8 @@ export function ChatArea({
   onEditSubmit,
   onMenuClick,
   onBack,
+  onClearChat,
+  onDeleteChat,
   loading,
 }: ChatAreaProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -90,6 +94,13 @@ export function ChatArea({
     ? chat.participants.find(p => p.startsWith('bot-')) 
     : null;
 
+  // Extract shared media from messages
+  const sharedMedia = useMemo(() => {
+    return messages
+      .filter(m => m.attachments && m.attachments.length > 0)
+      .flatMap(m => m.attachments || []);
+  }, [messages]);
+
   if (!chat) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center bg-background p-8 text-center relative">
@@ -121,9 +132,12 @@ export function ChatArea({
       <ChatHeader
         chat={chat}
         participants={participants}
+        sharedMedia={sharedMedia}
         onMenuClick={onMenuClick}
         onBack={onBack}
         onSearchClick={() => setIsSearchOpen(true)}
+        onClearChat={onClearChat}
+        onDeleteChat={onDeleteChat}
         showBackButton
       />
       <NetworkStatusIndicator />
@@ -174,6 +188,7 @@ export function ChatArea({
         onCancelEdit={onCancelEdit}
         users={participants}
         botId={botId}
+        chatId={chat.id}
       />
     </div>
   );

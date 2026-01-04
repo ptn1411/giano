@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Menu, Settings } from "lucide-react";
-import { Chat, User } from "@/services/mockData";
+import { Chat as ApiChat, User as ApiUser } from "@/services/api/types";
 import { AvatarWithStatus } from "./AvatarWithStatus";
 import { ThemeToggle } from "./ThemeToggle";
 import { SearchBar } from "./SearchBar";
 import { ChatListItem } from "./ChatListItem";
 import { ChatListSkeleton } from "./ChatListSkeleton";
 import { cn } from "@/lib/utils";
+
 interface ChatSidebarProps {
-  chats: Chat[];
-  currentUser: User | null;
+  chats: ApiChat[];
+  currentUser: { id: string; name: string; avatar: string; status: 'online' | 'offline' | 'away' } | null;
   activeChatId: string | null;
   onSelectChat: (chatId: string) => void;
   onSearch: (query: string) => void;

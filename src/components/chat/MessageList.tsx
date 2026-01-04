@@ -1,9 +1,10 @@
 import { useRef, useEffect } from "react";
-import { Message, User, InlineButton } from "@/services/mockData";
+import { Message, User, InlineButton } from "@/services/api/types";
 import { MessageBubble } from "./MessageBubble";
 import { TypingIndicator } from "./TypingIndicator";
 import { MessageSkeleton } from "./MessageSkeleton";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/authStore";
 
 interface MessageListProps {
   messages: Message[];
@@ -40,6 +41,7 @@ export function MessageList({
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const currentUserId = useAuthStore((state) => state.session?.user?.id);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,10 +67,10 @@ export function MessageList({
 
   return (
     <div className={cn(
-      "flex-1 overflow-y-auto px-4 py-4 min-h-0",
+      "flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 min-h-0",
       "scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
     )}>
-      <div className="flex flex-col gap-3 min-w-0">
+      <div className="flex flex-col gap-3 min-w-0 pt-8">
         {messages.map((message, index) => (
           <div
             key={message.id}
@@ -76,12 +78,13 @@ export function MessageList({
             ref={(el) => {
               if (el) messageRefs.current.set(message.id, el);
             }}
-            className="animate-fade-in transition-all duration-200 min-w-0"
+            className="animate-fade-in transition-all duration-200 min-w-0 relative"
             style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
           >
             <MessageBubble
               message={message}
-              isOwn={message.senderId === 'user-1'}
+              isOwn={message.senderId === currentUserId}
+              sender={users.find((u) => u.id === message.senderId)}
               onReaction={(emoji) => onReaction(message.id, emoji)}
               onReply={onReply}
               onForward={onForward}

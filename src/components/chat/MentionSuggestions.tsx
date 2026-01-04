@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { User } from "@/services/mockData";
+import { User } from "@/services/api/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 

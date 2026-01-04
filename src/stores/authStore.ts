@@ -1,6 +1,16 @@
+/**
+ * Auth Store
+ * Manages authentication state using Zustand with real API integration
+ * Requirements: 2.1-2.6
+ */
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { authApi, AuthSession } from '@/services/authData';
+import { authService, AuthSession, removeAuthToken } from '@/services/api';
+
+// ============================================
+// Types
+// ============================================
 
 interface AuthState {
   session: AuthSession | null;
@@ -15,6 +25,10 @@ interface AuthState {
   updateSession: (session: AuthSession | null) => void;
 }
 
+// ============================================
+// Auth Store
+// ============================================
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -22,17 +36,34 @@ export const useAuthStore = create<AuthState>()(
       isLoading: true,
       isInitialized: false,
 
+      /**
+       * Initialize auth state on app load
+       * Requirement 2.4: Call GET /auth/session to restore session if token exists
+       */
       initialize: async () => {
         if (get().isInitialized) return;
         
         try {
-          const existingSession = await authApi.getSession();
+          // Check if we have a stored token before making API call
+          if (!authService.hasStoredToken()) {
+            set({ 
+              session: null, 
+              isLoading: false, 
+              isInitialized: true 
+            });
+            return;
+          }
+
+          // Attempt to restore session from server
+          const session = await authService.getSession();
           set({ 
-            session: existingSession, 
+            session, 
             isLoading: false, 
             isInitialized: true 
           });
         } catch {
+          // Clear any invalid state on error
+          removeAuthToken();
           set({ 
             session: null, 
             isLoading: false, 
@@ -41,34 +72,66 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      /**
+       * Login with email and password
+       * Requirement 2.2: Call POST /auth/login and store the session
+       * Requirement 2.5: Persist JWT token in localStorage (handled by authService)
+       * Requirement 2.6: Display error messages from API response
+       */
       login: async (email: string, password: string) => {
-        const { session: newSession, error } = await authApi.login(email, password);
-        if (newSession) {
-          set({ session: newSession });
+        const { session, error } = await authService.login(email, password);
+        
+        if (session) {
+          set({ session });
         }
+        
         return { error };
       },
 
+      /**
+       * Register a new user
+       * Requirement 2.1: Call POST /auth/register and store the session
+       * Requirement 2.5: Persist JWT token in localStorage (handled by authService)
+       * Requirement 2.6: Display error messages from API response
+       */
       signup: async (email: string, password: string, name: string) => {
-        const { session: newSession, error } = await authApi.signup(email, password, name);
-        if (newSession) {
-          set({ session: newSession });
+        const { session, error } = await authService.register(email, password, name);
+        
+        if (session) {
+          set({ session });
         }
+        
         return { error };
       },
 
+      /**
+       * Logout the current user
+       * Requirement 2.3: Call POST /auth/logout and clear local session
+       */
       logout: async () => {
-        await authApi.logout();
+        await authService.logout();
         set({ session: null });
       },
 
+      /**
+       * Update session state directly (used for WebSocket updates, etc.)
+       */
       updateSession: (session: AuthSession | null) => {
         set({ session });
       },
     }),
     {
       name: 'auth-storage',
+      // Only persist session data, not loading states
       partialize: (state) => ({ session: state.session }),
     }
   )
 );
+
+// ============================================
+// Selectors (for convenience)
+// ============================================
+
+export const selectIsAuthenticated = (state: AuthState) => !!state.session;
+export const selectCurrentUser = (state: AuthState) => state.session?.user ?? null;
+export const selectAuthToken = (state: AuthState) => state.session?.token ?? null;

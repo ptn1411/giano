@@ -1,6 +1,6 @@
 import { formatDistanceToNow } from "date-fns";
 import { Bot } from "lucide-react";
-import { Chat } from "@/services/mockData";
+import { Chat } from "@/services/api/types";
 import { AvatarWithStatus } from "./AvatarWithStatus";
 import { cn } from "@/lib/utils";
 

@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User } from "@/services/mockData";
+import { User } from "@/services/api/types";
 
 interface TypingIndicatorProps {
   users: User[];

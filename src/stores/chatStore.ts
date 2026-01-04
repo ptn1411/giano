@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Chat, Message } from '@/services/mockData';
+import { Chat, Message } from '@/services/api/types';
 
 interface ChatState {
   // UI State
@@ -9,6 +9,7 @@ interface ChatState {
   
   // Modals
   showNewGroupModal: boolean;
+  showSearchUserModal: boolean;
   forwardingMessage: Message | null;
   editingMessage: Message | null;
   deletingMessage: Message | null;
@@ -22,6 +23,7 @@ interface ChatState {
   
   // Modal actions
   setShowNewGroupModal: (show: boolean) => void;
+  setShowSearchUserModal: (show: boolean) => void;
   setForwardingMessage: (message: Message | null) => void;
   setEditingMessage: (message: Message | null) => void;
   setDeletingMessage: (message: Message | null) => void;
@@ -36,6 +38,7 @@ const initialState = {
   activeChatId: null,
   activeChat: null,
   showNewGroupModal: false,
+  showSearchUserModal: false,
   forwardingMessage: null,
   editingMessage: null,
   deletingMessage: null,
@@ -51,6 +54,7 @@ export const useChatStoreBase = create<ChatState>()((set) => ({
   setActiveChat: (chat) => set({ activeChat: chat }),
 
   setShowNewGroupModal: (show) => set({ showNewGroupModal: show }),
+  setShowSearchUserModal: (show) => set({ showSearchUserModal: show }),
   setForwardingMessage: (message) => set({ forwardingMessage: message }),
   setEditingMessage: (message) => set({ editingMessage: message }),
   setDeletingMessage: (message) => set({ deletingMessage: message }),
@@ -64,6 +68,7 @@ const selectSidebarOpen = (state: ChatState) => state.sidebarOpen;
 const selectActiveChatId = (state: ChatState) => state.activeChatId;
 const selectActiveChat = (state: ChatState) => state.activeChat;
 const selectShowNewGroupModal = (state: ChatState) => state.showNewGroupModal;
+const selectShowSearchUserModal = (state: ChatState) => state.showSearchUserModal;
 const selectReplyingTo = (state: ChatState) => state.replyingTo;
 const selectForwardingMessage = (state: ChatState) => state.forwardingMessage;
 const selectEditingMessage = (state: ChatState) => state.editingMessage;
@@ -73,6 +78,7 @@ const selectToggleSidebar = (state: ChatState) => state.toggleSidebar;
 const selectSetActiveChatId = (state: ChatState) => state.setActiveChatId;
 const selectSetActiveChat = (state: ChatState) => state.setActiveChat;
 const selectSetShowNewGroupModal = (state: ChatState) => state.setShowNewGroupModal;
+const selectSetShowSearchUserModal = (state: ChatState) => state.setShowSearchUserModal;
 const selectSetReplyingTo = (state: ChatState) => state.setReplyingTo;
 const selectSetForwardingMessage = (state: ChatState) => state.setForwardingMessage;
 const selectSetEditingMessage = (state: ChatState) => state.setEditingMessage;
@@ -84,6 +90,7 @@ export function useChatStore() {
   const activeChatId = useChatStoreBase(selectActiveChatId);
   const activeChat = useChatStoreBase(selectActiveChat);
   const showNewGroupModal = useChatStoreBase(selectShowNewGroupModal);
+  const showSearchUserModal = useChatStoreBase(selectShowSearchUserModal);
   const replyingTo = useChatStoreBase(selectReplyingTo);
   const forwardingMessage = useChatStoreBase(selectForwardingMessage);
   const editingMessage = useChatStoreBase(selectEditingMessage);
@@ -93,6 +100,7 @@ export function useChatStore() {
   const setActiveChatId = useChatStoreBase(selectSetActiveChatId);
   const setActiveChat = useChatStoreBase(selectSetActiveChat);
   const setShowNewGroupModal = useChatStoreBase(selectSetShowNewGroupModal);
+  const setShowSearchUserModal = useChatStoreBase(selectSetShowSearchUserModal);
   const setReplyingTo = useChatStoreBase(selectSetReplyingTo);
   const setForwardingMessage = useChatStoreBase(selectSetForwardingMessage);
   const setEditingMessage = useChatStoreBase(selectSetEditingMessage);
@@ -103,6 +111,7 @@ export function useChatStore() {
     activeChatId,
     activeChat,
     showNewGroupModal,
+    showSearchUserModal,
     replyingTo,
     forwardingMessage,
     editingMessage,
@@ -112,6 +121,7 @@ export function useChatStore() {
     setActiveChatId,
     setActiveChat,
     setShowNewGroupModal,
+    setShowSearchUserModal,
     setReplyingTo,
     setForwardingMessage,
     setEditingMessage,

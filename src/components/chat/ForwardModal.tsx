@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X, Search, Forward, Check } from "lucide-react";
-import { Chat, Message } from "@/services/mockData";
+import { Chat, Message } from "@/services/api/types";
 import { cn } from "@/lib/utils";
 
 interface ForwardModalProps {

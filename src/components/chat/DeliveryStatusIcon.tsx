@@ -1,5 +1,5 @@
 import { Check, CheckCheck, Clock, AlertCircle, RotateCw } from "lucide-react";
-import { DeliveryStatus } from "@/services/mockData";
+import { DeliveryStatus } from "@/services/api/types";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,

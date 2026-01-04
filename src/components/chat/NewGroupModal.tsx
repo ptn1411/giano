@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, Users } from "lucide-react";
-import { User, chatApi } from "@/services/mockData";
+import { User } from "@/services/api/types";
+import { chatsService } from "@/services/api/chats";
 import { AvatarWithStatus } from "./AvatarWithStatus";
 import { cn } from "@/lib/utils";
 
@@ -31,11 +32,13 @@ export function NewGroupModal({ isOpen, onClose, users, onGroupCreated }: NewGro
     
     setLoading(true);
     try {
-      const chat = await chatApi.createGroupChat(groupName.trim(), selectedUsers);
-      onGroupCreated(chat.id);
-      setGroupName("");
-      setSelectedUsers([]);
-      onClose();
+      const result = await chatsService.createGroup(groupName.trim(), selectedUsers);
+      if (result.chat) {
+        onGroupCreated(result.chat.id);
+        setGroupName("");
+        setSelectedUsers([]);
+        onClose();
+      }
     } finally {
       setLoading(false);
     }

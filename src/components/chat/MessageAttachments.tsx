@@ -1,5 +1,5 @@
 import { FileText, Download, Image as ImageIcon } from "lucide-react";
-import { Attachment } from "@/services/mockData";
+import { Attachment } from "@/services/api/types";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 

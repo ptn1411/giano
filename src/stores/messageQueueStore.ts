@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Attachment, Message } from '@/services/mockData';
+import { Attachment, ReplyTo } from '@/services/api/types';
 
 export interface QueuedMessage {
   id: string;
   chatId: string;
   text: string;
   attachments?: Attachment[];
-  replyTo?: Message['replyTo'];
+  replyTo?: ReplyTo;
   timestamp: Date;
   retryCount: number;
 }

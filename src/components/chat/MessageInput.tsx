@@ -7,7 +7,9 @@ import { MentionSuggestions } from "./MentionSuggestions";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { EmojiPicker } from "./EmojiPicker";
 import { SlashCommandMenu, getCommandsForBot } from "./SlashCommandMenu";
-import { Attachment, Message, User } from "@/services/mockData";
+import { Attachment, Message, User } from "@/services/api/types";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { uploadService } from "@/services/api/upload";
 
 interface MessageInputProps {
   onSend: (text: string, attachments?: Attachment[], replyTo?: Message['replyTo']) => void;
@@ -19,9 +21,10 @@ interface MessageInputProps {
   onCancelEdit?: () => void;
   users?: User[];
   botId?: string | null;
+  chatId?: string | null;
 }
 
-export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCancelReply, editingMessage, onCancelEdit, users = [], botId }: MessageInputProps) {
+export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCancelReply, editingMessage, onCancelEdit, users = [], botId, chatId }: MessageInputProps) {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -35,20 +38,85 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
   const imageInputRef = useRef<HTMLInputElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
 
-  // Simulate upload progress
-  const simulateUpload = useCallback((fileId: string) => {
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 20 + 10;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(interval);
-      }
+  // Typing indicator hook
+  const { onType, stopTyping } = useTypingIndicator(chatId ?? null);
+
+  // Upload file using real API
+  const uploadFile = useCallback(async (filePreview: FilePreview) => {
+    const uploadType = uploadService.getUploadType(filePreview.file);
+    
+    // Validate file before upload
+    const validation = uploadService.validateFile(filePreview.file);
+    if (!validation.valid) {
       setFiles((prev) =>
-        prev.map((f) => (f.id === fileId ? { ...f, progress: Math.min(100, Math.round(progress)) } : f))
+        prev.map((f) => 
+          f.id === filePreview.id 
+            ? { ...f, error: validation.error, progress: 0 } 
+            : f
+        )
       );
-    }, 150);
+      return;
+    }
+
+    const result = await uploadService.uploadFile(
+      filePreview.file,
+      uploadType,
+      (progress) => {
+        setFiles((prev) =>
+          prev.map((f) => 
+            f.id === filePreview.id 
+              ? { ...f, progress: progress.percentage } 
+              : f
+          )
+        );
+      }
+    );
+
+    if (result.success && result.attachment) {
+      setFiles((prev) =>
+        prev.map((f) => 
+          f.id === filePreview.id 
+            ? { 
+                ...f, 
+                progress: 100, 
+                uploadedAttachment: {
+                  id: result.attachment!.id,
+                  url: result.attachment!.url,
+                  name: result.attachment!.name,
+                  size: result.attachment!.size,
+                  mimeType: result.attachment!.mimeType,
+                }
+              } 
+            : f
+        )
+      );
+    } else {
+      setFiles((prev) =>
+        prev.map((f) => 
+          f.id === filePreview.id 
+            ? { ...f, error: result.error || 'Upload failed', progress: 0 } 
+            : f
+        )
+      );
+    }
   }, []);
+
+  // Retry failed upload
+  const retryUpload = useCallback((fileId: string) => {
+    const file = files.find((f) => f.id === fileId);
+    if (file) {
+      // Reset error and progress
+      setFiles((prev) =>
+        prev.map((f) => 
+          f.id === fileId 
+            ? { ...f, error: undefined, progress: 0 } 
+            : f
+        )
+      );
+      // Retry upload
+      uploadFile(file);
+    }
+  }, [files, uploadFile]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file') => {
     const selectedFiles = Array.from(e.target.files || []);
@@ -70,12 +138,14 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
     });
 
     setFiles((prev) => [...prev, ...newFiles]);
-    newFiles.forEach((f) => simulateUpload(f.id));
+    
+    // Start real uploads
+    newFiles.forEach((f) => uploadFile(f));
     
     // Reset input
     e.target.value = '';
     setShowAttachMenu(false);
-  }, [simulateUpload]);
+  }, [uploadFile]);
 
   const removeFile = useCallback((id: string) => {
     setFiles((prev) => {
@@ -90,6 +160,9 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Stop typing indicator when submitting
+    stopTyping();
+    
     // Handle edit mode
     if (editingMessage) {
       if (text.trim() && onEditSubmit) {
@@ -103,18 +176,35 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
       return;
     }
     
-    const allUploaded = files.every((f) => f.progress === 100);
-    if ((!text.trim() && files.length === 0) || disabled || !allUploaded) return;
+    // Check if all files are uploaded (progress 100 and no errors)
+    const allUploaded = files.every((f) => f.progress === 100 && !f.error);
+    const hasErrors = files.some((f) => f.error);
+    
+    if ((!text.trim() && files.length === 0) || disabled || !allUploaded || hasErrors) return;
 
-    // Convert FilePreview to Attachment
-    const attachments: Attachment[] = files.map((f) => ({
-      id: f.id,
-      type: f.type,
-      name: f.file.name,
-      size: f.file.size,
-      url: f.preview || URL.createObjectURL(f.file),
-      mimeType: f.file.type,
-    }));
+    // Convert FilePreview to Attachment, using uploaded data when available
+    const attachments: Attachment[] = files.map((f) => {
+      // Use uploaded attachment data if available (from real API)
+      if (f.uploadedAttachment) {
+        return {
+          id: f.uploadedAttachment.id,
+          type: f.type,
+          name: f.uploadedAttachment.name,
+          size: f.uploadedAttachment.size,
+          url: f.uploadedAttachment.url,
+          mimeType: f.uploadedAttachment.mimeType,
+        };
+      }
+      // Fallback to local data (for backwards compatibility)
+      return {
+        id: f.id,
+        type: f.type,
+        name: f.file.name,
+        size: f.file.size,
+        url: f.preview || URL.createObjectURL(f.file),
+        mimeType: f.file.type,
+      };
+    });
 
     onSend(text.trim(), attachments.length > 0 ? attachments : undefined, replyingTo ? {
       id: replyingTo.id,
@@ -156,6 +246,11 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
     setText(newText);
+
+    // Send typing indicator when user types
+    if (newText.length > 0) {
+      onType();
+    }
 
     // Check for slash commands (only for bots)
     if (botId && newText.startsWith("/")) {
@@ -216,7 +311,7 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
 
   useEffect(() => {
     handleInput();
-  }, [text]);
+  }, [text, handleInput]);
 
   // Close attach menu on outside click
   useEffect(() => {
@@ -250,7 +345,9 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
     onCancelReply?.();
   }, [onSend, replyingTo, onCancelReply]);
 
-  const canSend = editingMessage ? text.trim().length > 0 : (text.trim() || files.length > 0) && files.every((f) => f.progress === 100);
+  const canSend = editingMessage 
+    ? text.trim().length > 0 
+    : (text.trim() || files.length > 0) && files.every((f) => f.progress === 100 && !f.error);
 
   // Show voice recorder if recording
   if (isRecordingVoice) {
@@ -291,7 +388,7 @@ export function MessageInput({ onSend, onEditSubmit, disabled, replyingTo, onCan
       )}
 
       {/* Attachment Preview */}
-      <AttachmentPreview files={files} onRemove={removeFile} />
+      <AttachmentPreview files={files} onRemove={removeFile} onRetry={retryUpload} />
 
       <form onSubmit={handleSubmit} className="flex items-end gap-2 px-4 py-3">
         {/* Attach button with menu */}

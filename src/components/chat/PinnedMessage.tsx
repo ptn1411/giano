@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pin, X, ChevronDown, ChevronUp } from "lucide-react";
-import { Message } from "@/services/mockData";
+import { Message } from "@/services/api/types";
 import { cn } from "@/lib/utils";
 
 interface PinnedMessageItemProps {

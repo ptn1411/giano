@@ -1,0 +1,12 @@
+# Cross-compilation configuration
+# https://github.com/cross-rs/cross
+
+[target.x86_64-unknown-linux-gnu]
+# Use Ubuntu 22.04 base image (compatible with 24.04)
+image = "ghcr.io/cross-rs/x86_64-unknown-linux-gnu:main"
+
+[build.env]
+passthrough = [
+    "DATABASE_URL",
+    "SQLX_OFFLINE"
+]
