@@ -28,7 +28,6 @@ interface MessageListProps {
   typingUsers?: User[];
 }
 
-// Memoized message item
 interface MessageItemProps {
   message: Message;
   isOwn: boolean;
@@ -112,6 +111,8 @@ export function MessageList({
   const prevMessagesLengthRef = useRef(messages.length);
   const shouldScrollToBottomRef = useRef(true);
   const beforeLoadOffsetRef = useRef<number | null>(null);
+  const isInitialScrollRef = useRef(true);
+  const currentChatIdRef = useRef<string | null>(null); // Track chat hiện tại
 
   const virtualizer = useVirtualizer({
     count: messages.length,
@@ -120,11 +121,9 @@ export function MessageList({
     overscan: 8,
   });
 
-  // Callback ref that safely measures elements after render
   const measureRef = useCallback(
     (el: HTMLElement | null) => {
       if (!el) return;
-      // Use queueMicrotask to defer measurement until after React's render phase
       queueMicrotask(() => {
         virtualizer.measureElement(el);
       });
@@ -132,7 +131,7 @@ export function MessageList({
     [virtualizer]
   );
 
-  // Scroll using virtualizer.scrollToIndex
+  // Scroll to bottom function
   const scrollToBottom = useCallback((smooth = false) => {
     if (messages.length > 0 && parentRef.current) {
       virtualizer.scrollToIndex(messages.length - 1, {
@@ -142,18 +141,23 @@ export function MessageList({
     }
   }, [virtualizer, messages.length]);
 
-  // Initial scroll to bottom - useEffect runs after render + paint
+  // QUAN TRỌNG: Scroll xuống khi vừa vào chat (lần đầu load messages)
   useEffect(() => {
-    if (messages.length > 0 && shouldScrollToBottomRef.current && parentRef.current) {
-      // Delay to ensure DOM is ready
-      const timer = setTimeout(() => {
-        scrollToBottom(false);
-      }, 50);
-      return () => clearTimeout(timer);
+    if (messages.length > 0 && isInitialScrollRef.current) {
+      isInitialScrollRef.current = false;
+      
+      // Đợi virtualizer render xong
+      const timers = [
+        setTimeout(() => scrollToBottom(false), 0),
+        setTimeout(() => scrollToBottom(false), 50),
+        setTimeout(() => scrollToBottom(false), 100),
+      ];
+      
+      return () => timers.forEach(clearTimeout);
     }
   }, [messages.length, scrollToBottom]);
 
-  // Handle new messages and preserve scroll on prepend
+  // Handle thêm tin nhắn mới và preserve scroll khi load old messages
   useEffect(() => {
     const prev = prevMessagesLengthRef.current;
     const curr = messages.length;
@@ -163,12 +167,12 @@ export function MessageList({
       return;
     }
 
-    // Restore scroll position after loading older messages (prepend)
+    // Restore scroll position sau khi load tin nhắn cũ (prepend)
     if (beforeLoadOffsetRef.current !== null) {
       virtualizer.scrollToOffset(beforeLoadOffsetRef.current);
       beforeLoadOffsetRef.current = null;
     }
-    // New message appended - scroll to bottom if user was at bottom
+    // Tin nhắn mới được thêm vào - scroll xuống nếu đang ở cuối
     else if (curr > prev && shouldScrollToBottomRef.current) {
       scrollToBottom(true);
     }
@@ -176,16 +180,16 @@ export function MessageList({
     prevMessagesLengthRef.current = curr;
   }, [messages.length, scrollToBottom, virtualizer]);
 
-  // Handle scroll for infinite loading and tracking position
+  // Handle scroll để load more và track vị trí
   const handleScroll = useCallback(() => {
     const element = parentRef.current;
     if (!element) return;
 
-    // Track if user is near bottom
+    // Check xem user có đang ở gần cuối không
     const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 150;
     shouldScrollToBottomRef.current = isNearBottom;
 
-    // Load more when near top - save offset before loading
+    // Load more khi scroll gần đầu - lưu offset trước khi load
     if (element.scrollTop < 200 && onLoadMore && hasMore && !isLoadingMore) {
       beforeLoadOffsetRef.current = virtualizer.scrollOffset ?? 0;
       onLoadMore();
@@ -202,9 +206,9 @@ export function MessageList({
         <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
           <span className="text-3xl">💬</span>
         </div>
-        <h3 className="font-semibold text-lg text-foreground">No messages yet</h3>
+        <h3 className="font-semibold text-lg text-foreground">Chưa có tin nhắn</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Send a message to start the conversation
+          Gửi tin nhắn để bắt đầu cuộc trò chuyện
         </p>
       </div>
     );

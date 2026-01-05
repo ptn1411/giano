@@ -108,11 +108,13 @@ export const useSettingsStore = create<SettingsState>()(
       /**
        * Fetch all settings at once
        * Requirement 7.1: Fetch all settings from respective endpoints
+       * Requirement 6.1: Load all settings categories
        */
       fetchAllSettings: async () => {
         set({ isLoading: true, error: null });
 
         try {
+          // Fetch all settings in parallel
           const [
             profileResult,
             privacyResult,
@@ -121,7 +123,7 @@ export const useSettingsStore = create<SettingsState>()(
             dataStorageResult,
             appearanceResult,
             devicesResult,
-          ] = await Promise.all([
+          ] = await Promise.allSettled([
             settingsService.getProfile(),
             settingsService.getPrivacy(),
             settingsService.getNotifications(),
@@ -131,17 +133,44 @@ export const useSettingsStore = create<SettingsState>()(
             settingsService.getDevices(),
           ]);
 
+          // Extract data from settled promises
+          const profile = profileResult.status === 'fulfilled' ? profileResult.value.data : null;
+          const privacy = privacyResult.status === 'fulfilled' ? privacyResult.value.data : null;
+          const notifications = notificationsResult.status === 'fulfilled' ? notificationsResult.value.data : null;
+          const chatSettings = chatSettingsResult.status === 'fulfilled' ? chatSettingsResult.value.data : null;
+          const dataStorage = dataStorageResult.status === 'fulfilled' ? dataStorageResult.value.data : null;
+          const appearance = appearanceResult.status === 'fulfilled' ? appearanceResult.value.data : null;
+          const devices = devicesResult.status === 'fulfilled' ? devicesResult.value.data || [] : [];
+
+          // Collect any errors
+          const errors = [
+            profileResult.status === 'rejected' ? 'profile' : null,
+            privacyResult.status === 'rejected' ? 'privacy' : null,
+            notificationsResult.status === 'rejected' ? 'notifications' : null,
+            chatSettingsResult.status === 'rejected' ? 'chat settings' : null,
+            dataStorageResult.status === 'rejected' ? 'data storage' : null,
+            appearanceResult.status === 'rejected' ? 'appearance' : null,
+            devicesResult.status === 'rejected' ? 'devices' : null,
+          ].filter(Boolean);
+
           set({
-            profile: profileResult.data,
-            privacy: privacyResult.data,
-            notifications: notificationsResult.data,
-            chatSettings: chatSettingsResult.data,
-            dataStorage: dataStorageResult.data,
-            appearance: appearanceResult.data,
-            devices: devicesResult.data || [],
+            profile,
+            privacy,
+            notifications,
+            chatSettings,
+            dataStorage,
+            appearance,
             isLoading: false,
+            error: errors.length > 0 ? `Failed to load: ${errors.join(', ')}` : null,
           });
-        } catch {
+
+          // Don't update devices in state to avoid overwriting optimistic updates
+          // Only update if we successfully fetched them
+          if (devicesResult.status === 'fulfilled' && devicesResult.value.data) {
+            set({ devices: devicesResult.value.data });
+          }
+        } catch (error) {
+          console.error('Unexpected error loading settings:', error);
           set({ isLoading: false, error: 'Failed to load settings' });
         }
       },
@@ -241,6 +270,8 @@ export const useSettingsStore = create<SettingsState>()(
       /**
        * Update profile settings
        * Requirement 7.2: Call PUT /settings/profile
+       * Requirement 6.2: Save changes to backend immediately
+       * Requirement 6.4: Revert on failure
        */
       updateProfile: async (updates: Partial<ProfileSettings>) => {
         const currentProfile = get().profile;
@@ -254,17 +285,21 @@ export const useSettingsStore = create<SettingsState>()(
         
         if (result.error) {
           // Rollback on error
+          console.error('Failed to update profile:', result.error);
           set({ profile: currentProfile, error: result.error });
           return { error: result.error };
         }
 
-        set({ profile: result.data });
+        // Update with server response
+        set({ profile: result.data, error: null });
         return { error: null };
       },
 
       /**
        * Update privacy settings
        * Requirement 7.3: Call PUT /settings/privacy
+       * Requirement 6.2: Save changes to backend immediately
+       * Requirement 6.4: Revert on failure
        */
       updatePrivacy: async (updates: Partial<PrivacySettings>) => {
         const currentPrivacy = get().privacy;
@@ -278,17 +313,21 @@ export const useSettingsStore = create<SettingsState>()(
         
         if (result.error) {
           // Rollback on error
+          console.error('Failed to update privacy:', result.error);
           set({ privacy: currentPrivacy, error: result.error });
           return { error: result.error };
         }
 
-        set({ privacy: result.data });
+        // Update with server response
+        set({ privacy: result.data, error: null });
         return { error: null };
       },
 
       /**
        * Update notification settings
        * Requirement 7.4: Call PUT /settings/notifications
+       * Requirement 6.2: Save changes to backend immediately
+       * Requirement 6.4: Revert on failure
        */
       updateNotifications: async (updates: Partial<NotificationSettings>) => {
         const currentNotifications = get().notifications;
@@ -302,16 +341,20 @@ export const useSettingsStore = create<SettingsState>()(
         
         if (result.error) {
           // Rollback on error
+          console.error('Failed to update notifications:', result.error);
           set({ notifications: currentNotifications, error: result.error });
           return { error: result.error };
         }
 
-        set({ notifications: result.data });
+        // Update with server response
+        set({ notifications: result.data, error: null });
         return { error: null };
       },
 
       /**
        * Update chat settings
+       * Requirement 6.2: Save changes to backend immediately
+       * Requirement 6.4: Revert on failure
        */
       updateChatSettings: async (updates: Partial<ChatSettings>) => {
         const currentChatSettings = get().chatSettings;
@@ -325,16 +368,20 @@ export const useSettingsStore = create<SettingsState>()(
         
         if (result.error) {
           // Rollback on error
+          console.error('Failed to update chat settings:', result.error);
           set({ chatSettings: currentChatSettings, error: result.error });
           return { error: result.error };
         }
 
-        set({ chatSettings: result.data });
+        // Update with server response
+        set({ chatSettings: result.data, error: null });
         return { error: null };
       },
 
       /**
        * Update data storage settings
+       * Requirement 6.2: Save changes to backend immediately
+       * Requirement 6.4: Revert on failure
        */
       updateDataStorage: async (updates: Partial<DataStorageSettings>) => {
         const currentDataStorage = get().dataStorage;
@@ -348,17 +395,22 @@ export const useSettingsStore = create<SettingsState>()(
         
         if (result.error) {
           // Rollback on error
+          console.error('Failed to update data storage:', result.error);
           set({ dataStorage: currentDataStorage, error: result.error });
           return { error: result.error };
         }
 
-        set({ dataStorage: result.data });
+        // Update with server response
+        set({ dataStorage: result.data, error: null });
         return { error: null };
       },
 
       /**
        * Update appearance settings
        * Requirement 7.5: Call PUT /settings/appearance
+       * Requirement 6.2: Save changes to backend immediately
+       * Requirement 6.4: Revert on failure
+       * Requirement 12.4: Persist to localStorage
        */
       updateAppearance: async (updates: Partial<AppearanceSettings>) => {
         const currentAppearance = get().appearance;
@@ -372,20 +424,33 @@ export const useSettingsStore = create<SettingsState>()(
         
         if (result.error) {
           // Rollback on error
+          console.error('Failed to update appearance:', result.error);
           set({ appearance: currentAppearance, error: result.error });
           return { error: result.error };
         }
 
-        set({ appearance: result.data });
+        // Update with server response (will be persisted to localStorage by zustand persist)
+        set({ appearance: result.data, error: null });
         return { error: null };
       },
 
       /**
        * Terminate a device session
        * Requirement 7.8: Call DELETE /settings/devices/:deviceId
+       * Requirement 10.2: End specific session
+       * Requirement 10.5: Remove from list immediately
        */
       terminateDevice: async (deviceId: string) => {
         const currentDevices = get().devices;
+        
+        // Check if trying to terminate current session
+        const device = currentDevices.find(d => d.id === deviceId);
+        if (device?.isCurrent) {
+          const error = 'Cannot terminate current session';
+          console.error(error);
+          set({ error });
+          return { error };
+        }
         
         // Optimistic update - remove device from list
         set({ devices: currentDevices.filter(d => d.id !== deviceId) });
@@ -394,15 +459,19 @@ export const useSettingsStore = create<SettingsState>()(
         
         if (result.error) {
           // Rollback on error
+          console.error('Failed to terminate device:', result.error);
           set({ devices: currentDevices, error: result.error });
           return { error: result.error };
         }
 
+        set({ error: null });
         return { error: null };
       },
 
       /**
        * Terminate all other device sessions
+       * Requirement 10.3: End all sessions except current
+       * Requirement 10.5: Update list immediately
        */
       terminateAllOtherDevices: async () => {
         const currentDevices = get().devices;
@@ -414,21 +483,25 @@ export const useSettingsStore = create<SettingsState>()(
         
         if (result.error) {
           // Rollback on error
+          console.error('Failed to terminate all other devices:', result.error);
           set({ devices: currentDevices, error: result.error });
           return { error: result.error };
         }
 
+        set({ error: null });
         return { error: null };
       },
 
       /**
        * Clear cache
        * Requirement 7.6: Call POST /settings/clear-cache
+       * Requirement 9.2: Show updated storage statistics
        */
       clearCache: async () => {
         const result = await settingsService.clearCache();
         
         if (result.error) {
+          console.error('Failed to clear cache:', result.error);
           set({ error: result.error });
           return { error: result.error };
         }
@@ -436,7 +509,7 @@ export const useSettingsStore = create<SettingsState>()(
         // Refresh data storage settings to get updated cache size
         const dataStorageResult = await settingsService.getDataStorage();
         if (dataStorageResult.data) {
-          set({ dataStorage: dataStorageResult.data });
+          set({ dataStorage: dataStorageResult.data, error: null });
         }
 
         return { error: null };
@@ -452,9 +525,19 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'settings-storage',
       // Only persist appearance settings for offline access
+      // Requirement 12.4: Persist appearance settings to localStorage
       partialize: (state) => ({
         appearance: state.appearance,
       }),
+      // Apply appearance settings after rehydration from localStorage
+      // Requirement 12.3: Restore settings on page reload
+      onRehydrateStorage: () => (state) => {
+        if (state?.appearance) {
+          console.log('[Settings Store] Rehydrated appearance settings from localStorage:', state.appearance);
+          // Appearance settings will be synced with theme store through the Settings page
+          // or through a dedicated appearance initializer if needed
+        }
+      },
     }
   )
 );

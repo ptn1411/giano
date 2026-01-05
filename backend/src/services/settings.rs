@@ -211,13 +211,107 @@ impl SettingsService {
         })
     }
 
+    pub async fn update_chat_settings(
+        db: &Database,
+        user_id: Uuid,
+        send_by_enter: Option<bool>,
+        media_auto_download: Option<String>,
+        save_to_gallery: Option<bool>,
+        auto_play_gifs: Option<bool>,
+        auto_play_videos: Option<bool>,
+        raise_to_speak: Option<bool>,
+    ) -> AppResult<ChatSettings> {
+        let settings: UserSettings = sqlx::query_as(
+            r#"
+            UPDATE user_settings SET
+                send_by_enter = COALESCE($2, send_by_enter),
+                media_auto_download = COALESCE($3, media_auto_download),
+                save_to_gallery = COALESCE($4, save_to_gallery),
+                auto_play_gifs = COALESCE($5, auto_play_gifs),
+                auto_play_videos = COALESCE($6, auto_play_videos),
+                raise_to_speak = COALESCE($7, raise_to_speak),
+                updated_at = NOW()
+            WHERE user_id = $1
+            RETURNING *
+            "#,
+        )
+        .bind(user_id)
+        .bind(send_by_enter)
+        .bind(media_auto_download)
+        .bind(save_to_gallery)
+        .bind(auto_play_gifs)
+        .bind(auto_play_videos)
+        .bind(raise_to_speak)
+        .fetch_one(&db.pool)
+        .await?;
+
+        Ok(ChatSettings {
+            send_by_enter: settings.send_by_enter,
+            media_auto_download: settings.media_auto_download,
+            save_to_gallery: settings.save_to_gallery,
+            auto_play_gifs: settings.auto_play_gifs,
+            auto_play_videos: settings.auto_play_videos,
+            raise_to_speak: settings.raise_to_speak,
+        })
+    }
+
     // Data Storage
     pub async fn get_data_storage(db: &Database, user_id: Uuid) -> AppResult<DataStorageSettings> {
         let settings: UserSettings = Self::get_or_create_settings(db, user_id).await?;
 
+        // Calculate actual storage used
+        let storage_used = Self::calculate_storage_used(user_id).await.unwrap_or(0);
+        let cache_size = Self::calculate_cache_size(user_id).await.unwrap_or(0);
+
         Ok(DataStorageSettings {
-            storage_used: 0, // TODO: calculate actual storage
-            cache_size: 0,
+            storage_used,
+            cache_size,
+            keep_media: settings.keep_media,
+            auto_download_photos: settings.auto_download_photos,
+            auto_download_videos: settings.auto_download_videos,
+            auto_download_files: settings.auto_download_files,
+            data_saver: settings.data_saver,
+        })
+    }
+
+    pub async fn update_data_storage(
+        db: &Database,
+        user_id: Uuid,
+        keep_media: Option<String>,
+        auto_download_photos: Option<bool>,
+        auto_download_videos: Option<bool>,
+        auto_download_files: Option<bool>,
+        data_saver: Option<bool>,
+    ) -> AppResult<DataStorageSettings> {
+        let settings: UserSettings = sqlx::query_as(
+            r#"
+            UPDATE user_settings SET
+                keep_media = COALESCE($2, keep_media),
+                auto_download_photos = COALESCE($3, auto_download_photos),
+                auto_download_videos = COALESCE($4, auto_download_videos),
+                auto_download_files = COALESCE($5, auto_download_files),
+                data_saver = COALESCE($6, data_saver),
+                updated_at = NOW()
+            WHERE user_id = $1
+            RETURNING *
+            "#,
+        )
+        .bind(user_id)
+        .bind(keep_media)
+        .bind(auto_download_photos)
+        .bind(auto_download_videos)
+        .bind(auto_download_files)
+        .bind(data_saver)
+        .fetch_one(&db.pool)
+        .await?;
+
+        // Calculate actual storage used
+        let storage_used = Self::calculate_storage_used(user_id).await.unwrap_or(0);
+        let cache_size = Self::calculate_cache_size(user_id).await.unwrap_or(0);
+
+        Ok(DataStorageSettings {
+            storage_used,
+            cache_size,
             keep_media: settings.keep_media,
             auto_download_photos: settings.auto_download_photos,
             auto_download_videos: settings.auto_download_videos,
@@ -227,7 +321,20 @@ impl SettingsService {
     }
 
     pub async fn clear_cache(db: &Database, user_id: Uuid) -> AppResult<DataStorageSettings> {
-        // TODO: implement actual cache clearing
+        // Clear cache directory for this user
+        let cache_dir = format!("uploads/cache/{}", user_id);
+        if tokio::fs::metadata(&cache_dir).await.is_ok() {
+            tokio::fs::remove_dir_all(&cache_dir).await.map_err(|e| {
+                AppError::Internal(anyhow::anyhow!("Failed to clear cache: {}", e))
+            })?;
+            
+            // Recreate the cache directory
+            tokio::fs::create_dir_all(&cache_dir).await.map_err(|e| {
+                AppError::Internal(anyhow::anyhow!("Failed to recreate cache directory: {}", e))
+            })?;
+        }
+
+        // Return updated storage settings with cache_size = 0
         Self::get_data_storage(db, user_id).await
     }
 
@@ -304,13 +411,29 @@ impl SettingsService {
 
         Ok(sessions
             .into_iter()
-            .map(|s| DeviceResponse {
-                id: s.id,
-                name: s.device_name,
-                device_type: s.device_type,
-                location: s.location,
-                last_active: s.last_active,
-                is_current: s.token == current_token,
+            .map(|s| {
+                let is_current = s.token == current_token;
+                
+                // Provide default device name if not set
+                let name = s.device_name.unwrap_or_else(|| {
+                    let device_type = s.device_type.as_deref().unwrap_or("Unknown");
+                    format!("{} Device", device_type)
+                });
+                
+                // Provide default device type if not set
+                let device_type = s.device_type.unwrap_or_else(|| "Unknown".to_string());
+                
+                // Provide default location if not set
+                let location = s.location.unwrap_or_else(|| "Unknown Location".to_string());
+                
+                DeviceResponse {
+                    id: s.id,
+                    name,
+                    device_type,
+                    location,
+                    last_active: s.last_active,
+                    is_current,
+                }
             })
             .collect())
     }
@@ -375,4 +498,55 @@ impl SettingsService {
 
         Ok(settings)
     }
+
+    async fn calculate_storage_used(user_id: Uuid) -> Result<i64, std::io::Error> {
+        let user_dir = format!("uploads/{}", user_id);
+        Self::calculate_directory_size(&user_dir).await
+    }
+
+    async fn calculate_cache_size(user_id: Uuid) -> Result<i64, std::io::Error> {
+        let cache_dir = format!("uploads/cache/{}", user_id);
+        Self::calculate_directory_size(&cache_dir).await
+    }
+
+    async fn calculate_directory_size(path: &str) -> Result<i64, std::io::Error> {
+        use std::pin::Pin;
+        use std::future::Future;
+        
+        fn calculate_size_recursive(
+            path: String,
+        ) -> Pin<Box<dyn Future<Output = Result<i64, std::io::Error>> + Send>> {
+            Box::pin(async move {
+                let mut total_size: i64 = 0;
+                
+                // Check if directory exists
+                if tokio::fs::metadata(&path).await.is_err() {
+                    return Ok(0);
+                }
+
+                let mut entries = tokio::fs::read_dir(&path).await?;
+                
+                while let Some(entry) = entries.next_entry().await? {
+                    let metadata = entry.metadata().await?;
+                    if metadata.is_file() {
+                        total_size += metadata.len() as i64;
+                    } else if metadata.is_dir() {
+                        // Recursively calculate subdirectory size
+                        let subdir_path = entry.path();
+                        if let Some(subdir_str) = subdir_path.to_str() {
+                            total_size += calculate_size_recursive(subdir_str.to_string()).await?;
+                        }
+                    }
+                }
+                
+                Ok(total_size)
+            })
+        }
+        
+        calculate_size_recursive(path.to_string()).await
+    }
 }
+
+#[cfg(test)]
+#[path = "settings_integration_tests.rs"]
+mod settings_integration_tests;

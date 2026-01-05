@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -18,6 +18,7 @@ import {
   LogOut,
   Globe,
   Check,
+  Loader2,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
@@ -39,6 +40,7 @@ import { toast } from "@/hooks/use-toast";
 import { useTheme, colorThemes, ThemeMode } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { uploadService } from "@/services/api/upload";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type {
@@ -151,6 +153,14 @@ export default function Settings() {
   const { themeMode, setTheme, colorTheme: activeColorTheme, setColorTheme } = useTheme();
   const [section, setSection] = useState<SettingsSection>('main');
   const [editedProfile, setEditedProfile] = useState<ProfileSettings | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [validationErrors, setValidationErrors] = useState<{
+    username?: string;
+    email?: string;
+    phone?: string;
+  }>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   // Get state and actions from settings store
   const {
@@ -205,108 +215,225 @@ export default function Settings() {
   };
 
   const handleSaveProfile = async () => {
+    if (!validateProfileForm()) {
+      toast({
+        title: 'Validation failed',
+        description: 'Please fix the errors before saving',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (editedProfile) {
-      const { error } = await updateProfile(editedProfile);
-      if (error) {
-        toast({ title: 'Error', description: error, variant: 'destructive' });
-      } else {
+      setIsSaving(true);
+      try {
+        const { error } = await updateProfile(editedProfile);
+        if (error) {
+          throw new Error(error);
+        }
         toast({ title: 'Profile updated', description: 'Your changes have been saved' });
+      } catch (error) {
+        console.error('Profile update error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
+        toast({ 
+          title: 'Error', 
+          description: errorMessage, 
+          variant: 'destructive' 
+        });
+      } finally {
+        setIsSaving(false);
       }
     }
   };
 
   const handleUpdatePrivacy = async (updates: Partial<PrivacySettings>) => {
-    const { error } = await updatePrivacy(updates);
-    if (error) {
-      toast({ title: 'Error', description: error, variant: 'destructive' });
-    } else {
+    setIsSaving(true);
+    try {
+      const { error } = await updatePrivacy(updates);
+      if (error) {
+        throw new Error(error);
+      }
       toast({ title: 'Settings saved' });
+    } catch (error) {
+      console.error('Privacy update error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update privacy settings';
+      toast({ 
+        title: 'Error', 
+        description: errorMessage, 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleUpdateNotifications = async (updates: Partial<NotificationSettings>) => {
-    const { error } = await updateNotifications(updates);
-    if (error) {
-      toast({ title: 'Error', description: error, variant: 'destructive' });
-    } else {
+    setIsSaving(true);
+    try {
+      const { error } = await updateNotifications(updates);
+      if (error) {
+        throw new Error(error);
+      }
       toast({ title: 'Settings saved' });
+    } catch (error) {
+      console.error('Notifications update error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update notification settings';
+      toast({ 
+        title: 'Error', 
+        description: errorMessage, 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleUpdateChatSettings = async (updates: Partial<ChatSettings>) => {
-    const { error } = await updateChatSettings(updates);
-    if (error) {
-      toast({ title: 'Error', description: error, variant: 'destructive' });
-    } else {
+    setIsSaving(true);
+    try {
+      const { error } = await updateChatSettings(updates);
+      if (error) {
+        throw new Error(error);
+      }
       toast({ title: 'Settings saved' });
+    } catch (error) {
+      console.error('Chat settings update error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update chat settings';
+      toast({ 
+        title: 'Error', 
+        description: errorMessage, 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleUpdateDataStorage = async (updates: Partial<DataStorageSettings>) => {
-    const { error } = await updateDataStorage(updates);
-    if (error) {
-      toast({ title: 'Error', description: error, variant: 'destructive' });
-    } else {
+    setIsSaving(true);
+    try {
+      const { error } = await updateDataStorage(updates);
+      if (error) {
+        throw new Error(error);
+      }
       toast({ title: 'Settings saved' });
+    } catch (error) {
+      console.error('Data storage update error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update data storage settings';
+      toast({ 
+        title: 'Error', 
+        description: errorMessage, 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleUpdateAppearance = async (updates: Partial<AppearanceSettings>) => {
-    // Apply theme changes immediately
-    if (updates.theme) {
-      setTheme(updates.theme as ThemeMode);
-    }
-    if (updates.accentColor) {
-      const colorMap: Record<string, string> = {
-        '#0284c7': 'default',
-        '#0d9488': 'ocean',
-        '#16a34a': 'forest',
-        '#f97316': 'sunset',
-        '#a855f7': 'purple',
-        '#6366f1': 'default',
-        '#22c55e': 'forest',
-        '#f59e0b': 'sunset',
-        '#ef4444': 'sunset',
-        '#ec4899': 'purple',
-        '#8b5cf6': 'purple',
-      };
-      const colorId = colorMap[updates.accentColor];
-      if (colorId) {
-        setColorTheme(colorId as 'default' | 'ocean' | 'forest' | 'sunset' | 'purple');
+    setIsSaving(true);
+    try {
+      // Apply theme changes immediately
+      if (updates.theme) {
+        setTheme(updates.theme as ThemeMode);
       }
-    }
-    const { error } = await updateAppearance(updates);
-    if (error) {
-      toast({ title: 'Error', description: error, variant: 'destructive' });
-    } else {
+      if (updates.accentColor) {
+        const colorMap: Record<string, string> = {
+          '#0284c7': 'default',
+          '#0d9488': 'ocean',
+          '#16a34a': 'forest',
+          '#f97316': 'sunset',
+          '#a855f7': 'purple',
+          '#6366f1': 'default',
+          '#22c55e': 'forest',
+          '#f59e0b': 'sunset',
+          '#ef4444': 'sunset',
+          '#ec4899': 'purple',
+          '#8b5cf6': 'purple',
+        };
+        const colorId = colorMap[updates.accentColor];
+        if (colorId) {
+          setColorTheme(colorId as 'default' | 'ocean' | 'forest' | 'sunset' | 'purple');
+        }
+      }
+      const { error } = await updateAppearance(updates);
+      if (error) {
+        throw new Error(error);
+      }
       toast({ title: 'Settings saved' });
+    } catch (error) {
+      console.error('Appearance update error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update appearance settings';
+      toast({ 
+        title: 'Error', 
+        description: errorMessage, 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleClearCache = async () => {
-    const { error } = await clearCache();
-    if (error) {
-      toast({ title: 'Error', description: error, variant: 'destructive' });
-    } else {
+    setIsSaving(true);
+    try {
+      const { error } = await clearCache();
+      if (error) {
+        throw new Error(error);
+      }
       toast({ title: 'Cache cleared', description: 'All cached data has been removed' });
+    } catch (error) {
+      console.error('Cache clear error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to clear cache';
+      toast({ 
+        title: 'Error', 
+        description: errorMessage, 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleTerminateDevice = async (deviceId: string) => {
-    const { error } = await terminateDevice(deviceId);
-    if (error) {
-      toast({ title: 'Error', description: error, variant: 'destructive' });
-    } else {
+    setIsSaving(true);
+    try {
+      const { error } = await terminateDevice(deviceId);
+      if (error) {
+        throw new Error(error);
+      }
       toast({ title: 'Session terminated' });
+    } catch (error) {
+      console.error('Device termination error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to terminate session';
+      toast({ 
+        title: 'Error', 
+        description: errorMessage, 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleTerminateAllDevices = async () => {
-    const { error } = await terminateAllOtherDevices();
-    if (error) {
-      toast({ title: 'Error', description: error, variant: 'destructive' });
-    } else {
+    setIsSaving(true);
+    try {
+      const { error } = await terminateAllOtherDevices();
+      if (error) {
+        throw new Error(error);
+      }
       toast({ title: 'All other sessions terminated' });
+    } catch (error) {
+      console.error('Terminate all devices error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to terminate sessions';
+      toast({ 
+        title: 'Error', 
+        description: errorMessage, 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -339,6 +466,146 @@ export default function Settings() {
       description: 'You have been logged out successfully' 
     });
     navigate('/auth');
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file
+    const validation = uploadService.validateFile(file, 5); // 5MB limit for avatars
+    if (!validation.valid) {
+      toast({
+        title: 'Upload failed',
+        description: validation.error,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Check if it's an image
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please select an image file',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    try {
+      // Upload the file
+      const result = await uploadService.uploadFile(file, 'image');
+
+      if (!result.success || !result.attachment) {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+      // Update profile with new avatar URL
+      const avatarUrl = result.attachment.url;
+      const { error } = await updateProfile({ avatar: avatarUrl });
+
+      if (error) {
+        throw new Error(error);
+      }
+
+      // Update local state
+      setEditedProfile(prev => prev ? { ...prev, avatar: avatarUrl } : null);
+
+      toast({
+        title: 'Avatar updated',
+        description: 'Your profile picture has been updated',
+      });
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      toast({
+        title: 'Upload failed',
+        description: error instanceof Error ? error.message : 'Failed to upload avatar',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Validation functions
+  const validateUsername = (username: string): string | undefined => {
+    if (!username) {
+      return 'Username is required';
+    }
+    if (username.length < 3) {
+      return 'Username must be at least 3 characters';
+    }
+    if (username.length > 32) {
+      return 'Username must be less than 32 characters';
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      return 'Username can only contain letters, numbers, and underscores';
+    }
+    return undefined;
+  };
+
+  const validateEmail = (email: string): string | undefined => {
+    if (!email) {
+      return undefined; // Email is optional
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address';
+    }
+    return undefined;
+  };
+
+  const validatePhone = (phone: string): string | undefined => {
+    if (!phone) {
+      return undefined; // Phone is optional
+    }
+    // Remove spaces, dashes, and parentheses for validation
+    const cleanPhone = phone.replace(/[\s\-()]/g, '');
+    // Check if it's a valid phone number (10-15 digits, optionally starting with +)
+    if (!/^\+?\d{10,15}$/.test(cleanPhone)) {
+      return 'Please enter a valid phone number';
+    }
+    return undefined;
+  };
+
+  const validateProfileForm = (): boolean => {
+    if (!editedProfile) return false;
+
+    const errors: typeof validationErrors = {};
+    
+    const usernameError = validateUsername(editedProfile.username);
+    if (usernameError) errors.username = usernameError;
+
+    const emailError = validateEmail(editedProfile.email || '');
+    if (emailError) errors.email = emailError;
+
+    const phoneError = validatePhone(editedProfile.phone || '');
+    if (phoneError) errors.phone = phoneError;
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleProfileFieldChange = (field: keyof ProfileSettings, value: string) => {
+    setEditedProfile(prev => prev ? { ...prev, [field]: value } : null);
+    
+    // Clear validation error for this field
+    setValidationErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[field as keyof typeof validationErrors];
+      return newErrors;
+    });
   };
 
 
@@ -442,8 +709,23 @@ export default function Settings() {
                 <AvatarImage src={editedProfile.avatar} alt={editedProfile.name} />
                 <AvatarFallback>{editedProfile.name.charAt(0)}</AvatarFallback>
               </Avatar>
-              <button className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-lg">
-                <Camera className="h-4 w-4" />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarChange}
+                className="hidden"
+              />
+              <button 
+                onClick={handleAvatarClick}
+                disabled={isUploadingAvatar}
+                className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUploadingAvatar ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Camera className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>
@@ -455,8 +737,9 @@ export default function Settings() {
               <Input
                 id="name"
                 value={editedProfile.name || ''}
-                onChange={(e) => setEditedProfile(prev => prev ? {...prev, name: e.target.value} : null)}
+                onChange={(e) => handleProfileFieldChange('name', e.target.value)}
                 placeholder="Your name"
+                disabled={isSaving}
               />
             </div>
             <div className="space-y-2">
@@ -464,18 +747,24 @@ export default function Settings() {
               <Input
                 id="username"
                 value={editedProfile.username || ''}
-                onChange={(e) => setEditedProfile(prev => prev ? {...prev, username: e.target.value} : null)}
+                onChange={(e) => handleProfileFieldChange('username', e.target.value)}
                 placeholder="Username"
+                className={validationErrors.username ? 'border-destructive' : ''}
+                disabled={isSaving}
               />
+              {validationErrors.username && (
+                <p className="text-sm text-destructive">{validationErrors.username}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="bio">Bio</Label>
               <Textarea
                 id="bio"
                 value={editedProfile.bio || ''}
-                onChange={(e) => setEditedProfile(prev => prev ? {...prev, bio: e.target.value} : null)}
+                onChange={(e) => handleProfileFieldChange('bio', e.target.value)}
                 placeholder="A few words about yourself"
                 rows={3}
+                disabled={isSaving}
               />
             </div>
             <div className="space-y-2">
@@ -483,22 +772,43 @@ export default function Settings() {
               <Input
                 id="phone"
                 value={editedProfile.phone || ''}
-                onChange={(e) => setEditedProfile(prev => prev ? {...prev, phone: e.target.value} : null)}
+                onChange={(e) => handleProfileFieldChange('phone', e.target.value)}
                 placeholder="Phone number"
+                className={validationErrors.phone ? 'border-destructive' : ''}
+                disabled={isSaving}
               />
+              {validationErrors.phone && (
+                <p className="text-sm text-destructive">{validationErrors.phone}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 value={editedProfile.email || ''}
-                onChange={(e) => setEditedProfile(prev => prev ? {...prev, email: e.target.value} : null)}
+                onChange={(e) => handleProfileFieldChange('email', e.target.value)}
                 placeholder="Email address"
                 type="email"
+                className={validationErrors.email ? 'border-destructive' : ''}
+                disabled={isSaving}
               />
+              {validationErrors.email && (
+                <p className="text-sm text-destructive">{validationErrors.email}</p>
+              )}
             </div>
-            <Button onClick={handleSaveProfile} className="w-full">
-              Save Changes
+            <Button 
+              onClick={handleSaveProfile} 
+              className="w-full"
+              disabled={Object.keys(validationErrors).length > 0 || isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
             </Button>
           </div>
         </>
@@ -518,7 +828,7 @@ export default function Settings() {
                 <p className="font-medium text-foreground">Last Seen</p>
                 <p className="text-sm text-muted-foreground">Who can see when you were online</p>
               </div>
-              <Select value={privacy.lastSeen} onValueChange={(v) => handleUpdatePrivacy({ lastSeen: v as PrivacySettings['lastSeen'] })}>
+              <Select value={privacy.lastSeen} onValueChange={(v) => handleUpdatePrivacy({ lastSeen: v as PrivacySettings['lastSeen'] })} disabled={isSaving}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
@@ -534,7 +844,7 @@ export default function Settings() {
                 <p className="font-medium text-foreground">Profile Photo</p>
                 <p className="text-sm text-muted-foreground">Who can see your profile photo</p>
               </div>
-              <Select value={privacy.profilePhoto} onValueChange={(v) => handleUpdatePrivacy({ profilePhoto: v as PrivacySettings['profilePhoto'] })}>
+              <Select value={privacy.profilePhoto} onValueChange={(v) => handleUpdatePrivacy({ profilePhoto: v as PrivacySettings['profilePhoto'] })} disabled={isSaving}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
@@ -550,7 +860,7 @@ export default function Settings() {
                 <p className="font-medium text-foreground">Calls</p>
                 <p className="text-sm text-muted-foreground">Who can call you</p>
               </div>
-              <Select value={privacy.calls} onValueChange={(v) => handleUpdatePrivacy({ calls: v as PrivacySettings['calls'] })}>
+              <Select value={privacy.calls} onValueChange={(v) => handleUpdatePrivacy({ calls: v as PrivacySettings['calls'] })} disabled={isSaving}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
@@ -566,7 +876,7 @@ export default function Settings() {
                 <p className="font-medium text-foreground">Groups</p>
                 <p className="text-sm text-muted-foreground">Who can add you to groups</p>
               </div>
-              <Select value={privacy.groups} onValueChange={(v) => handleUpdatePrivacy({ groups: v as PrivacySettings['groups'] })}>
+              <Select value={privacy.groups} onValueChange={(v) => handleUpdatePrivacy({ groups: v as PrivacySettings['groups'] })} disabled={isSaving}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
@@ -586,12 +896,14 @@ export default function Settings() {
               description="Show when you've read messages"
               checked={privacy.readReceipts}
               onCheckedChange={(checked) => handleUpdatePrivacy({ readReceipts: checked })}
+              disabled={isSaving}
             />
             <ToggleItem
               title="Forwarded Message Links"
               description="Link to your account when forwarding"
               checked={privacy.forwards}
               onCheckedChange={(checked) => handleUpdatePrivacy({ forwards: checked })}
+              disabled={isSaving}
             />
           </div>
 
@@ -602,6 +914,7 @@ export default function Settings() {
               description="Add an extra layer of security"
               checked={privacy.twoFactorAuth}
               onCheckedChange={(checked) => handleUpdatePrivacy({ twoFactorAuth: checked })}
+              disabled={isSaving}
             />
           </div>
         </>
@@ -620,18 +933,21 @@ export default function Settings() {
               description="Get notified for new messages"
               checked={notifications.messageNotifications}
               onCheckedChange={(checked) => handleUpdateNotifications({ messageNotifications: checked })}
+              disabled={isSaving}
             />
             <ToggleItem
               title="Group Notifications"
               description="Get notified for group messages"
               checked={notifications.groupNotifications}
               onCheckedChange={(checked) => handleUpdateNotifications({ groupNotifications: checked })}
+              disabled={isSaving}
             />
             <ToggleItem
               title="Channel Notifications"
               description="Get notified for channel updates"
               checked={notifications.channelNotifications}
               onCheckedChange={(checked) => handleUpdateNotifications({ channelNotifications: checked })}
+              disabled={isSaving}
             />
           </div>
 
@@ -642,18 +958,21 @@ export default function Settings() {
               description="Play sounds while in the app"
               checked={notifications.inAppSounds}
               onCheckedChange={(checked) => handleUpdateNotifications({ inAppSounds: checked })}
+              disabled={isSaving}
             />
             <ToggleItem
               title="In-App Vibration"
               description="Vibrate for notifications"
               checked={notifications.inAppVibrate}
               onCheckedChange={(checked) => handleUpdateNotifications({ inAppVibrate: checked })}
+              disabled={isSaving}
             />
             <ToggleItem
               title="Message Preview"
               description="Show message content in notifications"
               checked={notifications.inAppPreview}
               onCheckedChange={(checked) => handleUpdateNotifications({ inAppPreview: checked })}
+              disabled={isSaving}
             />
           </div>
 
@@ -664,6 +983,7 @@ export default function Settings() {
               description="Notify when a contact joins"
               checked={notifications.contactJoined}
               onCheckedChange={(checked) => handleUpdateNotifications({ contactJoined: checked })}
+              disabled={isSaving}
             />
           </div>
         </>
@@ -683,6 +1003,7 @@ export default function Settings() {
               description="Press Enter to send messages"
               checked={chatSettings.sendByEnter}
               onCheckedChange={(checked) => handleUpdateChatSettings({ sendByEnter: checked })}
+              disabled={isSaving}
             />
           </div>
 
@@ -693,7 +1014,7 @@ export default function Settings() {
                 <p className="font-medium text-foreground">Auto-Download Media</p>
                 <p className="text-sm text-muted-foreground">When to download media automatically</p>
               </div>
-              <Select value={chatSettings.mediaAutoDownload} onValueChange={(v) => handleUpdateChatSettings({ mediaAutoDownload: v as ChatSettings['mediaAutoDownload'] })}>
+              <Select value={chatSettings.mediaAutoDownload} onValueChange={(v) => handleUpdateChatSettings({ mediaAutoDownload: v as ChatSettings['mediaAutoDownload'] })} disabled={isSaving}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
@@ -709,18 +1030,21 @@ export default function Settings() {
               description="Automatically save media to your gallery"
               checked={chatSettings.saveToGallery}
               onCheckedChange={(checked) => handleUpdateChatSettings({ saveToGallery: checked })}
+              disabled={isSaving}
             />
             <ToggleItem
               title="Auto-Play GIFs"
               description="Play GIFs automatically in chat"
               checked={chatSettings.autoPlayGifs}
               onCheckedChange={(checked) => handleUpdateChatSettings({ autoPlayGifs: checked })}
+              disabled={isSaving}
             />
             <ToggleItem
               title="Auto-Play Videos"
               description="Play videos automatically in chat"
               checked={chatSettings.autoPlayVideos}
               onCheckedChange={(checked) => handleUpdateChatSettings({ autoPlayVideos: checked })}
+              disabled={isSaving}
             />
           </div>
 
@@ -731,6 +1055,7 @@ export default function Settings() {
               description="Hold phone to ear to record"
               checked={chatSettings.raiseToSpeak}
               onCheckedChange={(checked) => handleUpdateChatSettings({ raiseToSpeak: checked })}
+              disabled={isSaving}
             />
           </div>
         </>
@@ -754,9 +1079,18 @@ export default function Settings() {
                 <span className="text-foreground">Cache Size</span>
                 <span className="text-muted-foreground">{dataStorage.cacheSize} MB</span>
               </div>
-              <Button variant="outline" className="w-full" onClick={handleClearCache}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Clear Cache
+              <Button variant="outline" className="w-full" onClick={handleClearCache} disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Clearing...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Clear Cache
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -768,7 +1102,7 @@ export default function Settings() {
                 <p className="font-medium text-foreground">Keep Media</p>
                 <p className="text-sm text-muted-foreground">How long to keep downloaded media</p>
               </div>
-              <Select value={dataStorage.keepMedia} onValueChange={(v) => handleUpdateDataStorage({ keepMedia: v as DataStorageSettings['keepMedia'] })}>
+              <Select value={dataStorage.keepMedia} onValueChange={(v) => handleUpdateDataStorage({ keepMedia: v as DataStorageSettings['keepMedia'] })} disabled={isSaving}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
@@ -789,18 +1123,21 @@ export default function Settings() {
               description="Automatically download photos"
               checked={dataStorage.autoDownloadPhotos}
               onCheckedChange={(checked) => handleUpdateDataStorage({ autoDownloadPhotos: checked })}
+              disabled={isSaving}
             />
             <ToggleItem
               title="Videos"
               description="Automatically download videos"
               checked={dataStorage.autoDownloadVideos}
               onCheckedChange={(checked) => handleUpdateDataStorage({ autoDownloadVideos: checked })}
+              disabled={isSaving}
             />
             <ToggleItem
               title="Files"
               description="Automatically download files"
               checked={dataStorage.autoDownloadFiles}
               onCheckedChange={(checked) => handleUpdateDataStorage({ autoDownloadFiles: checked })}
+              disabled={isSaving}
             />
           </div>
 
@@ -811,6 +1148,7 @@ export default function Settings() {
               description="Reduce data usage on mobile networks"
               checked={dataStorage.dataSaver}
               onCheckedChange={(checked) => handleUpdateDataStorage({ dataSaver: checked })}
+              disabled={isSaving}
             />
           </div>
         </>
@@ -834,11 +1172,13 @@ export default function Settings() {
                 <button
                   key={value}
                   onClick={() => handleUpdateAppearance({ theme: value as AppearanceSettings['theme'] })}
+                  disabled={isSaving}
                   className={cn(
                     "flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors",
                     themeMode === value 
                       ? "border-primary bg-primary/10" 
-                      : "border-border hover:bg-accent/50"
+                      : "border-border hover:bg-accent/50",
+                    isSaving && "opacity-50 cursor-not-allowed"
                   )}
                 >
                   <Icon className={cn(
@@ -868,11 +1208,13 @@ export default function Settings() {
                 <button
                   key={value}
                   onClick={() => handleUpdateAppearance({ fontSize: value as AppearanceSettings['fontSize'] })}
+                  disabled={isSaving}
                   className={cn(
                     "p-3 rounded-lg border text-center transition-colors",
                     appearance.fontSize === value 
                       ? "border-primary bg-primary/10 text-primary" 
-                      : "border-border hover:bg-accent/50 text-foreground"
+                      : "border-border hover:bg-accent/50 text-foreground",
+                    isSaving && "opacity-50 cursor-not-allowed"
                   )}
                 >
                   <span className={cn(
@@ -893,9 +1235,11 @@ export default function Settings() {
                 <button
                   key={theme.id}
                   onClick={() => setColorTheme(theme.id as 'default' | 'ocean' | 'forest' | 'sunset' | 'purple')}
+                  disabled={isSaving}
                   className={cn(
                     "h-10 w-10 rounded-full flex items-center justify-center transition-transform hover:scale-110",
-                    activeColorTheme === theme.id && "ring-2 ring-offset-2 ring-offset-background ring-foreground"
+                    activeColorTheme === theme.id && "ring-2 ring-offset-2 ring-offset-background ring-foreground",
+                    isSaving && "opacity-50 cursor-not-allowed"
                   )}
                   style={{ backgroundColor: theme.preview }}
                   title={theme.name}
@@ -915,6 +1259,7 @@ export default function Settings() {
               description="Enable smooth animations"
               checked={appearance.animationsEnabled}
               onCheckedChange={(checked) => handleUpdateAppearance({ animationsEnabled: checked })}
+              disabled={isSaving}
             />
           </div>
         </>
@@ -944,9 +1289,19 @@ export default function Settings() {
               variant="destructive" 
               className="w-full"
               onClick={handleTerminateAllDevices}
+              disabled={isSaving}
             >
-              <LogOut className="h-4 w-4 mr-2" />
-              Terminate All Other Sessions
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Terminating...
+                </>
+              ) : (
+                <>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Terminate All Other Sessions
+                </>
+              )}
             </Button>
           </div>
 
@@ -967,9 +1322,14 @@ export default function Settings() {
                   variant="ghost" 
                   size="sm"
                   onClick={() => handleTerminateDevice(device.id)}
+                  disabled={isSaving}
                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
                 >
-                  <LogOut className="h-4 w-4" />
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <LogOut className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             ))}

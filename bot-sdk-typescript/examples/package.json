@@ -1,0 +1,20 @@
+{
+  "name": "bot-sdk-examples",
+  "version": "1.0.0",
+  "description": "Examples for Bot SDK TypeScript",
+  "scripts": {
+    "basic": "ts-node basic-bot.ts",
+    "middleware": "ts-node middleware-bot.ts",
+    "buttons": "ts-node buttons-bot.ts",
+    "conversation": "ts-node conversation-bot.ts",
+    "webhook": "ts-node webhook-bot.ts"
+  },
+  "dependencies": {
+    "@messages-api/bot-sdk": "file:.."
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.0"
+  }
+}

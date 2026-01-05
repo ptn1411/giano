@@ -22,10 +22,10 @@ pub struct Session {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DeviceResponse {
     pub id: Uuid,
-    pub name: Option<String>,
+    pub name: String,
     #[serde(rename = "type")]
-    pub device_type: Option<String>,
-    pub location: Option<String>,
+    pub device_type: String,
+    pub location: String,
     #[serde(rename = "lastActive")]
     pub last_active: DateTime<Utc>,
     #[serde(rename = "isCurrent")]

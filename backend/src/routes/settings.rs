@@ -196,12 +196,39 @@ async fn get_chat_settings(
     Ok(Json(ChatSettingsResponseWrapper { chat_settings }))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateChatSettingsRequest {
+    #[serde(rename = "sendByEnter")]
+    send_by_enter: Option<bool>,
+    #[serde(rename = "mediaAutoDownload")]
+    media_auto_download: Option<String>,
+    #[serde(rename = "saveToGallery")]
+    save_to_gallery: Option<bool>,
+    #[serde(rename = "autoPlayGifs")]
+    auto_play_gifs: Option<bool>,
+    #[serde(rename = "autoPlayVideos")]
+    auto_play_videos: Option<bool>,
+    #[serde(rename = "raiseToSpeak")]
+    raise_to_speak: Option<bool>,
+}
+
 async fn update_chat_settings(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
+    Json(req): Json<UpdateChatSettingsRequest>,
 ) -> AppResult<Json<ChatSettingsResponseWrapper>> {
     let user_id = get_current_user_id(&state, &headers).await?;
-    let chat_settings = SettingsService::get_chat_settings(&state.db, user_id).await?;
+    let chat_settings = SettingsService::update_chat_settings(
+        &state.db,
+        user_id,
+        req.send_by_enter,
+        req.media_auto_download,
+        req.save_to_gallery,
+        req.auto_play_gifs,
+        req.auto_play_videos,
+        req.raise_to_speak,
+    )
+    .await?;
     Ok(Json(ChatSettingsResponseWrapper { chat_settings }))
 }
 
@@ -221,12 +248,36 @@ async fn get_data_storage(
     Ok(Json(DataStorageResponseWrapper { data_storage }))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateDataStorageRequest {
+    #[serde(rename = "keepMedia")]
+    keep_media: Option<String>,
+    #[serde(rename = "autoDownloadPhotos")]
+    auto_download_photos: Option<bool>,
+    #[serde(rename = "autoDownloadVideos")]
+    auto_download_videos: Option<bool>,
+    #[serde(rename = "autoDownloadFiles")]
+    auto_download_files: Option<bool>,
+    #[serde(rename = "dataSaver")]
+    data_saver: Option<bool>,
+}
+
 async fn update_data_storage(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
+    Json(req): Json<UpdateDataStorageRequest>,
 ) -> AppResult<Json<DataStorageResponseWrapper>> {
     let user_id = get_current_user_id(&state, &headers).await?;
-    let data_storage = SettingsService::get_data_storage(&state.db, user_id).await?;
+    let data_storage = SettingsService::update_data_storage(
+        &state.db,
+        user_id,
+        req.keep_media,
+        req.auto_download_photos,
+        req.auto_download_videos,
+        req.auto_download_files,
+        req.data_saver,
+    )
+    .await?;
     Ok(Json(DataStorageResponseWrapper { data_storage }))
 }
 
