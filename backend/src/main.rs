@@ -15,6 +15,10 @@ async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
     let config = Config::from_env()?;
     
+    // Create uploads directory if it doesn't exist
+    tokio::fs::create_dir_all("uploads").await?;
+    tracing::info!("Uploads directory ready");
+    
     let addr = format!("{}:{}", config.host, config.port);
     tracing::info!("Starting server on {}", addr);
 

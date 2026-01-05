@@ -11,7 +11,11 @@ use axum::{routing::get, Router};
 use config::Config;
 use db::Database;
 use std::sync::Arc;
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tower_http::{
+    cors::CorsLayer, 
+    trace::TraceLayer,
+    services::ServeDir,
+};
 
 use services::bot_engine::{BotDispatcher, RateLimiter};
 use ws::WsManager;
@@ -70,6 +74,8 @@ pub async fn create_app(config: Config) -> Result<Router> {
         .route("/ws", get(ws::ws_handler))
         .nest("/api/v1", routes::api_routes())
         .merge(routes::bot_api_routes()) // Bot API routes at root level (/bot:token/*)
+        // Serve static files from uploads directory
+        .nest_service("/uploads", ServeDir::new("uploads"))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state);

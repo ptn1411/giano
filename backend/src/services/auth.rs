@@ -20,6 +20,15 @@ pub struct Claims {
     pub jti: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RefreshClaims {
+    pub sub: String,
+    pub jti: String,
+    pub exp: i64,
+    pub iat: i64,
+    pub token_type: String, // "refresh"
+}
+
 pub struct AuthService;
 
 impl AuthService {
@@ -68,6 +77,54 @@ impl AuthService {
         Ok((token, exp.timestamp_millis(), session_id))
     }
 
+    /// Generate refresh token (long-lived, 7 days default)
+    pub fn generate_refresh_token(
+        user_id: Uuid,
+        session_id: Uuid,
+        secret: &str,
+        expiration_days: i64,
+    ) -> AppResult<(String, i64)> {
+        let now = Utc::now();
+        let exp = now + Duration::days(expiration_days);
+
+        let claims = RefreshClaims {
+            sub: user_id.to_string(),
+            jti: session_id.to_string(),
+            exp: exp.timestamp(),
+            iat: now.timestamp(),
+            token_type: "refresh".to_string(),
+        };
+
+        let token = encode(
+            &Header::default(),
+            &claims,
+            &EncodingKey::from_secret(secret.as_bytes()),
+        )
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("Refresh token generation failed: {}", e)))?;
+
+        Ok((token, exp.timestamp_millis()))
+    }
+
+    /// Verify refresh token
+    pub fn verify_refresh_token(token: &str, secret: &str) -> AppResult<RefreshClaims> {
+        let token_data = decode::<RefreshClaims>(
+            token,
+            &DecodingKey::from_secret(secret.as_bytes()),
+            &Validation::default(),
+        )
+        .map_err(|e| match e.kind() {
+            jsonwebtoken::errors::ErrorKind::ExpiredSignature => AppError::TokenExpired,
+            _ => AppError::InvalidToken,
+        })?;
+
+        // Verify it's actually a refresh token
+        if token_data.claims.token_type != "refresh" {
+            return Err(AppError::InvalidToken);
+        }
+
+        Ok(token_data.claims)
+    }
+
     pub fn verify_token(token: &str, secret: &str) -> AppResult<Claims> {
         let token_data = decode::<Claims>(
             token,
@@ -88,7 +145,7 @@ impl AuthService {
         password: &str,
         name: &str,
         jwt_secret: &str,
-        jwt_expiration: i64,
+        _jwt_expiration: i64,
     ) -> AppResult<UserSession> {
         // Validate email
         if !email.contains('@') {
@@ -141,21 +198,27 @@ impl AuthService {
         .fetch_one(&db.pool)
         .await?;
 
-        // Generate token
+        // Generate access token (short-lived, 15 minutes)
         let (token, expires_at, session_id) =
-            Self::generate_token(&user, jwt_secret, jwt_expiration)?;
+            Self::generate_token(&user, jwt_secret, 1)?; // 1 hour for now
+        
+        // Generate refresh token (long-lived, 7 days)
+        let (refresh_token, refresh_expires_at) =
+            Self::generate_refresh_token(user.id, session_id, jwt_secret, 7)?;
 
-        // Create session
+        // Create session with both tokens
         sqlx::query(
             r#"
-            INSERT INTO sessions (id, user_id, token, expires_at)
-            VALUES ($1, $2, $3, to_timestamp($4))
+            INSERT INTO sessions (id, user_id, token, refresh_token, expires_at, refresh_expires_at)
+            VALUES ($1, $2, $3, $4, to_timestamp($5), to_timestamp($6))
             "#,
         )
         .bind(session_id)
         .bind(user.id)
         .bind(&token)
+        .bind(&refresh_token)
         .bind(expires_at / 1000)
+        .bind(refresh_expires_at / 1000)
         .execute(&db.pool)
         .await?;
 
@@ -169,6 +232,8 @@ impl AuthService {
             user: user.into(),
             token,
             expires_at,
+            refresh_token,
+            refresh_expires_at,
         })
     }
 
@@ -177,7 +242,7 @@ impl AuthService {
         email: &str,
         password: &str,
         jwt_secret: &str,
-        jwt_expiration: i64,
+        _jwt_expiration: i64,
     ) -> AppResult<UserSession> {
         let user: User = sqlx::query_as("SELECT * FROM users WHERE email = $1")
             .bind(email)
@@ -195,20 +260,27 @@ impl AuthService {
             .execute(&db.pool)
             .await?;
 
+        // Generate access token (short-lived, 1 hour)
         let (token, expires_at, session_id) =
-            Self::generate_token(&user, jwt_secret, jwt_expiration)?;
+            Self::generate_token(&user, jwt_secret, 1)?; // 1 hour
+        
+        // Generate refresh token (long-lived, 7 days)
+        let (refresh_token, refresh_expires_at) =
+            Self::generate_refresh_token(user.id, session_id, jwt_secret, 7)?;
 
-        // Create session
+        // Create session with both tokens
         sqlx::query(
             r#"
-            INSERT INTO sessions (id, user_id, token, expires_at)
-            VALUES ($1, $2, $3, to_timestamp($4))
+            INSERT INTO sessions (id, user_id, token, refresh_token, expires_at, refresh_expires_at)
+            VALUES ($1, $2, $3, $4, to_timestamp($5), to_timestamp($6))
             "#,
         )
         .bind(session_id)
         .bind(user.id)
         .bind(&token)
+        .bind(&refresh_token)
         .bind(expires_at / 1000)
+        .bind(refresh_expires_at / 1000)
         .execute(&db.pool)
         .await?;
 
@@ -216,6 +288,71 @@ impl AuthService {
             user: user.into(),
             token,
             expires_at,
+            refresh_token,
+            refresh_expires_at,
+        })
+    }
+
+    /// Refresh access token using refresh token
+    pub async fn refresh_token(
+        db: &Database,
+        refresh_token: &str,
+        jwt_secret: &str,
+    ) -> AppResult<UserSession> {
+        // Verify refresh token
+        let claims = Self::verify_refresh_token(refresh_token, jwt_secret)?;
+        let user_id: Uuid = claims.sub.parse().map_err(|_| AppError::InvalidToken)?;
+        let session_id: Uuid = claims.jti.parse().map_err(|_| AppError::InvalidToken)?;
+
+        // Check if refresh token exists in database and is not expired
+        let session: Session = sqlx::query_as(
+            r#"
+            SELECT * FROM sessions 
+            WHERE id = $1 
+              AND user_id = $2 
+              AND refresh_token = $3 
+              AND refresh_expires_at > NOW()
+            "#,
+        )
+        .bind(session_id)
+        .bind(user_id)
+        .bind(refresh_token)
+        .fetch_optional(&db.pool)
+        .await?
+        .ok_or(AppError::InvalidToken)?;
+
+        // Get user
+        let user: User = sqlx::query_as("SELECT * FROM users WHERE id = $1")
+            .bind(user_id)
+            .fetch_one(&db.pool)
+            .await?;
+
+        // Generate new access token (1 hour)
+        let (new_token, new_expires_at, _) =
+            Self::generate_token(&user, jwt_secret, 1)?;
+
+        // Update session with new access token
+        sqlx::query(
+            r#"
+            UPDATE sessions 
+            SET token = $1, expires_at = to_timestamp($2), last_active = NOW()
+            WHERE id = $3
+            "#,
+        )
+        .bind(&new_token)
+        .bind(new_expires_at / 1000)
+        .bind(session_id)
+        .execute(&db.pool)
+        .await?;
+
+        Ok(UserSession {
+            user: user.into(),
+            token: new_token,
+            expires_at: new_expires_at,
+            refresh_token: session.refresh_token.unwrap_or_default(),
+            refresh_expires_at: session.refresh_expires_at
+                .map(|dt| dt.timestamp_millis())
+                .unwrap_or(0),
         })
     }
 
@@ -250,6 +387,10 @@ impl AuthService {
             user: user.into(),
             token: session.token,
             expires_at: session.expires_at.timestamp_millis(),
+            refresh_token: session.refresh_token.unwrap_or_default(),
+            refresh_expires_at: session.refresh_expires_at
+                .map(|dt| dt.timestamp_millis())
+                .unwrap_or(0),
         })
     }
 }

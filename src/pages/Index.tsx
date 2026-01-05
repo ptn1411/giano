@@ -69,6 +69,8 @@ const Index = () => {
     addMessage,
     retryMessage,
     clearError: clearMessagesError,
+    pagination,
+    loadMore,
   } = useMessages(activeChatId);
   const clearChatMessages = useMessagesStore(
     (state) => state.clearChatMessages
@@ -81,7 +83,9 @@ const Index = () => {
   // BotFather store
   const botfatherMessages = useBotFatherStore((state) => state.messages);
   const sendBotFatherMessage = useBotFatherStore((state) => state.sendMessage);
+  const loadBotFatherMessages = useBotFatherStore((state) => state.loadMessages);
   const botfatherLoading = useBotFatherStore((state) => state.loading);
+  const botfatherLoadingHistory = useBotFatherStore((state) => state.loadingHistory);
 
   // Check if current chat is BotFather
   const isBotFather = activeChatId ? isBotFatherChat(activeChatId) : false;
@@ -131,6 +135,13 @@ const Index = () => {
       useMessagesStore.getState().fetchMessages(activeChatId);
     }
   }, [activeChatId]);
+
+  // Load BotFather messages when BotFather chat is selected
+  useEffect(() => {
+    if (isBotFather) {
+      loadBotFatherMessages();
+    }
+  }, [isBotFather, loadBotFatherMessages]);
 
   // Close sidebar on mobile when chat is selected
   const handleSelectChat = useCallback(
@@ -297,7 +308,7 @@ const Index = () => {
 
   // Get messages - use BotFather store for BotFather chat
   const displayMessages = isBotFather ? botfatherMessages : messages;
-  const displayLoading = isBotFather ? botfatherLoading : messagesLoading;
+  const displayLoading = isBotFather ? (botfatherLoading || botfatherLoadingHistory) : messagesLoading;
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
@@ -327,6 +338,7 @@ const Index = () => {
 
       <ChatSidebar
         chats={chats}
+        users={users}
         currentUser={currentUser}
         activeChatId={activeChatId}
         onSelectChat={handleSelectChat}
@@ -352,6 +364,9 @@ const Index = () => {
           onUnpin={unpinMessage}
           onRetry={retryMessage}
           onInlineButtonClick={handleInlineButtonClick}
+          onLoadMore={!isBotFather ? loadMore : undefined}
+          hasMore={!isBotFather ? pagination?.hasMore : false}
+          isLoadingMore={!isBotFather ? pagination?.isLoadingMore : false}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
           editingMessage={editingMessage}
@@ -378,7 +393,6 @@ const Index = () => {
       </main>
 
       <FloatingActionButton
-        onNewChat={handleNewChat}
         onNewGroup={() => setShowNewGroupModal(true)}
         onSelectChat={handleSelectChat}
         hidden={!!activeChatId}

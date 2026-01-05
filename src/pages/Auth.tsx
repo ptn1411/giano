@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { RateLimitNotice } from '@/components/auth/RateLimitNotice';
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string; name?: string }>({});
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
 
   const validateForm = () => {
     const newErrors: typeof errors = {};
@@ -49,12 +51,18 @@ export default function Auth() {
     if (!validateForm()) return;
     
     setIsLoading(true);
+    setRateLimitError(null); // Clear previous rate limit error
     
     try {
       if (isLogin) {
         const { error } = await login(email, password);
         if (error) {
-          toast({ title: 'Login failed', description: error, variant: 'destructive' });
+          // Check if it's a rate limit error
+          if (error.includes('Too many') || error.includes('rate limit') || error.includes('retry after')) {
+            setRateLimitError(error);
+          } else {
+            toast({ title: 'Login failed', description: error, variant: 'destructive' });
+          }
         } else {
           toast({ title: 'Welcome back!', description: 'You have been logged in successfully' });
           navigate('/');
@@ -101,6 +109,9 @@ export default function Auth() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4 bg-card border border-border rounded-xl p-6">
+          {/* Rate Limit Notice */}
+          {rateLimitError && <RateLimitNotice message={rateLimitError} />}
+          
           {!isLogin && (
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>

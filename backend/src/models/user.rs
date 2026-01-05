@@ -50,4 +50,8 @@ pub struct UserSession {
     pub token: String,
     #[serde(rename = "expiresAt")]
     pub expires_at: i64,
+    #[serde(rename = "refreshToken")]
+    pub refresh_token: String,
+    #[serde(rename = "refreshExpiresAt")]
+    pub refresh_expires_at: i64,
 }

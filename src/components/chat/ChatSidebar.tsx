@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 
 interface ChatSidebarProps {
   chats: ApiChat[];
+  users: ApiUser[];
   currentUser: { id: string; name: string; avatar: string; status: 'online' | 'offline' | 'away' } | null;
   activeChatId: string | null;
   onSelectChat: (chatId: string) => void;
@@ -23,6 +24,7 @@ interface ChatSidebarProps {
 
 export function ChatSidebar({
   chats,
+  users,
   currentUser,
   activeChatId,
   onSelectChat,
@@ -129,6 +131,8 @@ export function ChatSidebar({
                 >
                   <ChatListItem
                     chat={chat}
+                    users={users}
+                    currentUserId={currentUser?.id}
                     isActive={chat.id === activeChatId}
                     onClick={() => onSelectChat(chat.id)}
                   />

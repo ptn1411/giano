@@ -30,9 +30,18 @@ export const usersService = {
    * Get all users
    * Requirement 3.1: Fetch users from GET /users
    */
-  async getUsers(): Promise<UsersResult> {
+  async getUsers(search?: string, connectedOnly: boolean = true, limit: number = 50): Promise<UsersResult> {
     try {
-      const response = await apiClient.get<UsersResponse>('/users');
+      const params: Record<string, string | number | boolean> = {
+        limit,
+        connected_only: connectedOnly,
+      };
+      
+      if (search) {
+        params.search = search;
+      }
+
+      const response = await apiClient.get<UsersResponse>('/users', { params });
       return { users: response.data.users, error: null };
     } catch (error) {
       const parsedError = parseApiError(error);
@@ -62,6 +71,22 @@ export const usersService = {
     try {
       const response = await apiClient.get<UserResponse>('/users/search', {
         params: { email },
+      });
+      return { user: response.data.user, error: null };
+    } catch (error) {
+      const parsedError = parseApiError(error);
+      return { user: null, error: parsedError.message };
+    }
+  },
+
+  /**
+   * Search user by username
+   * Returns user if found, null otherwise
+   */
+  async searchByUsername(username: string): Promise<UserResult> {
+    try {
+      const response = await apiClient.get<UserResponse>('/users/search', {
+        params: { username },
       });
       return { user: response.data.user, error: null };
     } catch (error) {

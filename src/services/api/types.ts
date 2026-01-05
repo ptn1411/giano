@@ -88,10 +88,16 @@ export interface AuthSession {
   user: AuthUser;
   token: string;
   expiresAt: number;
+  refreshToken: string;
+  refreshExpiresAt: number;
 }
 
 export interface AuthResponse {
   session: AuthSession;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
 }
 
 // ============================================

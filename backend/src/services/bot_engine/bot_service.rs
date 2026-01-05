@@ -43,7 +43,7 @@ impl BotEngineService {
     /// # Arguments
     /// * `db` - Database connection
     /// * `owner_id` - UUID of the user creating the bot
-    /// * `request` - CreateBotRequest containing the bot name
+    /// * `request` - CreateBotRequest containing the bot name and optional username
     ///
     /// # Returns
     /// * `AppResult<BotResponse>` - The created bot information
@@ -66,13 +66,14 @@ impl BotEngineService {
         // Create the bot record
         let bot: Bot = sqlx::query_as(
             r#"
-            INSERT INTO bots (id, name, token, owner_id, is_active, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, true, NOW(), NOW())
+            INSERT INTO bots (id, name, username, token, owner_id, is_active, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
             RETURNING *
             "#,
         )
         .bind(bot_id)
         .bind(&request.name)
+        .bind(&request.username)
         .bind(&token)
         .bind(owner_id)
         .fetch_one(&db.pool)
@@ -582,6 +583,46 @@ impl BotEngineService {
         .await?;
 
         Ok(result.is_some())
+    }
+
+    // ==================== Username Management ====================
+
+    /// Check if a username is already taken.
+    ///
+    /// # Arguments
+    /// * `db` - Database connection
+    /// * `username` - The username to check
+    ///
+    /// # Returns
+    /// * `AppResult<bool>` - True if the username is taken
+    pub async fn is_username_taken(db: &Database, username: &str) -> AppResult<bool> {
+        let result: Option<(i64,)> = sqlx::query_as(
+            "SELECT 1 FROM bots WHERE LOWER(username) = LOWER($1)"
+        )
+        .bind(username)
+        .fetch_optional(&db.pool)
+        .await?;
+
+        Ok(result.is_some())
+    }
+
+    /// Get a bot by its username.
+    ///
+    /// # Arguments
+    /// * `db` - Database connection
+    /// * `username` - The bot's username
+    ///
+    /// # Returns
+    /// * `AppResult<Bot>` - The bot if found
+    pub async fn get_bot_by_username(db: &Database, username: &str) -> AppResult<Bot> {
+        let bot: Option<Bot> = sqlx::query_as(
+            "SELECT * FROM bots WHERE LOWER(username) = LOWER($1)"
+        )
+        .bind(username)
+        .fetch_optional(&db.pool)
+        .await?;
+
+        bot.ok_or(AppError::BotNotFound)
     }
 
     // ==================== Webhook Management ====================

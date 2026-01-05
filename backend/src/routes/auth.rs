@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::{
     error::{AppError, AppResult},
     models::UserSession,
-    services::AuthService,
+    services::{AuthService, LoginRateLimiter},
     AppState,
 };
 
@@ -19,6 +19,7 @@ pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/register", post(register))
         .route("/login", post(login))
+        .route("/refresh", post(refresh))
         .route("/logout", post(logout))
         .route("/session", get(get_session))
 }
@@ -60,14 +61,98 @@ pub struct LoginRequest {
 
 async fn login(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     Json(req): Json<LoginRequest>,
 ) -> AppResult<Json<SessionResponse>> {
-    let session = AuthService::login(
+    // Extract IP address and User-Agent for rate limiting
+    let ip_address = headers
+        .get("x-forwarded-for")
+        .or_else(|| headers.get("x-real-ip"))
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+    
+    let user_agent = headers
+        .get(header::USER_AGENT)
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
+    // Check rate limit
+    let (allowed, retry_after) = LoginRateLimiter::check_rate_limit(
+        &state.db,
+        &req.email,
+        ip_address.as_deref(),
+    )
+    .await?;
+
+    if !allowed {
+        // Record failed attempt
+        LoginRateLimiter::record_attempt(
+            &state.db,
+            &req.email,
+            ip_address.as_deref(),
+            false,
+            user_agent.as_deref(),
+        )
+        .await?;
+
+        return Err(AppError::LoginRateLimitExceeded(retry_after.unwrap_or(60)));
+    }
+
+    // Attempt login
+    let result = AuthService::login(
         &state.db,
         &req.email,
         &req.password,
         &state.config.jwt_secret,
         state.config.jwt_expiration_hours,
+    )
+    .await;
+
+    // Record attempt
+    match &result {
+        Ok(_) => {
+            // Success - clear failed attempts
+            LoginRateLimiter::clear_failed_attempts(&state.db, &req.email).await?;
+            LoginRateLimiter::record_attempt(
+                &state.db,
+                &req.email,
+                ip_address.as_deref(),
+                true,
+                user_agent.as_deref(),
+            )
+            .await?;
+        }
+        Err(_) => {
+            // Failed - record attempt
+            LoginRateLimiter::record_attempt(
+                &state.db,
+                &req.email,
+                ip_address.as_deref(),
+                false,
+                user_agent.as_deref(),
+            )
+            .await?;
+        }
+    }
+
+    let session = result?;
+    Ok(Json(SessionResponse { session }))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RefreshRequest {
+    #[serde(rename = "refreshToken")]
+    refresh_token: String,
+}
+
+async fn refresh(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<RefreshRequest>,
+) -> AppResult<Json<SessionResponse>> {
+    let session = AuthService::refresh_token(
+        &state.db,
+        &req.refresh_token,
+        &state.config.jwt_secret,
     )
     .await?;
 

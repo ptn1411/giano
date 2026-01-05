@@ -54,6 +54,10 @@ pub enum AppError {
     #[error("Webhook error: {0}")]
     WebhookError(String),
 
+    // Rate limiting errors
+    #[error("Too many login attempts, retry after {0} seconds")]
+    LoginRateLimitExceeded(u32),
+
     // Validation errors
     #[error("Empty message")]
     EmptyMessage,
@@ -106,6 +110,7 @@ impl IntoResponse for AppError {
             AppError::BotRateLimitExceeded(_) => (StatusCode::TOO_MANY_REQUESTS, "RATE_LIMIT_EXCEEDED"),
             AppError::InvalidWebhookUrl => (StatusCode::BAD_REQUEST, "INVALID_WEBHOOK_URL"),
             AppError::WebhookError(_) => (StatusCode::BAD_GATEWAY, "WEBHOOK_ERROR"),
+            AppError::LoginRateLimitExceeded(_) => (StatusCode::TOO_MANY_REQUESTS, "LOGIN_RATE_LIMIT_EXCEEDED"),
             AppError::EmptyMessage => (StatusCode::BAD_REQUEST, "EMPTY_MESSAGE"),
             AppError::InvalidParticipants => (StatusCode::BAD_REQUEST, "INVALID_PARTICIPANTS"),
             AppError::FileTooLarge => (StatusCode::BAD_REQUEST, "FILE_TOO_LARGE"),

@@ -47,7 +47,7 @@ export const messagesService = {
   getMessages: async (
     chatId: string,
     before?: string,
-    limit: number = 50
+    limit: number = 20
   ): Promise<MessagesResult> => {
     try {
       const params: Record<string, string | number> = { limit };

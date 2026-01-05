@@ -26,6 +26,9 @@ interface ChatAreaProps {
   onRetry?: (messageId: string) => void;
   onInlineButtonClick?: (button: InlineButton, messageId: string) => void;
   onCommandClick?: (command: string) => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
   editingMessage?: Message | null;
@@ -55,6 +58,9 @@ export function ChatArea({
   onRetry,
   onInlineButtonClick,
   onCommandClick,
+  onLoadMore,
+  hasMore,
+  isLoadingMore,
   replyingTo,
   onCancelReply,
   editingMessage,
@@ -172,6 +178,9 @@ export function ChatArea({
         onRetry={onRetry}
         onInlineButtonClick={handleInlineButtonClick}
         onCommandClick={onCommandClick || ((cmd) => onSendMessage(cmd))}
+        onLoadMore={onLoadMore}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
         loading={loading}
         searchQuery={isSearchOpen ? searchQuery : undefined}
       />

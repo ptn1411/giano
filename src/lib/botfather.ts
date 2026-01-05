@@ -48,7 +48,7 @@ export const BOTFATHER_WELCOME: Message = {
 I can help you create and manage bots. Click any command below to use it:
 
 📝 Bot Management:
-/newbot - Create a new bot
+/newbot - Create a new bot (interactive)
 /mybots - List your bots  
 /deletebot - Delete a bot
 /botinfo - Get bot info
@@ -62,6 +62,8 @@ I can help you create and manage bots. Click any command below to use it:
 /addbot - Add bot to a chat
 /removebot - Remove bot from chat
 
+/cancel - Cancel current operation
+
 Type /bothelp to see this message again.`,
   timestamp: new Date().toISOString(),
   isRead: true,
@@ -71,7 +73,7 @@ Type /bothelp to see this message again.`,
 
 // BotFather commands list for autocomplete
 export const BOTFATHER_COMMANDS = [
-  { command: '/newbot', description: 'Create a new bot', usage: '/newbot <name>' },
+  { command: '/newbot', description: 'Create a new bot (interactive)', usage: '/newbot' },
   { command: '/mybots', description: 'List your bots', usage: '/mybots' },
   { command: '/deletebot', description: 'Delete a bot', usage: '/deletebot <bot_id>' },
   { command: '/botinfo', description: 'Get bot information', usage: '/botinfo <bot_id>' },
@@ -80,5 +82,6 @@ export const BOTFATHER_COMMANDS = [
   { command: '/token', description: 'Get or regenerate token', usage: '/token <bot_id> [regenerate]' },
   { command: '/addbot', description: 'Add bot to current chat', usage: '/addbot <bot_id>' },
   { command: '/removebot', description: 'Remove bot from chat', usage: '/removebot <bot_id>' },
+  { command: '/cancel', description: 'Cancel current operation', usage: '/cancel' },
   { command: '/bothelp', description: 'Show help', usage: '/bothelp' },
 ];

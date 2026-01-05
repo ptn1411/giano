@@ -1,22 +1,46 @@
 import { formatDistanceToNow } from "date-fns";
 import { Bot, Crown } from "lucide-react";
-import { Chat } from "@/services/api/types";
+import { Chat, User } from "@/services/api/types";
 import { AvatarWithStatus } from "./AvatarWithStatus";
 import { cn } from "@/lib/utils";
 import { isBotFatherChat } from "@/lib/botfather";
 
 interface ChatListItemProps {
   chat: Chat;
+  users: User[];
+  currentUserId?: string;
   isActive: boolean;
   onClick: () => void;
 }
 
-export function ChatListItem({ chat, isActive, onClick }: ChatListItemProps) {
+export function ChatListItem({ chat, users, currentUserId, isActive, onClick }: ChatListItemProps) {
   const lastMessageTime = chat.lastMessage?.timestamp
     ? formatDistanceToNow(new Date(chat.lastMessage.timestamp), { addSuffix: false })
     : '';
 
   const isBotFather = isBotFatherChat(chat.id);
+
+  // Get the other participant's status for private chats
+  const getParticipantStatus = (): 'online' | 'offline' | 'away' | undefined => {
+    // Bots are always online
+    if (chat.isBot || isBotFather) {
+      return 'online';
+    }
+    
+    // For private chats, find the other participant
+    if (chat.type === 'private' && currentUserId) {
+      const otherParticipantId = chat.participants.find(id => id !== currentUserId);
+      if (otherParticipantId) {
+        const otherUser = users.find(u => u.id === otherParticipantId);
+        return otherUser?.status;
+      }
+    }
+    
+    // For groups, don't show status
+    return undefined;
+  };
+
+  const participantStatus = getParticipantStatus();
 
   return (
     <button
@@ -31,7 +55,7 @@ export function ChatListItem({ chat, isActive, onClick }: ChatListItemProps) {
       <AvatarWithStatus
         src={chat.avatar}
         alt={chat.name}
-        status={chat.type === 'private' ? 'online' : chat.isBot ? 'online' : undefined}
+        status={participantStatus}
         size="lg"
       />
       

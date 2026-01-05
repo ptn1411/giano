@@ -4,10 +4,11 @@
  * Requirements: 2.1-2.6
  */
 
-import { apiClient, setAuthToken, removeAuthToken, getAuthToken, parseApiError } from './client';
+import { apiClient, setAuthToken, removeAuthToken, getAuthToken, getRefreshToken, parseApiError } from './client';
 import {
   LoginRequest,
   RegisterRequest,
+  RefreshTokenRequest,
   AuthResponse,
   AuthSession,
 } from './types';
@@ -37,8 +38,8 @@ export const authService = {
       
       const { session } = response.data;
       
-      // Requirement 2.5: Persist JWT token in localStorage
-      setAuthToken(session.token);
+      // Requirement 2.5: Persist JWT token and refresh token in localStorage
+      setAuthToken(session.token, session.expiresAt, session.refreshToken, session.refreshExpiresAt);
       
       return { session, error: null };
     } catch (error) {
@@ -59,13 +60,45 @@ export const authService = {
       
       const { session } = response.data;
       
-      // Requirement 2.5: Persist JWT token in localStorage
-      setAuthToken(session.token);
+      // Requirement 2.5: Persist JWT token and refresh token in localStorage
+      setAuthToken(session.token, session.expiresAt, session.refreshToken, session.refreshExpiresAt);
       
       return { session, error: null };
     } catch (error) {
       // Requirement 2.6: Display error messages from API response
       const parsedError = parseApiError(error);
+      return { session: null, error: parsedError.message };
+    }
+  },
+
+  /**
+   * Refresh access token using refresh token
+   */
+  async refreshToken(): Promise<AuthResult> {
+    try {
+      const refreshToken = getRefreshToken();
+      
+      if (!refreshToken) {
+        return { session: null, error: 'No refresh token available' };
+      }
+
+      const request: RefreshTokenRequest = { refreshToken };
+      const response = await apiClient.post<AuthResponse>('/auth/refresh', request);
+      
+      const { session } = response.data;
+      
+      // Update tokens in localStorage
+      setAuthToken(session.token, session.expiresAt, session.refreshToken, session.refreshExpiresAt);
+      
+      return { session, error: null };
+    } catch (error) {
+      const parsedError = parseApiError(error);
+      
+      // If refresh fails, clear all tokens
+      if (parsedError.type === 'auth') {
+        removeAuthToken();
+      }
+      
       return { session: null, error: parsedError.message };
     }
   },
@@ -84,7 +117,7 @@ export const authService = {
       // Log error but don't throw - we still want to clear local state
       console.error('[Auth] Logout API error:', error);
     } finally {
-      // Always clear local token
+      // Always clear local tokens
       removeAuthToken();
     }
   },
@@ -103,9 +136,9 @@ export const authService = {
       const response = await apiClient.get<AuthResponse>('/auth/session');
       const { session } = response.data;
       
-      // Update token if server returns a new one
+      // Update tokens if server returns new ones
       if (session.token) {
-        setAuthToken(session.token);
+        setAuthToken(session.token, session.expiresAt, session.refreshToken, session.refreshExpiresAt);
       }
       
       return session;

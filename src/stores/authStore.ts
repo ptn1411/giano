@@ -21,6 +21,7 @@ interface AuthState {
   initialize: () => Promise<void>;
   login: (email: string, password: string) => Promise<{ error: string | null }>;
   signup: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
+  refreshToken: () => Promise<{ error: string | null }>;
   logout: () => Promise<void>;
   updateSession: (session: AuthSession | null) => void;
 }
@@ -96,6 +97,19 @@ export const useAuthStore = create<AuthState>()(
        */
       signup: async (email: string, password: string, name: string) => {
         const { session, error } = await authService.register(email, password, name);
+        
+        if (session) {
+          set({ session });
+        }
+        
+        return { error };
+      },
+
+      /**
+       * Refresh access token using refresh token
+       */
+      refreshToken: async () => {
+        const { session, error } = await authService.refreshToken();
         
         if (session) {
           set({ session });

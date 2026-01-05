@@ -18,6 +18,9 @@ import { isDemoMode, getApiUrl, getApiTimeout } from '@/lib/config';
 // ============================================
 
 const AUTH_TOKEN_KEY = 'auth_token';
+const REFRESH_TOKEN_KEY = 'refresh_token';
+const TOKEN_EXPIRY_KEY = 'token_expiry';
+const REFRESH_EXPIRY_KEY = 'refresh_expiry';
 
 // ============================================
 // Demo Mode Flag
@@ -28,6 +31,27 @@ const AUTH_TOKEN_KEY = 'auth_token';
  * Demo mode uses mock data instead of real API calls
  */
 export const isInDemoMode = isDemoMode;
+
+// ============================================
+// Token Refresh State
+// ============================================
+
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}> = [];
+
+const processQueue = (error: Error | null, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
 
 // ============================================
 // API Client Configuration
@@ -49,9 +73,31 @@ const createApiClient = (): AxiosInstance => {
     },
   });
 
-  // Request interceptor - add JWT token (Requirement 1.1)
+  // Request interceptor - add JWT token and handle proactive refresh (Requirement 1.1)
   client.interceptors.request.use(
-    (config: InternalAxiosRequestConfig) => {
+    async (config: InternalAxiosRequestConfig) => {
+      // Skip token for auth endpoints
+      if (config.url?.includes('/auth/login') || 
+          config.url?.includes('/auth/register') ||
+          config.url?.includes('/auth/refresh')) {
+        return config;
+      }
+
+      // Check if token is expiring soon (within 5 minutes) and refresh proactively
+      const expiry = parseInt(localStorage.getItem(TOKEN_EXPIRY_KEY) || '0');
+      const now = Date.now();
+      const fiveMinutes = 5 * 60 * 1000;
+
+      if (expiry && (expiry - now < fiveMinutes) && !isRefreshing) {
+        try {
+          await refreshAccessToken();
+        } catch (error) {
+          console.error('[API] Proactive token refresh failed:', error);
+          // Continue with current token, will retry on 401
+        }
+      }
+
+      // Add access token to request
       const token = localStorage.getItem(AUTH_TOKEN_KEY);
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -64,18 +110,63 @@ const createApiClient = (): AxiosInstance => {
     }
   );
 
-  // Response interceptor - handle errors (Requirement 1.2, 1.5)
+  // Response interceptor - handle errors and token refresh (Requirement 1.2, 1.5)
   client.interceptors.response.use(
     (response: AxiosResponse) => {
       return response;
     },
-    (error: AxiosError<ApiErrorResponse>) => {
-      // Handle 401 Unauthorized - redirect to login (Requirement 1.2)
-      if (error.response?.status === 401) {
-        localStorage.removeItem(AUTH_TOKEN_KEY);
-        // Only redirect if not already on auth page
-        if (!window.location.pathname.includes('/auth')) {
-          window.location.href = '/auth';
+    async (error: AxiosError<ApiErrorResponse>) => {
+      const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+      // Handle 429 Rate Limit
+      if (error.response?.status === 429) {
+        const message = error.response.data?.error?.message || 'Too many requests';
+        const retryAfter = message.match(/\d+/)?.[0] || '60';
+        
+        console.error(`[API] Rate limit exceeded. Retry after ${retryAfter} seconds`);
+        return Promise.reject(error);
+      }
+
+      // Handle 401 Unauthorized - try to refresh token (Requirement 1.2)
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        if (isRefreshing) {
+          // If already refreshing, queue this request
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          })
+            .then(token => {
+              if (originalRequest.headers) {
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+              }
+              return client(originalRequest);
+            })
+            .catch(err => Promise.reject(err));
+        }
+
+        originalRequest._retry = true;
+        isRefreshing = true;
+
+        try {
+          const newToken = await refreshAccessToken();
+          processQueue(null, newToken);
+          
+          // Retry original request with new token
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          }
+          return client(originalRequest);
+        } catch (refreshError) {
+          processQueue(refreshError as Error, null);
+          
+          // Refresh failed, clear tokens and redirect to login
+          clearAllTokens();
+          if (!window.location.pathname.includes('/auth')) {
+            window.location.href = '/auth';
+          }
+          
+          return Promise.reject(refreshError);
+        } finally {
+          isRefreshing = false;
         }
       }
 
@@ -93,6 +184,40 @@ const createApiClient = (): AxiosInstance => {
 
   return client;
 };
+
+/**
+ * Refresh access token using refresh token
+ */
+async function refreshAccessToken(): Promise<string> {
+  const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+  
+  if (!refreshToken) {
+    throw new Error('No refresh token available');
+  }
+
+  try {
+    // Use axios directly to avoid interceptor loop
+    const response = await axios.post<{ session: { token: string; expiresAt: number; refreshToken: string; refreshExpiresAt: number } }>(
+      `${getApiUrl()}/auth/refresh`,
+      { refreshToken },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    const { session } = response.data;
+    
+    // Update stored tokens
+    localStorage.setItem(AUTH_TOKEN_KEY, session.token);
+    localStorage.setItem(TOKEN_EXPIRY_KEY, session.expiresAt.toString());
+    // Refresh token stays the same
+    
+    console.log('[API] Token refreshed successfully');
+    return session.token;
+  } catch (error) {
+    console.error('[API] Token refresh failed:', error);
+    clearAllTokens();
+    throw error;
+  }
+}
 
 // ============================================
 // Error Handling Utilities
@@ -182,10 +307,13 @@ export const isErrorType = (error: ParsedError, type: ErrorType): boolean => {
 // ============================================
 
 /**
- * Store JWT token in localStorage
+ * Store authentication tokens in localStorage
  */
-export const setAuthToken = (token: string): void => {
+export const setAuthToken = (token: string, expiresAt: number, refreshToken: string, refreshExpiresAt: number): void => {
   localStorage.setItem(AUTH_TOKEN_KEY, token);
+  localStorage.setItem(TOKEN_EXPIRY_KEY, expiresAt.toString());
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  localStorage.setItem(REFRESH_EXPIRY_KEY, refreshExpiresAt.toString());
 };
 
 /**
@@ -196,17 +324,51 @@ export const getAuthToken = (): string | null => {
 };
 
 /**
- * Remove JWT token from localStorage
+ * Get refresh token from localStorage
+ */
+export const getRefreshToken = (): string | null => {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+};
+
+/**
+ * Remove all authentication tokens from localStorage
  */
 export const removeAuthToken = (): void => {
-  localStorage.removeItem(AUTH_TOKEN_KEY);
+  clearAllTokens();
 };
+
+/**
+ * Clear all tokens from localStorage
+ */
+function clearAllTokens(): void {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(TOKEN_EXPIRY_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_EXPIRY_KEY);
+}
 
 /**
  * Check if user has a stored token
  */
 export const hasAuthToken = (): boolean => {
   return !!localStorage.getItem(AUTH_TOKEN_KEY);
+};
+
+/**
+ * Check if access token is expired
+ */
+export const isAccessTokenExpired = (): boolean => {
+  const expiry = parseInt(localStorage.getItem(TOKEN_EXPIRY_KEY) || '0');
+  return Date.now() >= expiry;
+};
+
+/**
+ * Check if access token is expiring soon (within specified minutes)
+ */
+export const isAccessTokenExpiringSoon = (minutesThreshold: number = 5): boolean => {
+  const expiry = parseInt(localStorage.getItem(TOKEN_EXPIRY_KEY) || '0');
+  const threshold = minutesThreshold * 60 * 1000;
+  return Date.now() >= (expiry - threshold);
 };
 
 // ============================================

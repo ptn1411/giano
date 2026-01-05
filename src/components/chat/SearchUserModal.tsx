@@ -13,7 +13,7 @@ interface SearchUserModalProps {
 }
 
 export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserModalProps) {
-  const [email, setEmail] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [foundUser, setFoundUser] = useState<User | null>(null);
@@ -22,15 +22,8 @@ export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserMo
   const addChat = useChatsStore((state) => state.addChat);
 
   const handleSearch = async () => {
-    if (!email.trim()) {
-      setError("Please enter an email address");
-      return;
-    }
-
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address");
+    if (!searchQuery.trim()) {
+      setError("Please enter a username or email");
       return;
     }
 
@@ -38,7 +31,17 @@ export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserMo
     setError(null);
     setFoundUser(null);
 
-    const result = await usersService.searchByEmail(email.trim());
+    // Try to search by email first if it looks like an email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const isEmail = emailRegex.test(searchQuery.trim());
+    
+    let result;
+    if (isEmail) {
+      result = await usersService.searchByEmail(searchQuery.trim());
+    } else {
+      // Search by username
+      result = await usersService.searchByUsername(searchQuery.trim());
+    }
     
     setLoading(false);
     
@@ -74,7 +77,7 @@ export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserMo
   };
 
   const handleClose = () => {
-    setEmail("");
+    setSearchQuery("");
     setError(null);
     setFoundUser(null);
     setLoading(false);
@@ -116,20 +119,20 @@ export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserMo
           {/* Search Input */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
-              Search by Email
+              Search by Username or Email
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <input
-                type="email"
-                value={email}
+                type="text"
+                value={searchQuery}
                 onChange={(e) => {
-                  setEmail(e.target.value);
+                  setSearchQuery(e.target.value);
                   setError(null);
                   setFoundUser(null);
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="Enter email address..."
+                placeholder="Enter username or email..."
                 className={cn(
                   "w-full pl-10 pr-4 py-3 rounded-xl border bg-background",
                   "focus:outline-none focus:ring-2 focus:ring-primary/50",
@@ -147,7 +150,7 @@ export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserMo
           {/* Search Button */}
           <button
             onClick={handleSearch}
-            disabled={loading || !email.trim()}
+            disabled={loading || !searchQuery.trim()}
             className={cn(
               "w-full py-3 rounded-xl font-medium transition-all",
               "bg-primary text-primary-foreground",
@@ -215,7 +218,7 @@ export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserMo
 
           {/* Demo hint */}
           <p className="text-xs text-muted-foreground text-center">
-            Demo emails: demo@example.com, alice@example.com, test@test.com
+            Search by username (e.g., alice, demo) or email (e.g., demo@example.com)
           </p>
         </div>
       </div>

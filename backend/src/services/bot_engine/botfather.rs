@@ -1,13 +1,15 @@
 /// BotFather module - System bot for managing bots via chat commands.
 ///
 /// BotFather is a special system bot that handles commands like:
-/// - /newbot - Create a new bot
+/// - /newbot - Create a new bot (interactive conversation)
 /// - /mybots - List your bots
 /// - /deletebot - Delete a bot
 /// - /setwebhook - Set webhook URL for a bot
 /// - /token - Get or regenerate bot token
 /// - /help - Show available commands
 
+use std::collections::HashMap;
+use std::sync::Mutex;
 use uuid::Uuid;
 
 use crate::db::Database;
@@ -16,6 +18,34 @@ use crate::models::CreateBotRequest;
 
 use super::bot_service::BotEngineService;
 use super::command_parser::ParsedCommand;
+
+/// Conversation state for multi-step commands
+#[derive(Debug, Clone)]
+pub enum ConversationState {
+    /// Waiting for bot name in /newbot flow
+    AwaitingBotName,
+    /// Waiting for bot username in /newbot flow (has name)
+    AwaitingBotUsername { name: String },
+}
+
+/// Session data for a user's conversation with BotFather
+#[derive(Debug, Clone)]
+pub struct UserSession {
+    pub state: ConversationState,
+}
+
+/// Global session storage (user_id -> session)
+static SESSIONS: Mutex<Option<HashMap<Uuid, UserSession>>> = Mutex::new(None);
+
+fn get_sessions() -> std::sync::MutexGuard<'static, Option<HashMap<Uuid, UserSession>>> {
+    SESSIONS.lock().unwrap()
+}
+
+fn ensure_sessions_init(guard: &mut std::sync::MutexGuard<'_, Option<HashMap<Uuid, UserSession>>>) {
+    if guard.is_none() {
+        **guard = Some(HashMap::new());
+    }
+}
 
 /// BotFather system bot ID (fixed UUID for the system)
 pub const BOTFATHER_ID: &str = "00000000-0000-0000-0000-000000000001";
@@ -57,8 +87,133 @@ impl BotFather {
         matches!(
             cmd.command.as_str(),
             "newbot" | "mybots" | "deletebot" | "setwebhook" | "clearwebhook" 
-            | "token" | "bothelp" | "addbot" | "removebot" | "botinfo"
+            | "token" | "bothelp" | "addbot" | "removebot" | "botinfo" | "cancel"
         )
+    }
+
+    /// Get user's current session
+    fn get_session(user_id: Uuid) -> Option<UserSession> {
+        let guard = get_sessions();
+        guard.as_ref()?.get(&user_id).cloned()
+    }
+
+    /// Set user's session
+    fn set_session(user_id: Uuid, session: UserSession) {
+        let mut guard = get_sessions();
+        ensure_sessions_init(&mut guard);
+        if let Some(sessions) = guard.as_mut() {
+            sessions.insert(user_id, session);
+        }
+    }
+
+    /// Clear user's session
+    fn clear_session(user_id: Uuid) {
+        let mut guard = get_sessions();
+        if let Some(sessions) = guard.as_mut() {
+            sessions.remove(&user_id);
+        }
+    }
+
+    /// Check if user has an active conversation session
+    pub fn has_active_session(user_id: Uuid) -> bool {
+        Self::get_session(user_id).is_some()
+    }
+
+    /// Handle a plain text message (not a command) - for conversation flow
+    pub async fn handle_message(
+        db: &Database,
+        user_id: Uuid,
+        text: &str,
+    ) -> AppResult<Option<BotFatherResponse>> {
+        let session = match Self::get_session(user_id) {
+            Some(s) => s,
+            None => return Ok(None), // No active session
+        };
+
+        match session.state {
+            ConversationState::AwaitingBotName => {
+                Self::handle_bot_name_input(user_id, text).await
+            }
+            ConversationState::AwaitingBotUsername { name } => {
+                Self::handle_bot_username_input(db, user_id, &name, text).await
+            }
+        }
+    }
+
+    /// Handle bot name input in /newbot flow
+    async fn handle_bot_name_input(
+        user_id: Uuid,
+        name: &str,
+    ) -> AppResult<Option<BotFatherResponse>> {
+        let name = name.trim().to_string();
+
+        // Validate name length
+        if name.len() < 3 || name.len() > 32 {
+            return Ok(Some(BotFatherResponse::error(
+                "❌ Bot name must be between 3 and 32 characters.\n\nPlease enter a valid name:"
+            )));
+        }
+
+        // Move to next step - ask for username
+        Self::set_session(user_id, UserSession {
+            state: ConversationState::AwaitingBotUsername { name: name.clone() },
+        });
+
+        Ok(Some(BotFatherResponse::success(format!(
+            "✅ Great! Bot name: \"{}\"\n\n\
+            Now, please choose a username for your bot.\n\
+            ⚠️ Username must:\n\
+            • Be 5-32 characters\n\
+            • End with 'bot' (e.g., myawesome_bot)\n\
+            • Only contain letters, numbers, and underscores\n\n\
+            Enter username:",
+            name
+        ))))
+    }
+
+    /// Handle bot username input in /newbot flow
+    async fn handle_bot_username_input(
+        db: &Database,
+        user_id: Uuid,
+        name: &str,
+        username: &str,
+    ) -> AppResult<Option<BotFatherResponse>> {
+        let username = username.trim().to_lowercase();
+
+        // Validate username
+        if let Err(msg) = Self::validate_username(&username) {
+            return Ok(Some(BotFatherResponse::error(format!(
+                "{}\n\nPlease enter a valid username:",
+                msg
+            ))));
+        }
+
+        // Check if username is already taken
+        if BotEngineService::is_username_taken(db, &username).await? {
+            return Ok(Some(BotFatherResponse::error(
+                "❌ This username is already taken.\n\nPlease choose another username:"
+            )));
+        }
+
+        // Create the bot
+        let request = CreateBotRequest {
+            name: name.to_string(),
+            username: Some(username.clone()),
+        };
+        let bot = BotEngineService::create_bot(db, user_id, request).await?;
+
+        // Clear session - conversation complete
+        Self::clear_session(user_id);
+
+        Ok(Some(BotFatherResponse::success(format!(
+            "🎉 Done! Your bot has been created.\n\n\
+            🤖 Name: {}\n\
+            👤 Username: @{}\n\
+            🔑 Token: {}\n\n\
+            ⚠️ Keep your token secret! Anyone with this token can control your bot.\n\n\
+            Use /setwebhook to configure webhook URL.",
+            bot.name, username, bot.token
+        ))))
     }
 
     /// Handle a BotFather command
@@ -77,6 +232,15 @@ impl BotFather {
         chat_id: Uuid,
         cmd: &ParsedCommand,
     ) -> AppResult<Option<BotFatherResponse>> {
+        // Handle /cancel first - it clears any active session
+        if cmd.command == "cancel" {
+            Self::clear_session(user_id);
+            return Ok(Some(BotFatherResponse::success("✅ Cancelled. What would you like to do?")));
+        }
+
+        // If user starts a new command, clear any existing session
+        Self::clear_session(user_id);
+
         let response = match cmd.command.as_str() {
             "newbot" => Some(Self::cmd_newbot(db, user_id, cmd).await?),
             "mybots" => Some(Self::cmd_mybots(db, user_id).await?),
@@ -94,16 +258,29 @@ impl BotFather {
         Ok(response)
     }
 
-    /// /newbot <name> - Create a new bot
+    /// /newbot - Start interactive bot creation
     async fn cmd_newbot(db: &Database, user_id: Uuid, cmd: &ParsedCommand) -> AppResult<BotFatherResponse> {
-        let name = match cmd.first_arg() {
-            Some(n) if !n.is_empty() => n.to_string(),
-            _ => {
-                return Ok(BotFatherResponse::error(
-                    "❌ Usage: /newbot <name>\n\nExample: /newbot MyAwesomeBot"
-                ));
-            }
-        };
+        // If args provided, try quick creation (backward compatible)
+        if cmd.args.len() >= 2 {
+            return Self::cmd_newbot_quick(db, user_id, cmd).await;
+        }
+
+        // Start interactive flow
+        Self::set_session(user_id, UserSession {
+            state: ConversationState::AwaitingBotName,
+        });
+
+        Ok(BotFatherResponse::success(
+            "🤖 Let's create a new bot!\n\n\
+            Please enter a name for your bot (3-32 characters):\n\n\
+            (Send /cancel to abort)"
+        ))
+    }
+
+    /// Quick /newbot <name> <username> - Create bot with args (backward compatible)
+    async fn cmd_newbot_quick(db: &Database, user_id: Uuid, cmd: &ParsedCommand) -> AppResult<BotFatherResponse> {
+        let name = cmd.args[0].clone();
+        let username = cmd.args[1].to_lowercase();
 
         // Validate name length
         if name.len() < 3 || name.len() > 32 {
@@ -112,17 +289,58 @@ impl BotFather {
             ));
         }
 
-        let request = CreateBotRequest { name: name.clone() };
+        // Validate username
+        if let Err(msg) = Self::validate_username(&username) {
+            return Ok(BotFatherResponse::error(msg));
+        }
+
+        // Check if username is already taken
+        if BotEngineService::is_username_taken(db, &username).await? {
+            return Ok(BotFatherResponse::error(
+                "❌ This username is already taken. Please choose another one."
+            ));
+        }
+
+        let request = CreateBotRequest { 
+            name: name.clone(),
+            username: Some(username.clone()),
+        };
         let bot = BotEngineService::create_bot(db, user_id, request).await?;
 
         Ok(BotFatherResponse::success(format!(
             "✅ Bot created successfully!\n\n\
             🤖 Name: {}\n\
+            👤 Username: @{}\n\
             🔑 Token: {}\n\n\
             ⚠️ Keep your token secret! Anyone with this token can control your bot.\n\n\
             Use /setwebhook to configure webhook URL.",
-            bot.name, bot.token
+            bot.name, username, bot.token
         )))
+    }
+
+    /// Validate bot username
+    fn validate_username(username: &str) -> Result<(), &'static str> {
+        // Must be 5-32 characters
+        if username.len() < 5 || username.len() > 32 {
+            return Err("❌ Username must be between 5 and 32 characters.");
+        }
+
+        // Must end with 'bot'
+        if !username.ends_with("bot") && !username.ends_with("_bot") {
+            return Err("❌ Username must end with 'bot' (e.g., myawesome_bot, coolbot).");
+        }
+
+        // Must contain only alphanumeric and underscore
+        if !username.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            return Err("❌ Username can only contain letters, numbers, and underscores.");
+        }
+
+        // Must start with a letter
+        if !username.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false) {
+            return Err("❌ Username must start with a letter.");
+        }
+
+        Ok(())
     }
 
     /// /mybots - List user's bots
@@ -131,20 +349,20 @@ impl BotFather {
 
         if bots.is_empty() {
             return Ok(BotFatherResponse::success(
-                "📭 You don't have any bots yet.\n\nUse /newbot <name> to create one!"
+                "📭 You don't have any bots yet.\n\nUse /newbot <name> <username> to create one!"
             ));
         }
 
         let mut text = format!("🤖 Your bots ({}):\n\n", bots.len());
         for bot in bots {
             let status = if bot.is_active { "✅" } else { "⏸️" };
-            let webhook = bot.webhook_url.as_deref().unwrap_or("Not set");
+            let username = bot.username.as_deref().map(|u| format!("@{}", u)).unwrap_or_else(|| "No username".to_string());
             text.push_str(&format!(
-                "{} {} (ID: {})\n   Webhook: {}\n\n",
+                "{} {} ({})\n   ID: {}\n\n",
                 status,
                 bot.name,
+                username,
                 bot.id,
-                if webhook.len() > 30 { &webhook[..30] } else { webhook }
             ));
         }
 
@@ -425,7 +643,7 @@ impl BotFather {
         BotFatherResponse::success(
             "🤖 BotFather Commands\n\n\
             📝 Bot Management:\n\
-            /newbot <name> - Create a new bot\n\
+            /newbot - Create a new bot (interactive)\n\
             /mybots - List your bots\n\
             /deletebot <bot_id> - Delete a bot\n\
             /botinfo <bot_id> - Get bot info\n\n\
@@ -435,7 +653,8 @@ impl BotFather {
             /token <bot_id> [regenerate] - Get/regenerate token\n\n\
             💬 Chat Integration:\n\
             /addbot <bot_id> - Add bot to this chat\n\
-            /removebot <bot_id> - Remove bot from this chat"
+            /removebot <bot_id> - Remove bot from this chat\n\n\
+            /cancel - Cancel current operation"
         )
     }
 }
@@ -455,6 +674,7 @@ mod tests {
         assert!(BotFather::is_botfather_command(&ParsedCommand::parse("/newbot").unwrap()));
         assert!(BotFather::is_botfather_command(&ParsedCommand::parse("/mybots").unwrap()));
         assert!(BotFather::is_botfather_command(&ParsedCommand::parse("/bothelp").unwrap()));
+        assert!(BotFather::is_botfather_command(&ParsedCommand::parse("/cancel").unwrap()));
         assert!(!BotFather::is_botfather_command(&ParsedCommand::parse("/help").unwrap()));
         assert!(!BotFather::is_botfather_command(&ParsedCommand::parse("/start").unwrap()));
     }
@@ -466,5 +686,27 @@ mod tests {
         assert!(response.text.contains("BotFather Commands"));
         assert!(response.text.contains("/newbot"));
         assert!(response.text.contains("/mybots"));
+        assert!(response.text.contains("/cancel"));
+    }
+
+    #[test]
+    fn test_validate_username() {
+        // Valid usernames
+        assert!(BotFather::validate_username("mybot").is_ok());
+        assert!(BotFather::validate_username("my_bot").is_ok());
+        assert!(BotFather::validate_username("awesome_bot").is_ok());
+        assert!(BotFather::validate_username("test123bot").is_ok());
+
+        // Invalid - too short
+        assert!(BotFather::validate_username("bot").is_err());
+        
+        // Invalid - doesn't end with bot
+        assert!(BotFather::validate_username("myapp").is_err());
+        
+        // Invalid - special characters
+        assert!(BotFather::validate_username("my-bot").is_err());
+        
+        // Invalid - starts with number
+        assert!(BotFather::validate_username("123bot").is_err());
     }
 }

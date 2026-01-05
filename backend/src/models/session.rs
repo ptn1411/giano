@@ -8,6 +8,8 @@ pub struct Session {
     pub id: Uuid,
     pub user_id: Uuid,
     pub token: String,
+    pub refresh_token: Option<String>,
+    pub refresh_expires_at: Option<DateTime<Utc>>,
     pub device_name: Option<String>,
     pub device_type: Option<String>,
     pub location: Option<String>,

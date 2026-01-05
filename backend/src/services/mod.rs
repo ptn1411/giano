@@ -6,6 +6,7 @@ pub mod settings;
 pub mod websocket;
 pub mod bot;
 pub mod bot_engine;
+pub mod login_rate_limiter;
 
 pub use auth::AuthService;
 pub use user::UserService;
@@ -14,4 +15,5 @@ pub use message::MessageService;
 pub use settings::SettingsService;
 pub use websocket::WebSocketService;
 pub use bot::BotService;
+pub use login_rate_limiter::LoginRateLimiter;
 pub use bot_engine::{ParsedCommand, MessageProcessor};

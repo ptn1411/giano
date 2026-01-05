@@ -39,6 +39,7 @@ pub struct BotChat {
 pub struct BotResponse {
     pub id: Uuid,
     pub name: String,
+    pub username: Option<String>,
     pub token: String,
     #[serde(rename = "webhookUrl")]
     pub webhook_url: Option<String>,
@@ -53,6 +54,7 @@ impl From<Bot> for BotResponse {
         Self {
             id: bot.id,
             name: bot.name,
+            username: bot.username,
             token: bot.token,
             webhook_url: bot.webhook_url,
             is_active: bot.is_active,
@@ -66,6 +68,7 @@ impl From<Bot> for BotResponse {
 pub struct BotPublicResponse {
     pub id: Uuid,
     pub name: String,
+    pub username: Option<String>,
     #[serde(rename = "isActive")]
     pub is_active: bool,
 }
@@ -75,6 +78,7 @@ impl From<Bot> for BotPublicResponse {
         Self {
             id: bot.id,
             name: bot.name,
+            username: bot.username,
             is_active: bot.is_active,
         }
     }
@@ -84,6 +88,7 @@ impl From<Bot> for BotPublicResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateBotRequest {
     pub name: String,
+    pub username: Option<String>,
 }
 
 /// Request to update bot settings
@@ -188,6 +193,7 @@ impl<T> BotApiResponse<T> {
 pub struct BotMeResponse {
     pub id: Uuid,
     pub name: String,
+    pub username: Option<String>,
     #[serde(rename = "isActive")]
     pub is_active: bool,
 }
@@ -197,6 +203,7 @@ impl From<Bot> for BotMeResponse {
         Self {
             id: bot.id,
             name: bot.name,
+            username: bot.username,
             is_active: bot.is_active,
         }
     }

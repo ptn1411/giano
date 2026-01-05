@@ -10,6 +10,7 @@ pub struct Config {
     pub jwt_secret: String,
     pub jwt_expiration_hours: i64,
     pub mediasoup_url: String,
+    pub base_url: Option<String>,
 }
 
 impl Config {
@@ -32,6 +33,7 @@ impl Config {
                 .context("JWT_EXPIRATION_HOURS must be a number")?,
             mediasoup_url: env::var("MEDIASOUP_URL")
                 .unwrap_or_else(|_| "wss://media.localhost:4443".to_string()),
+                base_url: env::var("BASE_URL").ok(),
         })
     }
 }

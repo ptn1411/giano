@@ -2,19 +2,20 @@ import { Plus, Users, MessageCircle, Search } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { SearchUserModal } from "./SearchUserModal";
+import { SelectContactModal } from "./SelectContactModal";
 
 interface FloatingActionButtonProps {
-  onNewChat: () => void;
   onNewGroup: () => void;
   onSelectChat?: (chatId: string) => void;
   hidden?: boolean;
 }
 
-export function FloatingActionButton({ onNewChat, onNewGroup, onSelectChat, hidden }: FloatingActionButtonProps) {
+export function FloatingActionButton({ onNewGroup, onSelectChat, hidden }: FloatingActionButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(!hidden);
   const [shouldRender, setShouldRender] = useState(!hidden);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showSelectContactModal, setShowSelectContactModal] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -108,7 +109,7 @@ export function FloatingActionButton({ onNewChat, onNewGroup, onSelectChat, hidd
 
           <button
             onClick={() => {
-              onNewChat();
+              setShowSelectContactModal(true);
               setIsOpen(false);
             }}
             className={cn(
@@ -141,6 +142,13 @@ export function FloatingActionButton({ onNewChat, onNewGroup, onSelectChat, hidd
       <SearchUserModal
         isOpen={showSearchModal}
         onClose={() => setShowSearchModal(false)}
+        onChatCreated={handleChatCreated}
+      />
+
+      {/* Select Contact Modal */}
+      <SelectContactModal
+        isOpen={showSelectContactModal}
+        onClose={() => setShowSelectContactModal(false)}
         onChatCreated={handleChatCreated}
       />
     </>

@@ -2,3 +2,4 @@
 .env
 *.log
 .env.prod
+/uploads
