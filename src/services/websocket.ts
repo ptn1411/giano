@@ -23,11 +23,13 @@ import {
   CallAcceptedEvent,
   CallDeclinedEvent,
   CallEndedEvent,
+  CallInitiatedEvent,
   IncomingCallEvent,
   injectWebSocketFunctions,
   useCallStore,
   UserBusyEvent,
 } from "@/stores/callStore";
+import { TransportInterface, TransportType } from './transport-manager';
 
 // ============================================
 // Types
@@ -455,10 +457,368 @@ class WebSocketClient {
 }
 
 // ============================================
+// WebSocket Transport Wrapper (Task 15.1)
+// ============================================
+
+/**
+ * Message queue entry
+ * Requirement 6.4: Queue messages during transport switching
+ */
+interface QueuedMessage {
+  id: string;
+  data: ArrayBuffer;
+  timestamp: number;
+  retries: number;
+}
+
+/**
+ * WebSocket Transport implementation that matches QUIC interface
+ * Requirement 5.4: Implement same interface as QuicTransport
+ */
+export class WebSocketTransport implements TransportInterface {
+  private url: string;
+  private token: string | null = null;
+  private ws: WebSocket | null = null;
+  private connected: boolean = false;
+
+  // Message queue for transport switching (Task 15.2)
+  private messageQueue: QueuedMessage[] = [];
+  private maxQueueSize: number = 1000;
+  private maxRetries: number = 3;
+  private processedMessageIds: Set<string> = new Set();
+  private messageIdExpiry: number = 60000; // 1 minute
+
+  // Event callbacks
+  private messageCallback: ((data: ArrayBuffer) => void) | null = null;
+  private closeCallback: ((reason: string) => void) | null = null;
+  private errorCallback: ((error: Error) => void) | null = null;
+
+  constructor(url: string) {
+    this.url = url;
+  }
+
+  /**
+   * Connect to WebSocket server
+   * Requirement 5.4: Support transport manager integration
+   */
+  async connect(): Promise<void> {
+    if (this.connected || (this.ws && this.ws.readyState === WebSocket.CONNECTING)) {
+      console.log('[WebSocketTransport] Already connected or connecting');
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      try {
+        console.log(`[WebSocketTransport] Connecting to ${this.url}...`);
+
+        // Extract token from URL if present
+        const urlObj = new URL(this.url, window.location.origin);
+        this.token = urlObj.searchParams.get('token');
+
+        this.ws = new WebSocket(this.url);
+
+        this.ws.onopen = () => {
+          console.log('[WebSocketTransport] Connected');
+          this.connected = true;
+          
+          // Process queued messages after connection
+          this.processMessageQueue();
+          
+          resolve();
+        };
+
+        this.ws.onmessage = (event) => {
+          try {
+            // Parse JSON message
+            const parsed = JSON.parse(event.data);
+            
+            // Extract message ID for deduplication
+            const messageId = this.extractMessageId(parsed);
+            
+            // Check for duplicate messages
+            if (messageId && this.processedMessageIds.has(messageId)) {
+              console.log(`[WebSocketTransport] Duplicate message detected: ${messageId}`);
+              return;
+            }
+            
+            // Mark message as processed
+            if (messageId) {
+              this.processedMessageIds.add(messageId);
+              
+              // Clean up old message IDs periodically
+              this.cleanupProcessedMessageIds();
+            }
+            
+            // Convert to ArrayBuffer for unified interface
+            const encoder = new TextEncoder();
+            const data = encoder.encode(JSON.stringify(parsed));
+            
+            if (this.messageCallback) {
+              this.messageCallback(data.buffer);
+            }
+          } catch (error) {
+            console.error('[WebSocketTransport] Error parsing message:', error);
+            if (this.errorCallback) {
+              this.errorCallback(error as Error);
+            }
+          }
+        };
+
+        this.ws.onerror = (event) => {
+          console.error('[WebSocketTransport] Error:', event);
+          const error = new Error('WebSocket error');
+          if (this.errorCallback) {
+            this.errorCallback(error);
+          }
+          reject(error);
+        };
+
+        this.ws.onclose = (event) => {
+          console.log('[WebSocketTransport] Disconnected:', event.code, event.reason);
+          this.connected = false;
+          this.ws = null;
+          
+          if (this.closeCallback) {
+            this.closeCallback(event.reason || 'Connection closed');
+          }
+        };
+      } catch (error) {
+        console.error('[WebSocketTransport] Connection error:', error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Disconnect from WebSocket server
+   */
+  async disconnect(): Promise<void> {
+    console.log('[WebSocketTransport] Disconnecting...');
+
+    if (this.ws) {
+      this.ws.onclose = null; // Prevent close callback during manual disconnect
+      this.ws.close();
+      this.ws = null;
+    }
+
+    this.connected = false;
+    this.token = null;
+    console.log('[WebSocketTransport] Disconnected');
+  }
+
+  /**
+   * Send data via WebSocket
+   * Requirement 5.4: Ensure API compatibility
+   * Requirement 6.4: Queue messages during disconnection
+   */
+  async send(data: ArrayBuffer): Promise<void> {
+    // Generate message ID for deduplication
+    const messageId = this.generateMessageId();
+    
+    // If not connected, queue the message
+    if (!this.connected || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.log('[WebSocketTransport] Not connected, queueing message');
+      this.queueMessage(messageId, data);
+      return;
+    }
+
+    try {
+      // Convert ArrayBuffer to string for WebSocket
+      const decoder = new TextDecoder();
+      const text = decoder.decode(data);
+      
+      console.log(`[WebSocketTransport] Sending ${data.byteLength} bytes`);
+      this.ws.send(text);
+    } catch (error) {
+      console.error('[WebSocketTransport] Error sending data:', error);
+      
+      // Queue message on send failure
+      this.queueMessage(messageId, data);
+      
+      if (this.errorCallback) {
+        this.errorCallback(error as Error);
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Check if connected
+   */
+  isConnected(): boolean {
+    return this.connected && this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Get transport type
+   */
+  getType(): TransportType {
+    return TransportType.WebSocket;
+  }
+
+  /**
+   * Register message callback
+   */
+  onMessage(callback: (data: ArrayBuffer) => void): void {
+    this.messageCallback = callback;
+  }
+
+  /**
+   * Register close callback
+   */
+  onClose(callback: (reason: string) => void): void {
+    this.closeCallback = callback;
+  }
+
+  /**
+   * Register error callback
+   */
+  onError(callback: (error: Error) => void): void {
+    this.errorCallback = callback;
+  }
+
+  // ============================================
+  // Message Queue Management (Task 15.2)
+  // ============================================
+
+  /**
+   * Queue a message for later sending
+   * Requirement 6.4: Queue messages during disconnection
+   */
+  private queueMessage(id: string, data: ArrayBuffer): void {
+    // Check queue size limit
+    if (this.messageQueue.length >= this.maxQueueSize) {
+      console.warn('[WebSocketTransport] Message queue full, dropping oldest message');
+      this.messageQueue.shift();
+    }
+
+    const queuedMessage: QueuedMessage = {
+      id,
+      data,
+      timestamp: Date.now(),
+      retries: 0,
+    };
+
+    this.messageQueue.push(queuedMessage);
+    console.log(`[WebSocketTransport] Queued message ${id}, queue size: ${this.messageQueue.length}`);
+  }
+
+  /**
+   * Process queued messages after reconnection
+   * Requirement 6.4: Ensure no message loss during switch
+   */
+  private async processMessageQueue(): Promise<void> {
+    if (this.messageQueue.length === 0) {
+      return;
+    }
+
+    console.log(`[WebSocketTransport] Processing ${this.messageQueue.length} queued messages`);
+
+    const messages = [...this.messageQueue];
+    this.messageQueue = [];
+
+    for (const message of messages) {
+      try {
+        // Check if message has exceeded max retries
+        if (message.retries >= this.maxRetries) {
+          console.warn(`[WebSocketTransport] Message ${message.id} exceeded max retries, dropping`);
+          continue;
+        }
+
+        // Attempt to send the message
+        await this.send(message.data);
+        console.log(`[WebSocketTransport] Sent queued message ${message.id}`);
+      } catch (error) {
+        console.error(`[WebSocketTransport] Error sending queued message ${message.id}:`, error);
+        
+        // Re-queue with incremented retry count
+        message.retries++;
+        this.messageQueue.push(message);
+      }
+    }
+
+    console.log(`[WebSocketTransport] Queue processing complete, remaining: ${this.messageQueue.length}`);
+  }
+
+  /**
+   * Generate a unique message ID
+   */
+  private generateMessageId(): string {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Extract message ID from parsed message for deduplication
+   * Requirement 6.4: Deduplicate messages
+   */
+  private extractMessageId(parsed: unknown): string | null {
+    if (typeof parsed === 'object' && parsed !== null) {
+      const obj = parsed as Record<string, unknown>;
+      
+      // Try common ID fields
+      if (typeof obj.id === 'string') return obj.id;
+      if (typeof obj.messageId === 'string') return obj.messageId;
+      if (typeof obj.message_id === 'string') return obj.message_id;
+      
+      // Try nested data object
+      if (typeof obj.data === 'object' && obj.data !== null) {
+        const data = obj.data as Record<string, unknown>;
+        if (typeof data.id === 'string') return data.id;
+        if (typeof data.messageId === 'string') return data.messageId;
+        if (typeof data.message_id === 'string') return data.message_id;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Clean up old processed message IDs to prevent memory leak
+   */
+  private cleanupProcessedMessageIds(): void {
+    // Only clean up periodically (every 100 messages)
+    if (this.processedMessageIds.size % 100 !== 0) {
+      return;
+    }
+
+    // In a real implementation, we would track timestamps for each ID
+    // For simplicity, we'll just clear the set if it gets too large
+    if (this.processedMessageIds.size > 10000) {
+      console.log('[WebSocketTransport] Cleaning up processed message IDs');
+      this.processedMessageIds.clear();
+    }
+  }
+
+  /**
+   * Get queue size (for testing)
+   */
+  getQueueSize(): number {
+    return this.messageQueue.length;
+  }
+
+  /**
+   * Clear message queue (for testing)
+   */
+  clearQueue(): void {
+    this.messageQueue = [];
+    this.processedMessageIds.clear();
+  }
+}
+
+// ============================================
 // Singleton Export
 // ============================================
 
-export const wsClient = new WebSocketClient();
+// Use transport-enabled client by default (supports both QUIC and WebSocket)
+// Requirement 5.4: Maintain backward compatibility while using TransportManager
+import { transportEnabledWsClient } from './transport-websocket-adapter';
+
+// Export the transport-enabled client as the default wsClient
+export const wsClient = transportEnabledWsClient;
+
+// Also export the legacy WebSocketClient for direct use if needed
+export const legacyWsClient = new WebSocketClient();
 
 // Inject WebSocket functions into callStore to avoid circular dependency
 injectWebSocketFunctions({

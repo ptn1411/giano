@@ -43,6 +43,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { uploadService } from "@/services/api/upload";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { TransportIndicator } from "@/components/chat/TransportIndicator";
 import type {
   ProfileSettings,
   PrivacySettings,
@@ -1067,6 +1068,14 @@ export default function Settings() {
     <div className="divide-y divide-border">
       {dataStorage && (
         <>
+          {/* Transport Connection Info */}
+          <div className="p-4">
+            <h3 className="text-sm font-medium text-muted-foreground mb-4">Connection</h3>
+            <div className="p-4 rounded-lg border border-border bg-card">
+              <TransportIndicator showDetails={true} />
+            </div>
+          </div>
+
           <div className="p-4">
             <h3 className="text-sm font-medium text-muted-foreground mb-4">Storage Usage</h3>
             <div className="space-y-3">

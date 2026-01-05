@@ -2,6 +2,7 @@ pub mod config;
 pub mod db;
 pub mod error;
 pub mod models;
+pub mod quic;
 pub mod routes;
 pub mod services;
 pub mod ws;
@@ -19,6 +20,7 @@ use tower_http::{
 
 use services::bot_engine::{BotDispatcher, RateLimiter};
 use ws::WsManager;
+use quic::{ConnectionManager, StreamAllocator};
 
 pub struct AppState {
     pub db: Database,
@@ -26,9 +28,11 @@ pub struct AppState {
     pub ws_manager: Arc<WsManager>,
     pub rate_limiter: Option<RateLimiter>,
     pub bot_dispatcher: Arc<BotDispatcher>,
+    pub connection_manager: Arc<ConnectionManager>,
+    pub stream_allocator: Arc<StreamAllocator>,
 }
 
-pub async fn create_app(config: Config) -> Result<Router> {
+pub async fn create_app(config: Config) -> Result<(Router, Arc<AppState>)> {
     // Initialize database
     let db = Database::new(&config.database_url).await?;
     
@@ -61,12 +65,20 @@ pub async fn create_app(config: Config) -> Result<Router> {
     // Initialize bot dispatcher
     let bot_dispatcher = Arc::new(BotDispatcher::new(ws_manager.clone()));
 
+    // Initialize connection manager (shared between QUIC and WebSocket)
+    let connection_manager = Arc::new(ConnectionManager::new());
+
+    // Initialize stream allocator (for QUIC stream management)
+    let stream_allocator = Arc::new(StreamAllocator::new());
+
     let state = Arc::new(AppState { 
         db, 
         config,
         ws_manager: ws_manager.clone(),
         rate_limiter,
         bot_dispatcher,
+        connection_manager,
+        stream_allocator,
     });
 
     let app = Router::new()
@@ -78,9 +90,9 @@ pub async fn create_app(config: Config) -> Result<Router> {
         .nest_service("/uploads", ServeDir::new("uploads"))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
-        .with_state(state);
+        .with_state(state.clone());
 
-    Ok(app)
+    Ok((app, state))
 }
 
 async fn health_check() -> &'static str {
