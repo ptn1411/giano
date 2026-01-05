@@ -7,7 +7,7 @@
 
 import { TransportManager, TransportType } from '../transport-manager';
 import { QuicTransport } from '../quic-transport';
-import { ClientStreamAllocator, StreamType } from '../client-stream-allocator';
+import { ClientStreamAllocator, MessageType } from '../client-stream-allocator';
 
 /**
  * Verification Results
@@ -162,13 +162,13 @@ function verifyClientStreamAllocator(): void {
     }
     
     // Test basic functionality
-    const streamId = allocator.allocateStream(StreamType.ChatMessage);
+    const streamId = allocator.allocateStream(MessageType.ChatMessage);
     if (typeof streamId !== 'number') {
       throw new Error('allocateStream should return a number');
     }
     
     const streamType = allocator.getStreamType(streamId);
-    if (streamType !== StreamType.ChatMessage) {
+    if (streamType !== MessageType.ChatMessage) {
       throw new Error('getStreamType should return correct stream type');
     }
     

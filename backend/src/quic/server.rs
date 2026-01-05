@@ -211,6 +211,9 @@ impl QuicServer {
 
         info!("Initializing QUIC server...");
 
+        // Note: CryptoProvider must be installed in main.rs before this point
+        // See main.rs for rustls::crypto::ring::default_provider().install_default()
+
         // Validate configuration
         self.config
             .validate()
