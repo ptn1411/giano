@@ -85,7 +85,7 @@ export function FloatingActionButton({ onNewGroup, onSelectChat, hidden }: Float
               "hover:bg-accent hover:scale-105 hover:shadow-xl"
             )}
           >
-            <span className="text-sm font-medium text-foreground">New Group</span>
+            <span className="text-sm font-medium text-foreground">Nhóm mới</span>
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
               <Users className="h-5 w-5 text-primary" />
             </div>
@@ -101,7 +101,7 @@ export function FloatingActionButton({ onNewGroup, onSelectChat, hidden }: Float
               "hover:bg-accent hover:scale-105 hover:shadow-xl"
             )}
           >
-            <span className="text-sm font-medium text-foreground">Find User</span>
+            <span className="text-sm font-medium text-foreground">Tìm người dùng</span>
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/10">
               <Search className="h-5 w-5 text-green-500" />
             </div>
@@ -117,7 +117,7 @@ export function FloatingActionButton({ onNewGroup, onSelectChat, hidden }: Float
               "hover:bg-accent hover:scale-105 hover:shadow-xl"
             )}
           >
-            <span className="text-sm font-medium text-foreground">New Chat</span>
+            <span className="text-sm font-medium text-foreground">Chat mới</span>
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
               <MessageCircle className="h-5 w-5 text-primary" />
             </div>

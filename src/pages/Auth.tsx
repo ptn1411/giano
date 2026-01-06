@@ -26,19 +26,19 @@ export default function Auth() {
     const newErrors: typeof errors = {};
     
     if (!email.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = 'Vui lòng nhập email';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = 'Please enter a valid email';
+      newErrors.email = 'Email không hợp lệ';
     }
     
     if (!password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = 'Vui lòng nhập mật khẩu';
     } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
     }
     
     if (!isLogin && !name.trim()) {
-      newErrors.name = 'Name is required';
+      newErrors.name = 'Vui lòng nhập tên';
     }
     
     setErrors(newErrors);
@@ -61,18 +61,18 @@ export default function Auth() {
           if (error.includes('Too many') || error.includes('rate limit') || error.includes('retry after')) {
             setRateLimitError(error);
           } else {
-            toast({ title: 'Login failed', description: error, variant: 'destructive' });
+            toast({ title: 'Đăng nhập thất bại', description: error, variant: 'destructive' });
           }
         } else {
-          toast({ title: 'Welcome back!', description: 'You have been logged in successfully' });
+          toast({ title: 'Chào mừng trở lại!', description: 'Bạn đã đăng nhập thành công' });
           navigate('/');
         }
       } else {
         const { error } = await signup(email, password, name);
         if (error) {
-          toast({ title: 'Signup failed', description: error, variant: 'destructive' });
+          toast({ title: 'Đăng ký thất bại', description: error, variant: 'destructive' });
         } else {
-          toast({ title: 'Account created!', description: 'Welcome to Telegram Chat' });
+          toast({ title: 'Tạo tài khoản thành công!', description: 'Chào mừng bạn đến với GIANO' });
           navigate('/');
         }
       }
@@ -85,9 +85,9 @@ export default function Auth() {
     setIsLoading(true);
     const { error } = await login('demo@example.com', 'demo123');
     if (error) {
-      toast({ title: 'Login failed', description: error, variant: 'destructive' });
+      toast({ title: 'Đăng nhập thất bại', description: error, variant: 'destructive' });
     } else {
-      toast({ title: 'Welcome!', description: 'Logged in with demo account' });
+      toast({ title: 'Chào mừng!', description: 'Đã đăng nhập với tài khoản demo' });
       navigate('/');
     }
     setIsLoading(false);
@@ -101,9 +101,9 @@ export default function Auth() {
           <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
             <MessageSquare className="h-8 w-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Telegram Chat</h1>
+          <h1 className="text-2xl font-bold text-foreground">GIANO</h1>
           <p className="text-muted-foreground mt-2">
-            {isLogin ? 'Sign in to continue' : 'Create your account'}
+            {isLogin ? 'Đăng nhập để tiếp tục' : 'Tạo tài khoản mới'}
           </p>
         </div>
 
@@ -114,13 +114,13 @@ export default function Auth() {
           
           {!isLogin && (
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Tên</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="name"
                   type="text"
-                  placeholder="Your name"
+                  placeholder="Tên của bạn"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className={cn("pl-10", errors.name && "border-destructive")}
@@ -138,7 +138,7 @@ export default function Auth() {
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="email@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className={cn("pl-10", errors.email && "border-destructive")}
@@ -149,7 +149,7 @@ export default function Auth() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Mật khẩu</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -174,7 +174,7 @@ export default function Auth() {
 
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isLogin ? 'Sign In' : 'Create Account'}
+            {isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}
           </Button>
 
           <div className="relative">
@@ -182,7 +182,7 @@ export default function Auth() {
               <span className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">Or</span>
+              <span className="bg-card px-2 text-muted-foreground">Hoặc</span>
             </div>
           </div>
 
@@ -193,13 +193,13 @@ export default function Auth() {
             onClick={handleDemoLogin}
             disabled={isLoading}
           >
-            Try Demo Account
+            Dùng thử tài khoản Demo
           </Button>
         </form>
 
         {/* Toggle */}
         <p className="text-center text-sm text-muted-foreground">
-          {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
+          {isLogin ? "Chưa có tài khoản?" : 'Đã có tài khoản?'}{' '}
           <button
             type="button"
             onClick={() => {
@@ -208,15 +208,15 @@ export default function Auth() {
             }}
             className="text-primary hover:underline font-medium"
           >
-            {isLogin ? 'Sign up' : 'Sign in'}
+            {isLogin ? 'Đăng ký' : 'Đăng nhập'}
           </button>
         </p>
 
         {/* Demo credentials */}
         <div className="text-center text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
-          <p className="font-medium mb-1">Demo Credentials:</p>
+          <p className="font-medium mb-1">Tài khoản Demo:</p>
           <p>Email: demo@example.com</p>
-          <p>Password: demo123</p>
+          <p>Mật khẩu: demo123</p>
         </div>
       </div>
     </div>

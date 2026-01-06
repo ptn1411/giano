@@ -126,10 +126,10 @@ export function ChatArea({
           <MessageSquare className="h-12 w-12 text-primary" />
         </div>
         <h2 className="text-2xl font-semibold text-foreground mb-2">
-          Welcome to Telegram Chat
+          Chào mừng đến với GIANO
         </h2>
         <p className="text-muted-foreground max-w-md">
-          Select a chat from the sidebar to start messaging, or create a new chat to connect with others.
+          Chọn một cuộc trò chuyện từ danh sách bên trái để bắt đầu nhắn tin, hoặc tạo cuộc trò chuyện mới.
         </p>
       </div>
     );

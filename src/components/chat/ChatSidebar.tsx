@@ -103,7 +103,7 @@ export function ChatSidebar({
           <SearchBar
             value={searchQuery}
             onChange={handleSearch}
-            placeholder="Search chats..."
+            placeholder="Tìm kiếm cuộc trò chuyện..."
           />
         </div>
 
@@ -113,12 +113,12 @@ export function ChatSidebar({
             <ChatListSkeleton />
           ) : chats.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center animate-fade-in">
-              <p className="text-muted-foreground">No chats found</p>
+              <p className="text-muted-foreground">Không có cuộc trò chuyện nào</p>
               <button
                 onClick={onNewChat}
                 className="mt-2 text-sm text-primary hover:underline"
               >
-                Start a new chat
+                Bắt đầu cuộc trò chuyện mới
               </button>
             </div>
           ) : (

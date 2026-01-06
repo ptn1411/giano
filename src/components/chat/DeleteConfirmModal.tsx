@@ -26,16 +26,16 @@ export function DeleteConfirmModal({ isOpen, onClose, onConfirm, messagePreview 
           <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
             <AlertTriangle className="h-6 w-6 text-destructive" />
           </div>
-          <h2 className="text-lg font-semibold text-foreground">Delete Message?</h2>
+          <h2 className="text-lg font-semibold text-foreground">Xóa tin nhắn?</h2>
           <p className="text-sm text-muted-foreground mt-1 text-center">
-            This action cannot be undone.
+            Hành động này không thể hoàn tác.
           </p>
         </div>
 
         {/* Message Preview */}
         <div className="mx-6 mb-4 px-3 py-2 bg-accent/50 rounded-lg">
           <p className="text-sm text-foreground line-clamp-2">
-            {messagePreview || "This message"}
+            {messagePreview || "Tin nhắn này"}
           </p>
         </div>
 
@@ -45,7 +45,7 @@ export function DeleteConfirmModal({ isOpen, onClose, onConfirm, messagePreview 
             onClick={onClose}
             className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border border-border hover:bg-accent transition-colors"
           >
-            Cancel
+            Hủy
           </button>
           <button
             onClick={() => {
@@ -54,7 +54,7 @@ export function DeleteConfirmModal({ isOpen, onClose, onConfirm, messagePreview 
             }}
             className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
           >
-            Delete
+            Xóa
           </button>
         </div>
       </div>

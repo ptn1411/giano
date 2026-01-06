@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Auth from "./pages/Auth";
 import Index from "./pages/Index";
+import InvitePage from "./pages/InvitePage";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
 import TelegramDemo from "./pages/TelegramDemo";
@@ -137,6 +138,7 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route path="/invite/:code" element={<InvitePage />} />
               <Route path="/telegram-demo" element={<TelegramDemo />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

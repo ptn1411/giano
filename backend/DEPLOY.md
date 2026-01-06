@@ -40,6 +40,9 @@ Folder `.sqlx` chứa metadata của tất cả SQL queries, cho phép build mà
 ### Copy lên server:
 ```powershell
 # Copy binary
+scp -r backend/migrations/* root@159.223.47.17:/var/www/messages-api/migrations/
+
+
 scp .\target\x86_64-unknown-linux-gnu\release\chat-backend user@your-server:/home/user/chat-app/
 
 # Copy env file

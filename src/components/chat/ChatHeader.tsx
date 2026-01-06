@@ -5,6 +5,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { InviteLinkDialog } from "@/components/InviteLinkDialog";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Attachment, Chat, User } from "@/services/api/types";
@@ -14,6 +15,7 @@ import {
   ArrowLeft,
   BellOff,
   Info,
+  Link as LinkIcon,
   LogOut,
   Menu,
   MessageSquare,
@@ -68,6 +70,7 @@ export function ChatHeader({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showInviteLink, setShowInviteLink] = useState(false);
   const currentUser = useAuthStore((state) => state.session?.user);
 
   // Call store integration
@@ -86,10 +89,10 @@ export function ChatHeader({
 
   const statusText =
     chat.type === "group"
-      ? `${participants.length} members`
+      ? `${participants.length} thành viên`
       : isOnline
-      ? "online"
-      : "offline";
+      ? "đang hoạt động"
+      : "ngoại tuyến";
 
   const handleViewInfo = () => {
     setShowContactInfo(true);
@@ -102,8 +105,8 @@ export function ChatHeader({
   const handleVoiceCall = async () => {
     if (isInCall) {
       toast({
-        title: "Already in a call",
-        description: "Please end your current call first",
+        title: "Đang trong cuộc gọi",
+        description: "Vui lòng kết thúc cuộc gọi hiện tại trước",
         variant: "destructive",
       });
       return;
@@ -126,8 +129,8 @@ export function ChatHeader({
       );
     } else {
       toast({
-        title: "Voice call",
-        description: "Voice calls are only available for private chats",
+        title: "Cuộc gọi thoại",
+        description: "Cuộc gọi thoại chỉ khả dụng cho chat riêng tư",
       });
     }
   };
@@ -139,8 +142,8 @@ export function ChatHeader({
   const handleVideoCall = async () => {
     if (isInCall) {
       toast({
-        title: "Already in a call",
-        description: "Please end your current call first",
+        title: "Đang trong cuộc gọi",
+        description: "Vui lòng kết thúc cuộc gọi hiện tại trước",
         variant: "destructive",
       });
       return;
@@ -163,23 +166,23 @@ export function ChatHeader({
       );
     } else {
       toast({
-        title: "Video call",
-        description: "Video calls are only available for private chats",
+        title: "Cuộc gọi video",
+        description: "Cuộc gọi video chỉ khả dụng cho chat riêng tư",
       });
     }
   };
 
   const handleMuteNotifications = () => {
     toast({
-      title: "Notifications muted",
-      description: `You won't receive notifications from ${chat.name}`,
+      title: "Đã tắt thông báo",
+      description: `Bạn sẽ không nhận thông báo từ ${chat.name}`,
     });
   };
 
   const handlePinChat = () => {
     toast({
-      title: "Chat pinned",
-      description: `${chat.name} has been pinned to the top`,
+      title: "Đã ghim cuộc trò chuyện",
+      description: `${chat.name} đã được ghim lên đầu`,
     });
   };
 
@@ -193,8 +196,8 @@ export function ChatHeader({
       onClearChat();
     }
     toast({
-      title: "Chat cleared",
-      description: "All messages have been cleared",
+      title: "Đã xóa tin nhắn",
+      description: "Tất cả tin nhắn đã được xóa",
     });
   };
 
@@ -208,8 +211,8 @@ export function ChatHeader({
       onDeleteChat();
     }
     toast({
-      title: "Chat deleted",
-      description: `${chat.name} has been deleted`,
+      title: "Đã xóa cuộc trò chuyện",
+      description: `${chat.name} đã bị xóa`,
       variant: "destructive",
     });
   };
@@ -224,8 +227,8 @@ export function ChatHeader({
       onLeaveGroup();
     }
     toast({
-      title: "Left group",
-      description: `You have left ${chat.name}`,
+      title: "Đã rời nhóm",
+      description: `Bạn đã rời khỏi ${chat.name}`,
     });
   };
 
@@ -267,7 +270,7 @@ export function ChatHeader({
               chat.isTyping ? "text-primary" : "text-muted-foreground"
             )}>
             {chat.isTyping
-              ? `${chat.typingUser || "Someone"} is typing...`
+              ? `${chat.typingUser || "Ai đó"} đang nhập...`
               : statusText}
           </p>
         </div>
@@ -277,19 +280,19 @@ export function ChatHeader({
         <button
           onClick={onSearchClick}
           className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground"
-          title="Search messages">
+          title="Tìm kiếm tin nhắn">
           <Search className="h-5 w-5" />
         </button>
         <button
           onClick={handleVoiceCall}
           className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground"
-          title="Voice call">
+          title="Gọi thoại">
           <Phone className="h-5 w-5" />
         </button>
         <button
           onClick={handleVideoCall}
           className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent text-foreground"
-          title="Video call">
+          title="Gọi video">
           <Video className="h-5 w-5" />
         </button>
 
@@ -307,14 +310,14 @@ export function ChatHeader({
               className="gap-3 cursor-pointer">
               <Info className="h-4 w-4" />
               <span>
-                {chat.type === "group" ? "Group info" : "View contact"}
+                {chat.type === "group" ? "Thông tin nhóm" : "Xem liên hệ"}
               </span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={onSearchClick}
               className="gap-3 cursor-pointer">
               <Search className="h-4 w-4" />
-              <span>Search in conversation</span>
+              <span>Tìm trong cuộc trò chuyện</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
 
@@ -323,13 +326,13 @@ export function ChatHeader({
               onClick={handleVoiceCall}
               className="gap-3 cursor-pointer">
               <Phone className="h-4 w-4" />
-              <span>Voice call</span>
+              <span>Gọi thoại</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={handleVideoCall}
               className="gap-3 cursor-pointer">
               <Video className="h-4 w-4" />
-              <span>Video call</span>
+              <span>Gọi video</span>
             </DropdownMenuItem>
             {chat.type === "group" && (
               <>
@@ -337,13 +340,13 @@ export function ChatHeader({
                   onClick={() => setShowVoiceRoom(true)}
                   className="gap-3 cursor-pointer">
                   <Mic className="h-4 w-4" />
-                  <span>Start voice room</span>
+                  <span>Tạo phòng thoại</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setShowLiveStream(true)}
                   className="gap-3 cursor-pointer">
                   <Radio className="h-4 w-4" />
-                  <span>Go live</span>
+                  <span>Phát trực tiếp</span>
                 </DropdownMenuItem>
               </>
             )}
@@ -351,7 +354,7 @@ export function ChatHeader({
               onClick={() => setShowScreenShare(true)}
               className="gap-3 cursor-pointer">
               <Monitor className="h-4 w-4" />
-              <span>Share screen</span>
+              <span>Chia sẻ màn hình</span>
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
@@ -359,26 +362,34 @@ export function ChatHeader({
               onClick={handleMuteNotifications}
               className="gap-3 cursor-pointer">
               <BellOff className="h-4 w-4" />
-              <span>Mute notifications</span>
+              <span>Tắt thông báo</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={handlePinChat}
               className="gap-3 cursor-pointer">
               <Pin className="h-4 w-4" />
-              <span>Pin chat</span>
+              <span>Ghim cuộc trò chuyện</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setShowInviteLink(true)}
+              className="gap-3 cursor-pointer">
+              <LinkIcon className="h-4 w-4" />
+              <span>
+                {chat.type === "group" ? "Tạo link mời" : "Chia sẻ link hồ sơ"}
+              </span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleClearChat}
               className="gap-3 cursor-pointer">
               <MessageSquare className="h-4 w-4" />
-              <span>Clear chat</span>
+              <span>Xóa tin nhắn</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={handleDeleteChat}
               className="gap-3 cursor-pointer text-destructive focus:text-destructive">
               <Trash2 className="h-4 w-4" />
-              <span>Delete chat</span>
+              <span>Xóa cuộc trò chuyện</span>
             </DropdownMenuItem>
             {chat.type === "group" && (
               <>
@@ -387,7 +398,7 @@ export function ChatHeader({
                   onClick={handleLeaveGroup}
                   className="gap-3 cursor-pointer text-destructive focus:text-destructive">
                   <LogOut className="h-4 w-4" />
-                  <span>Leave group</span>
+                  <span>Rời nhóm</span>
                 </DropdownMenuItem>
               </>
             )}
@@ -402,6 +413,14 @@ export function ChatHeader({
         chat={chat}
         participants={participants}
         sharedMedia={sharedMedia}
+      />
+
+      <InviteLinkDialog
+        open={showInviteLink}
+        onOpenChange={setShowInviteLink}
+        type={chat.type === "group" ? "group" : "direct"}
+        chatId={chat.type === "group" ? chat.id : undefined}
+        chatName={chat.name}
       />
 
       {chat.type === "group" && (

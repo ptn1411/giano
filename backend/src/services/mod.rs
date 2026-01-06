@@ -7,6 +7,7 @@ pub mod websocket;
 pub mod bot;
 pub mod bot_engine;
 pub mod login_rate_limiter;
+pub mod invite_link;
 
 pub use auth::AuthService;
 pub use user::UserService;

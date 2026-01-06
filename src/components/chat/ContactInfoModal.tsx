@@ -39,12 +39,12 @@ export function ContactInfoModal({
   const voices = sharedMedia.filter(m => m.type === 'voice');
 
   const getStatusText = (user: User) => {
-    if (user.status === 'online') return 'Online';
-    if (user.status === 'away') return 'Away';
+    if (user.status === 'online') return 'Đang hoạt động';
+    if (user.status === 'away') return 'Vắng mặt';
     if (user.lastSeen) {
-      return `Last seen ${format(user.lastSeen, 'MMM d, h:mm a')}`;
+      return `Hoạt động lần cuối ${format(user.lastSeen, 'dd/MM, HH:mm')}`;
     }
-    return 'Offline';
+    return 'Ngoại tuyến';
   };
 
   return (
@@ -72,7 +72,7 @@ export function ContactInfoModal({
             )}
             {isGroup && (
               <p className="text-sm text-muted-foreground mt-1">
-                {participants.length} members
+                {participants.length} thành viên
               </p>
             )}
           </div>
@@ -84,7 +84,7 @@ export function ContactInfoModal({
             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
               <Phone className="h-5 w-5" />
             </div>
-            <span className="text-xs">Call</span>
+            <span className="text-xs">Gọi</span>
           </button>
           <button className="flex flex-col items-center gap-1 text-primary hover:opacity-80 transition-opacity">
             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -96,7 +96,7 @@ export function ContactInfoModal({
             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
               <BellOff className="h-5 w-5" />
             </div>
-            <span className="text-xs">Mute</span>
+            <span className="text-xs">Tắt</span>
           </button>
         </div>
 
@@ -104,14 +104,14 @@ export function ContactInfoModal({
           {/* Contact Info Section */}
           {!isGroup && contact && (
             <div className="p-4">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Info</h3>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Thông tin</h3>
               <div className="space-y-3">
                 {contact.bio && (
                   <div className="flex items-start gap-3">
                     <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="text-sm text-foreground">{contact.bio}</p>
-                      <p className="text-xs text-muted-foreground">Bio</p>
+                      <p className="text-xs text-muted-foreground">Tiểu sử</p>
                     </div>
                   </div>
                 )}
@@ -129,12 +129,12 @@ export function ContactInfoModal({
                     <Phone className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <p className="text-sm text-foreground">{contact.phone}</p>
-                      <p className="text-xs text-muted-foreground">Phone</p>
+                      <p className="text-xs text-muted-foreground">Điện thoại</p>
                     </div>
                   </div>
                 )}
                 {!contact.email && !contact.phone && !contact.bio && (
-                  <p className="text-sm text-muted-foreground italic">No information available</p>
+                  <p className="text-sm text-muted-foreground italic">Không có thông tin</p>
                 )}
               </div>
             </div>
@@ -146,11 +146,11 @@ export function ContactInfoModal({
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <Users className="h-4 w-4" />
-                  {participants.length} Members
+                  {participants.length} Thành viên
                 </h3>
                 <Button variant="ghost" size="sm" className="text-primary h-8">
                   <UserPlus className="h-4 w-4 mr-1" />
-                  Add
+                  Thêm
                 </Button>
               </div>
               <div className="space-y-2">
@@ -167,7 +167,7 @@ export function ContactInfoModal({
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">
-                        {member.id === currentUserId ? 'You' : member.name}
+                        {member.id === currentUserId ? 'Bạn' : member.name}
                       </p>
                       <p className={cn(
                         "text-xs truncate",
@@ -178,7 +178,7 @@ export function ContactInfoModal({
                     </div>
                     {member.id === currentUserId && (
                       <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                        You
+                        Bạn
                       </span>
                     )}
                   </div>
@@ -193,19 +193,19 @@ export function ContactInfoModal({
           <div className="p-4">
             <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
               <Image className="h-4 w-4" />
-              Shared Media ({sharedMedia.length})
+              Media đã chia sẻ ({sharedMedia.length})
             </h3>
             
             {sharedMedia.length === 0 ? (
               <p className="text-sm text-muted-foreground italic text-center py-4">
-                No shared media yet
+                Chưa có media được chia sẻ
               </p>
             ) : (
               <div className="space-y-4">
                 {/* Images */}
                 {images.length > 0 && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-2">Images ({images.length})</p>
+                    <p className="text-xs text-muted-foreground mb-2">Ảnh ({images.length})</p>
                     <div className="grid grid-cols-3 gap-2">
                       {images.slice(0, 6).map((img) => (
                         <a
@@ -225,7 +225,7 @@ export function ContactInfoModal({
                     </div>
                     {images.length > 6 && (
                       <p className="text-xs text-primary mt-2 cursor-pointer hover:underline">
-                        View all {images.length} images
+                        Xem tất cả {images.length} ảnh
                       </p>
                     )}
                   </div>
@@ -234,7 +234,7 @@ export function ContactInfoModal({
                 {/* Files */}
                 {files.length > 0 && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-2">Files ({files.length})</p>
+                    <p className="text-xs text-muted-foreground mb-2">Tệp ({files.length})</p>
                     <div className="space-y-2">
                       {files.slice(0, 3).map((file) => (
                         <a
@@ -256,7 +256,7 @@ export function ContactInfoModal({
                     </div>
                     {files.length > 3 && (
                       <p className="text-xs text-primary mt-2 cursor-pointer hover:underline">
-                        View all {files.length} files
+                        Xem tất cả {files.length} tệp
                       </p>
                     )}
                   </div>
@@ -265,7 +265,7 @@ export function ContactInfoModal({
                 {/* Voice messages */}
                 {voices.length > 0 && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-2">Voice messages ({voices.length})</p>
+                    <p className="text-xs text-muted-foreground mb-2">Tin nhắn thoại ({voices.length})</p>
                     <div className="space-y-2">
                       {voices.slice(0, 3).map((voice) => (
                         <div
@@ -276,7 +276,7 @@ export function ContactInfoModal({
                             <Play className="h-4 w-4 text-primary" />
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm text-foreground">Voice message</p>
+                            <p className="text-sm text-foreground">Tin nhắn thoại</p>
                             <p className="text-xs text-muted-foreground">
                               {voice.duration ? `${Math.floor(voice.duration / 60)}:${(voice.duration % 60).toString().padStart(2, '0')}` : '--:--'}
                             </p>

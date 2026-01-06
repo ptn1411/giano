@@ -2,11 +2,19 @@
 # https://github.com/cross-rs/cross
 
 [target.x86_64-unknown-linux-gnu]
-# Use Ubuntu 22.04 base image (compatible with 24.04)
+# Use latest image with newer GLIBC
 image = "ghcr.io/cross-rs/x86_64-unknown-linux-gnu:main"
+
+[target.x86_64-unknown-linux-gnu.env]
+passthrough = [
+    "DATABASE_URL",
+    "SQLX_OFFLINE",
+    "AWS_LC_SYS_CMAKE_BUILDER"
+]
 
 [build.env]
 passthrough = [
     "DATABASE_URL",
-    "SQLX_OFFLINE"
+    "SQLX_OFFLINE",
+    "AWS_LC_SYS_CMAKE_BUILDER"
 ]

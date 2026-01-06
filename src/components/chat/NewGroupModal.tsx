@@ -55,7 +55,7 @@ export function NewGroupModal({ isOpen, onClose, users, onGroupCreated }: NewGro
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
-            <h2 className="font-semibold text-foreground">New Group</h2>
+            <h2 className="font-semibold text-foreground">Nhóm mới</h2>
           </div>
           <button
             onClick={onClose}
@@ -71,7 +71,7 @@ export function NewGroupModal({ isOpen, onClose, users, onGroupCreated }: NewGro
             type="text"
             value={groupName}
             onChange={(e) => setGroupName(e.target.value)}
-            placeholder="Group name"
+            placeholder="Tên nhóm"
             className={cn(
               "w-full rounded-lg border border-border bg-background px-4 py-2.5",
               "text-sm placeholder:text-muted-foreground",
@@ -81,7 +81,7 @@ export function NewGroupModal({ isOpen, onClose, users, onGroupCreated }: NewGro
 
           <div>
             <p className="text-sm font-medium text-foreground mb-2">
-              Select members ({selectedUsers.length} selected)
+              Chọn thành viên ({selectedUsers.length} đã chọn)
             </p>
             <div className="max-h-60 overflow-y-auto space-y-1">
               {availableUsers.map((user) => (
@@ -136,7 +136,7 @@ export function NewGroupModal({ isOpen, onClose, users, onGroupCreated }: NewGro
                 : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
           >
-            {loading ? "Creating..." : "Create Group"}
+            {loading ? "Đang tạo..." : "Tạo nhóm"}
           </button>
         </div>
       </div>

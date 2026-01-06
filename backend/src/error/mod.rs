@@ -29,6 +29,8 @@ pub enum AppError {
     AccessDenied,
     #[error("Not message owner")]
     NotMessageOwner,
+    #[error("{0}")]
+    Forbidden(String),
 
     // Not found errors
     #[error("User not found")]
@@ -39,6 +41,8 @@ pub enum AppError {
     MessageNotFound,
     #[error("Bot not found")]
     BotNotFound,
+    #[error("{0}")]
+    NotFound(String),
 
     // Bot-specific errors
     #[error("Bot is not active")]
@@ -69,6 +73,8 @@ pub enum AppError {
     InvalidFileType,
     #[error("Cannot terminate current session")]
     CannotTerminateCurrent,
+    #[error("{0}")]
+    BadRequest(String),
 
     // Internal errors
     #[error("Database error: {0}")]
@@ -100,10 +106,12 @@ impl IntoResponse for AppError {
             AppError::MissingName => (StatusCode::BAD_REQUEST, "MISSING_NAME"),
             AppError::AccessDenied => (StatusCode::FORBIDDEN, "ACCESS_DENIED"),
             AppError::NotMessageOwner => (StatusCode::FORBIDDEN, "NOT_MESSAGE_OWNER"),
+            AppError::Forbidden(_) => (StatusCode::FORBIDDEN, "FORBIDDEN"),
             AppError::UserNotFound => (StatusCode::NOT_FOUND, "USER_NOT_FOUND"),
             AppError::ChatNotFound => (StatusCode::NOT_FOUND, "CHAT_NOT_FOUND"),
             AppError::MessageNotFound => (StatusCode::NOT_FOUND, "MESSAGE_NOT_FOUND"),
             AppError::BotNotFound => (StatusCode::NOT_FOUND, "BOT_NOT_FOUND"),
+            AppError::NotFound(_) => (StatusCode::NOT_FOUND, "NOT_FOUND"),
             AppError::BotInactive => (StatusCode::FORBIDDEN, "BOT_INACTIVE"),
             AppError::BotNotSubscribed => (StatusCode::FORBIDDEN, "BOT_NOT_SUBSCRIBED"),
             AppError::BotPermissionDenied(_) => (StatusCode::FORBIDDEN, "BOT_PERMISSION_DENIED"),
@@ -116,6 +124,7 @@ impl IntoResponse for AppError {
             AppError::FileTooLarge => (StatusCode::BAD_REQUEST, "FILE_TOO_LARGE"),
             AppError::InvalidFileType => (StatusCode::BAD_REQUEST, "INVALID_FILE_TYPE"),
             AppError::CannotTerminateCurrent => (StatusCode::BAD_REQUEST, "CANNOT_TERMINATE_CURRENT"),
+            AppError::BadRequest(_) => (StatusCode::BAD_REQUEST, "BAD_REQUEST"),
             AppError::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "DATABASE_ERROR"),
             AppError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
         };

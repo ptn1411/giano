@@ -23,7 +23,7 @@ export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserMo
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      setError("Please enter a username or email");
+      setError("Vui lòng nhập tên người dùng hoặc email");
       return;
     }
 
@@ -105,7 +105,7 @@ export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserMo
       <div className="relative z-10 w-full max-w-md mx-4 bg-card rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold text-foreground">Find User</h2>
+          <h2 className="text-lg font-semibold text-foreground">Tìm người dùng</h2>
           <button
             onClick={handleClose}
             className="p-2 rounded-full hover:bg-accent transition-colors"
@@ -119,7 +119,7 @@ export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserMo
           {/* Search Input */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
-              Search by Username or Email
+              Tìm theo tên người dùng hoặc Email
             </label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -132,7 +132,7 @@ export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserMo
                   setFoundUser(null);
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="Enter username or email..."
+                placeholder="Nhập tên người dùng hoặc email..."
                 className={cn(
                   "w-full pl-10 pr-4 py-3 rounded-xl border bg-background",
                   "focus:outline-none focus:ring-2 focus:ring-primary/50",
@@ -162,12 +162,12 @@ export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserMo
             {loading ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Searching...
+                Đang tìm...
               </>
             ) : (
               <>
                 <Search className="h-5 w-5" />
-                Search
+                Tìm kiếm
               </>
             )}
           </button>
@@ -187,9 +187,9 @@ export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserMo
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {foundUser.status === 'online' ? (
-                      <span className="text-green-500">Online</span>
+                      <span className="text-green-500">Đang hoạt động</span>
                     ) : (
-                      'Offline'
+                      'Ngoại tuyến'
                     )}
                   </p>
                 </div>
@@ -218,7 +218,7 @@ export function SearchUserModal({ isOpen, onClose, onChatCreated }: SearchUserMo
 
           {/* Demo hint */}
           <p className="text-xs text-muted-foreground text-center">
-            Search by username (e.g., alice, demo) or email (e.g., demo@example.com)
+            Tìm theo tên người dùng (vd: alice, demo) hoặc email (vd: demo@example.com)
           </p>
         </div>
       </div>

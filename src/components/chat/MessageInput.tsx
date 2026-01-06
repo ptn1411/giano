@@ -412,13 +412,13 @@ export function MessageInput({
             <Pencil className="h-4 w-4 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-primary mb-0.5">Editing message</p>
+            <p className="text-xs font-semibold text-primary mb-0.5">Đang chỉnh sửa tin nhắn</p>
             <p className="text-sm text-muted-foreground truncate">{editingMessage.text}</p>
           </div>
           <button
             onClick={onCancelEdit}
             className="flex-shrink-0 p-2 rounded-full hover:bg-accent/80 transition-all duration-200 hover:scale-105 active:scale-95"
-            aria-label="Cancel edit"
+            aria-label="Hủy chỉnh sửa"
           >
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -470,7 +470,7 @@ export function MessageInput({
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-primary/5 group-hover:from-primary/20 group-hover:to-primary/10 transition-all duration-200">
                   <ImageIcon className="h-5 w-5 text-primary" />
                 </div>
-                <span className="text-sm font-medium text-foreground">Photo</span>
+                <span className="text-sm font-medium text-foreground">Ảnh</span>
               </button>
               <button
                 type="button"
@@ -480,7 +480,7 @@ export function MessageInput({
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-secondary/30 to-secondary/10 group-hover:from-secondary/40 group-hover:to-secondary/20 transition-all duration-200">
                   <Paperclip className="h-5 w-5 text-secondary-foreground" />
                 </div>
-                <span className="text-sm font-medium text-foreground">File</span>
+                <span className="text-sm font-medium text-foreground">Tệp</span>
               </button>
             </div>
           )}
@@ -530,7 +530,7 @@ export function MessageInput({
               value={text}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
-              placeholder={isBotChat ? "Type / for commands..." : "Write a message..."}
+              placeholder={isBotChat ? "Gõ / để xem lệnh..." : "Nhập tin nhắn..."}
               rows={1}
               disabled={disabled || isSending}
               className={cn(
@@ -573,7 +573,7 @@ export function MessageInput({
               "shadow-lg shadow-primary/20",
               "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             )}
-            aria-label="Send message"
+            aria-label="Gửi tin nhắn"
           >
             {isSending ? (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -594,7 +594,7 @@ export function MessageInput({
               "shadow-lg shadow-primary/20",
               "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             )}
-            aria-label="Record voice message"
+            aria-label="Ghi âm tin nhắn thoại"
           >
             <Mic className="h-5 w-5" />
           </button>

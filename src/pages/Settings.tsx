@@ -19,6 +19,7 @@ import {
   Globe,
   Check,
   Loader2,
+  Link as LinkIcon,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
@@ -36,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { InviteLinksSettings } from "@/components/settings/InviteLinksSettings";
 import { toast } from "@/hooks/use-toast";
 import { useTheme, colorThemes, ThemeMode } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
@@ -63,7 +65,8 @@ type SettingsSection =
   | 'chat'
   | 'data'
   | 'appearance'
-  | 'devices';
+  | 'devices'
+  | 'inviteLinks';
 
 interface SettingItemProps {
   icon: React.ReactNode;
@@ -218,8 +221,8 @@ export default function Settings() {
   const handleSaveProfile = async () => {
     if (!validateProfileForm()) {
       toast({
-        title: 'Validation failed',
-        description: 'Please fix the errors before saving',
+        title: 'Lỗi xác thực',
+        description: 'Vui lòng sửa các lỗi trước khi lưu',
         variant: 'destructive',
       });
       return;
@@ -232,12 +235,12 @@ export default function Settings() {
         if (error) {
           throw new Error(error);
         }
-        toast({ title: 'Profile updated', description: 'Your changes have been saved' });
+        toast({ title: 'Đã cập nhật hồ sơ', description: 'Thay đổi của bạn đã được lưu' });
       } catch (error) {
         console.error('Profile update error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
+        const errorMessage = error instanceof Error ? error.message : 'Không thể cập nhật hồ sơ';
         toast({ 
-          title: 'Error', 
+          title: 'Lỗi', 
           description: errorMessage, 
           variant: 'destructive' 
         });
@@ -254,12 +257,12 @@ export default function Settings() {
       if (error) {
         throw new Error(error);
       }
-      toast({ title: 'Settings saved' });
+      toast({ title: 'Đã lưu cài đặt' });
     } catch (error) {
       console.error('Privacy update error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update privacy settings';
+      const errorMessage = error instanceof Error ? error.message : 'Không thể cập nhật cài đặt quyền riêng tư';
       toast({ 
-        title: 'Error', 
+        title: 'Lỗi', 
         description: errorMessage, 
         variant: 'destructive' 
       });
@@ -275,12 +278,12 @@ export default function Settings() {
       if (error) {
         throw new Error(error);
       }
-      toast({ title: 'Settings saved' });
+      toast({ title: 'Đã lưu cài đặt' });
     } catch (error) {
       console.error('Notifications update error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update notification settings';
+      const errorMessage = error instanceof Error ? error.message : 'Không thể cập nhật cài đặt thông báo';
       toast({ 
-        title: 'Error', 
+        title: 'Lỗi', 
         description: errorMessage, 
         variant: 'destructive' 
       });
@@ -296,12 +299,12 @@ export default function Settings() {
       if (error) {
         throw new Error(error);
       }
-      toast({ title: 'Settings saved' });
+      toast({ title: 'Đã lưu cài đặt' });
     } catch (error) {
       console.error('Chat settings update error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update chat settings';
+      const errorMessage = error instanceof Error ? error.message : 'Không thể cập nhật cài đặt chat';
       toast({ 
-        title: 'Error', 
+        title: 'Lỗi', 
         description: errorMessage, 
         variant: 'destructive' 
       });
@@ -317,12 +320,12 @@ export default function Settings() {
       if (error) {
         throw new Error(error);
       }
-      toast({ title: 'Settings saved' });
+      toast({ title: 'Đã lưu cài đặt' });
     } catch (error) {
       console.error('Data storage update error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update data storage settings';
+      const errorMessage = error instanceof Error ? error.message : 'Không thể cập nhật cài đặt lưu trữ';
       toast({ 
-        title: 'Error', 
+        title: 'Lỗi', 
         description: errorMessage, 
         variant: 'destructive' 
       });
@@ -361,12 +364,12 @@ export default function Settings() {
       if (error) {
         throw new Error(error);
       }
-      toast({ title: 'Settings saved' });
+      toast({ title: 'Đã lưu cài đặt' });
     } catch (error) {
       console.error('Appearance update error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update appearance settings';
+      const errorMessage = error instanceof Error ? error.message : 'Không thể cập nhật cài đặt giao diện';
       toast({ 
-        title: 'Error', 
+        title: 'Lỗi', 
         description: errorMessage, 
         variant: 'destructive' 
       });
@@ -382,12 +385,12 @@ export default function Settings() {
       if (error) {
         throw new Error(error);
       }
-      toast({ title: 'Cache cleared', description: 'All cached data has been removed' });
+      toast({ title: 'Đã xóa bộ nhớ đệm', description: 'Tất cả dữ liệu đệm đã được xóa' });
     } catch (error) {
       console.error('Cache clear error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to clear cache';
+      const errorMessage = error instanceof Error ? error.message : 'Không thể xóa bộ nhớ đệm';
       toast({ 
-        title: 'Error', 
+        title: 'Lỗi', 
         description: errorMessage, 
         variant: 'destructive' 
       });
@@ -403,12 +406,12 @@ export default function Settings() {
       if (error) {
         throw new Error(error);
       }
-      toast({ title: 'Session terminated' });
+      toast({ title: 'Đã kết thúc phiên' });
     } catch (error) {
       console.error('Device termination error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to terminate session';
+      const errorMessage = error instanceof Error ? error.message : 'Không thể kết thúc phiên';
       toast({ 
-        title: 'Error', 
+        title: 'Lỗi', 
         description: errorMessage, 
         variant: 'destructive' 
       });
@@ -424,12 +427,12 @@ export default function Settings() {
       if (error) {
         throw new Error(error);
       }
-      toast({ title: 'All other sessions terminated' });
+      toast({ title: 'Đã kết thúc tất cả phiên khác' });
     } catch (error) {
       console.error('Terminate all devices error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to terminate sessions';
+      const errorMessage = error instanceof Error ? error.message : 'Không thể kết thúc các phiên';
       toast({ 
-        title: 'Error', 
+        title: 'Lỗi', 
         description: errorMessage, 
         variant: 'destructive' 
       });
@@ -449,22 +452,23 @@ export default function Settings() {
 
   const getSectionTitle = () => {
     switch (section) {
-      case 'main': return 'Settings';
-      case 'account': return 'Account & Profile';
-      case 'privacy': return 'Privacy & Security';
-      case 'notifications': return 'Notifications';
-      case 'chat': return 'Chat Settings';
-      case 'data': return 'Data & Storage';
-      case 'appearance': return 'Appearance';
-      case 'devices': return 'Devices & Sessions';
+      case 'main': return 'Cài đặt';
+      case 'account': return 'Tài khoản & Hồ sơ';
+      case 'privacy': return 'Quyền riêng tư & Bảo mật';
+      case 'notifications': return 'Thông báo';
+      case 'chat': return 'Cài đặt Chat';
+      case 'data': return 'Dữ liệu & Lưu trữ';
+      case 'appearance': return 'Giao diện';
+      case 'devices': return 'Thiết bị & Phiên';
+      case 'inviteLinks': return 'Link mời';
     }
   };
 
   const handleLogout = async () => {
     await logout();
     toast({ 
-      title: 'Logged out', 
-      description: 'You have been logged out successfully' 
+      title: 'Đã đăng xuất', 
+      description: 'Bạn đã đăng xuất thành công' 
     });
     navigate('/auth');
   };
@@ -542,16 +546,16 @@ export default function Settings() {
   // Validation functions
   const validateUsername = (username: string): string | undefined => {
     if (!username) {
-      return 'Username is required';
+      return 'Tên người dùng là bắt buộc';
     }
     if (username.length < 3) {
-      return 'Username must be at least 3 characters';
+      return 'Tên người dùng phải có ít nhất 3 ký tự';
     }
     if (username.length > 32) {
-      return 'Username must be less than 32 characters';
+      return 'Tên người dùng phải ít hơn 32 ký tự';
     }
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      return 'Username can only contain letters, numbers, and underscores';
+      return 'Tên người dùng chỉ được chứa chữ cái, số và dấu gạch dưới';
     }
     return undefined;
   };
@@ -562,7 +566,7 @@ export default function Settings() {
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return 'Please enter a valid email address';
+      return 'Vui lòng nhập địa chỉ email hợp lệ';
     }
     return undefined;
   };
@@ -575,7 +579,7 @@ export default function Settings() {
     const cleanPhone = phone.replace(/[\s\-()]/g, '');
     // Check if it's a valid phone number (10-15 digits, optionally starting with +)
     if (!/^\+?\d{10,15}$/.test(cleanPhone)) {
-      return 'Please enter a valid phone number';
+      return 'Vui lòng nhập số điện thoại hợp lệ';
     }
     return undefined;
   };
@@ -635,44 +639,50 @@ export default function Settings() {
         <div className="py-2">
           <SettingItem
             icon={<User className="h-5 w-5 text-primary" />}
-            title="Account & Profile"
-            description="Edit profile, username, bio"
+            title="Tài khoản & Hồ sơ"
+            description="Chỉnh sửa hồ sơ, tên người dùng, tiểu sử"
             onClick={() => setSection('account')}
           />
           <SettingItem
             icon={<Shield className="h-5 w-5 text-primary" />}
-            title="Privacy & Security"
-            description="Last seen, read receipts, 2FA"
+            title="Quyền riêng tư & Bảo mật"
+            description="Trạng thái hoạt động, xác nhận đã đọc, 2FA"
             onClick={() => setSection('privacy')}
           />
           <SettingItem
             icon={<Bell className="h-5 w-5 text-primary" />}
-            title="Notifications"
-            description="Message, group, sound settings"
+            title="Thông báo"
+            description="Tin nhắn, nhóm, cài đặt âm thanh"
             onClick={() => setSection('notifications')}
           />
           <SettingItem
             icon={<MessageSquare className="h-5 w-5 text-primary" />}
-            title="Chat Settings"
-            description="Media, keyboard, send button"
+            title="Cài đặt Chat"
+            description="Media, bàn phím, nút gửi"
             onClick={() => setSection('chat')}
           />
           <SettingItem
             icon={<Database className="h-5 w-5 text-primary" />}
-            title="Data & Storage"
-            description="Storage usage, auto-download"
+            title="Dữ liệu & Lưu trữ"
+            description="Dung lượng, tự động tải xuống"
             onClick={() => setSection('data')}
           />
           <SettingItem
             icon={<Palette className="h-5 w-5 text-primary" />}
-            title="Appearance"
-            description="Theme, colors, font size"
+            title="Giao diện"
+            description="Chủ đề, màu sắc, cỡ chữ"
             onClick={() => setSection('appearance')}
           />
           <SettingItem
+            icon={<LinkIcon className="h-5 w-5 text-primary" />}
+            title="Link mời"
+            description="Quản lý link mời nhóm và chat"
+            onClick={() => setSection('inviteLinks')}
+          />
+          <SettingItem
             icon={<Smartphone className="h-5 w-5 text-primary" />}
-            title="Devices & Sessions"
-            description={`${devices.length} active sessions`}
+            title="Thiết bị & Phiên"
+            description={`${devices.length} phiên đang hoạt động`}
             onClick={() => setSection('devices')}
           />
         </div>
@@ -681,8 +691,8 @@ export default function Settings() {
         <div className="py-2">
           <SettingItem
             icon={<LogOut className="h-5 w-5 text-destructive" />}
-            title="Log Out"
-            description="Sign out of your account"
+            title="Đăng xuất"
+            description="Đăng xuất khỏi tài khoản"
             onClick={handleLogout}
             destructive
             trailing={null}
@@ -734,22 +744,22 @@ export default function Settings() {
           {/* Edit Profile Form */}
           <div className="p-4 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Tên</Label>
               <Input
                 id="name"
                 value={editedProfile.name || ''}
                 onChange={(e) => handleProfileFieldChange('name', e.target.value)}
-                placeholder="Your name"
+                placeholder="Tên của bạn"
                 disabled={isSaving}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Tên người dùng</Label>
               <Input
                 id="username"
                 value={editedProfile.username || ''}
                 onChange={(e) => handleProfileFieldChange('username', e.target.value)}
-                placeholder="Username"
+                placeholder="Tên người dùng"
                 className={validationErrors.username ? 'border-destructive' : ''}
                 disabled={isSaving}
               />
@@ -758,23 +768,23 @@ export default function Settings() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="bio">Bio</Label>
+              <Label htmlFor="bio">Tiểu sử</Label>
               <Textarea
                 id="bio"
                 value={editedProfile.bio || ''}
                 onChange={(e) => handleProfileFieldChange('bio', e.target.value)}
-                placeholder="A few words about yourself"
+                placeholder="Vài dòng về bạn"
                 rows={3}
                 disabled={isSaving}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">Số điện thoại</Label>
               <Input
                 id="phone"
                 value={editedProfile.phone || ''}
                 onChange={(e) => handleProfileFieldChange('phone', e.target.value)}
-                placeholder="Phone number"
+                placeholder="Số điện thoại"
                 className={validationErrors.phone ? 'border-destructive' : ''}
                 disabled={isSaving}
               />
@@ -788,7 +798,7 @@ export default function Settings() {
                 id="email"
                 value={editedProfile.email || ''}
                 onChange={(e) => handleProfileFieldChange('email', e.target.value)}
-                placeholder="Email address"
+                placeholder="Địa chỉ email"
                 type="email"
                 className={validationErrors.email ? 'border-destructive' : ''}
                 disabled={isSaving}
@@ -805,10 +815,10 @@ export default function Settings() {
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
+                  Đang lưu...
                 </>
               ) : (
-                'Save Changes'
+                'Lưu thay đổi'
               )}
             </Button>
           </div>
@@ -823,85 +833,85 @@ export default function Settings() {
       {privacy && (
         <>
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Who can see my...</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Ai có thể xem...</h3>
             <div className="px-4 py-3 flex items-center justify-between">
               <div>
-                <p className="font-medium text-foreground">Last Seen</p>
-                <p className="text-sm text-muted-foreground">Who can see when you were online</p>
+                <p className="font-medium text-foreground">Trạng thái hoạt động</p>
+                <p className="text-sm text-muted-foreground">Ai có thể xem khi bạn online</p>
               </div>
               <Select value={privacy.lastSeen} onValueChange={(v) => handleUpdatePrivacy({ lastSeen: v as PrivacySettings['lastSeen'] })} disabled={isSaving}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="everyone">Everyone</SelectItem>
-                  <SelectItem value="contacts">Contacts</SelectItem>
-                  <SelectItem value="nobody">Nobody</SelectItem>
+                  <SelectItem value="everyone">Tất cả</SelectItem>
+                  <SelectItem value="contacts">Danh bạ</SelectItem>
+                  <SelectItem value="nobody">Không ai</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="px-4 py-3 flex items-center justify-between">
               <div>
-                <p className="font-medium text-foreground">Profile Photo</p>
-                <p className="text-sm text-muted-foreground">Who can see your profile photo</p>
+                <p className="font-medium text-foreground">Ảnh đại diện</p>
+                <p className="text-sm text-muted-foreground">Ai có thể xem ảnh đại diện của bạn</p>
               </div>
               <Select value={privacy.profilePhoto} onValueChange={(v) => handleUpdatePrivacy({ profilePhoto: v as PrivacySettings['profilePhoto'] })} disabled={isSaving}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="everyone">Everyone</SelectItem>
-                  <SelectItem value="contacts">Contacts</SelectItem>
-                  <SelectItem value="nobody">Nobody</SelectItem>
+                  <SelectItem value="everyone">Tất cả</SelectItem>
+                  <SelectItem value="contacts">Danh bạ</SelectItem>
+                  <SelectItem value="nobody">Không ai</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="px-4 py-3 flex items-center justify-between">
               <div>
-                <p className="font-medium text-foreground">Calls</p>
-                <p className="text-sm text-muted-foreground">Who can call you</p>
+                <p className="font-medium text-foreground">Cuộc gọi</p>
+                <p className="text-sm text-muted-foreground">Ai có thể gọi cho bạn</p>
               </div>
               <Select value={privacy.calls} onValueChange={(v) => handleUpdatePrivacy({ calls: v as PrivacySettings['calls'] })} disabled={isSaving}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="everyone">Everyone</SelectItem>
-                  <SelectItem value="contacts">Contacts</SelectItem>
-                  <SelectItem value="nobody">Nobody</SelectItem>
+                  <SelectItem value="everyone">Tất cả</SelectItem>
+                  <SelectItem value="contacts">Danh bạ</SelectItem>
+                  <SelectItem value="nobody">Không ai</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="px-4 py-3 flex items-center justify-between">
               <div>
-                <p className="font-medium text-foreground">Groups</p>
-                <p className="text-sm text-muted-foreground">Who can add you to groups</p>
+                <p className="font-medium text-foreground">Nhóm</p>
+                <p className="text-sm text-muted-foreground">Ai có thể thêm bạn vào nhóm</p>
               </div>
               <Select value={privacy.groups} onValueChange={(v) => handleUpdatePrivacy({ groups: v as PrivacySettings['groups'] })} disabled={isSaving}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="everyone">Everyone</SelectItem>
-                  <SelectItem value="contacts">Contacts</SelectItem>
-                  <SelectItem value="nobody">Nobody</SelectItem>
+                  <SelectItem value="everyone">Tất cả</SelectItem>
+                  <SelectItem value="contacts">Danh bạ</SelectItem>
+                  <SelectItem value="nobody">Không ai</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Messages</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Tin nhắn</h3>
             <ToggleItem
-              title="Read Receipts"
-              description="Show when you've read messages"
+              title="Xác nhận đã đọc"
+              description="Hiển thị khi bạn đã đọc tin nhắn"
               checked={privacy.readReceipts}
               onCheckedChange={(checked) => handleUpdatePrivacy({ readReceipts: checked })}
               disabled={isSaving}
             />
             <ToggleItem
-              title="Forwarded Message Links"
-              description="Link to your account when forwarding"
+              title="Link tin nhắn chuyển tiếp"
+              description="Liên kết đến tài khoản khi chuyển tiếp"
               checked={privacy.forwards}
               onCheckedChange={(checked) => handleUpdatePrivacy({ forwards: checked })}
               disabled={isSaving}
@@ -909,10 +919,10 @@ export default function Settings() {
           </div>
 
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Security</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Bảo mật</h3>
             <ToggleItem
-              title="Two-Factor Authentication"
-              description="Add an extra layer of security"
+              title="Xác thực hai yếu tố"
+              description="Thêm lớp bảo mật bổ sung"
               checked={privacy.twoFactorAuth}
               onCheckedChange={(checked) => handleUpdatePrivacy({ twoFactorAuth: checked })}
               disabled={isSaving}
@@ -928,24 +938,24 @@ export default function Settings() {
       {notifications && (
         <>
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Notifications</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Thông báo</h3>
             <ToggleItem
-              title="Message Notifications"
-              description="Get notified for new messages"
+              title="Thông báo tin nhắn"
+              description="Nhận thông báo khi có tin nhắn mới"
               checked={notifications.messageNotifications}
               onCheckedChange={(checked) => handleUpdateNotifications({ messageNotifications: checked })}
               disabled={isSaving}
             />
             <ToggleItem
-              title="Group Notifications"
-              description="Get notified for group messages"
+              title="Thông báo nhóm"
+              description="Nhận thông báo tin nhắn nhóm"
               checked={notifications.groupNotifications}
               onCheckedChange={(checked) => handleUpdateNotifications({ groupNotifications: checked })}
               disabled={isSaving}
             />
             <ToggleItem
-              title="Channel Notifications"
-              description="Get notified for channel updates"
+              title="Thông báo kênh"
+              description="Nhận thông báo cập nhật kênh"
               checked={notifications.channelNotifications}
               onCheckedChange={(checked) => handleUpdateNotifications({ channelNotifications: checked })}
               disabled={isSaving}
@@ -953,24 +963,24 @@ export default function Settings() {
           </div>
 
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">In-App</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Trong ứng dụng</h3>
             <ToggleItem
-              title="In-App Sounds"
-              description="Play sounds while in the app"
+              title="Âm thanh trong ứng dụng"
+              description="Phát âm thanh khi đang dùng ứng dụng"
               checked={notifications.inAppSounds}
               onCheckedChange={(checked) => handleUpdateNotifications({ inAppSounds: checked })}
               disabled={isSaving}
             />
             <ToggleItem
-              title="In-App Vibration"
-              description="Vibrate for notifications"
+              title="Rung trong ứng dụng"
+              description="Rung khi có thông báo"
               checked={notifications.inAppVibrate}
               onCheckedChange={(checked) => handleUpdateNotifications({ inAppVibrate: checked })}
               disabled={isSaving}
             />
             <ToggleItem
-              title="Message Preview"
-              description="Show message content in notifications"
+              title="Xem trước tin nhắn"
+              description="Hiển thị nội dung tin nhắn trong thông báo"
               checked={notifications.inAppPreview}
               onCheckedChange={(checked) => handleUpdateNotifications({ inAppPreview: checked })}
               disabled={isSaving}
@@ -978,10 +988,10 @@ export default function Settings() {
           </div>
 
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Other</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Khác</h3>
             <ToggleItem
-              title="Contact Joined"
-              description="Notify when a contact joins"
+              title="Liên hệ tham gia"
+              description="Thông báo khi liên hệ tham gia"
               checked={notifications.contactJoined}
               onCheckedChange={(checked) => handleUpdateNotifications({ contactJoined: checked })}
               disabled={isSaving}
@@ -998,10 +1008,10 @@ export default function Settings() {
       {chatSettings && (
         <>
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Keyboard</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Bàn phím</h3>
             <ToggleItem
-              title="Send with Enter"
-              description="Press Enter to send messages"
+              title="Gửi bằng Enter"
+              description="Nhấn Enter để gửi tin nhắn"
               checked={chatSettings.sendByEnter}
               onCheckedChange={(checked) => handleUpdateChatSettings({ sendByEnter: checked })}
               disabled={isSaving}
@@ -1012,37 +1022,37 @@ export default function Settings() {
             <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Media</h3>
             <div className="px-4 py-3 flex items-center justify-between">
               <div>
-                <p className="font-medium text-foreground">Auto-Download Media</p>
-                <p className="text-sm text-muted-foreground">When to download media automatically</p>
+                <p className="font-medium text-foreground">Tự động tải Media</p>
+                <p className="text-sm text-muted-foreground">Khi nào tự động tải media</p>
               </div>
               <Select value={chatSettings.mediaAutoDownload} onValueChange={(v) => handleUpdateChatSettings({ mediaAutoDownload: v as ChatSettings['mediaAutoDownload'] })} disabled={isSaving}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="wifi">Wi-Fi Only</SelectItem>
-                  <SelectItem value="always">Always</SelectItem>
-                  <SelectItem value="never">Never</SelectItem>
+                  <SelectItem value="wifi">Chỉ Wi-Fi</SelectItem>
+                  <SelectItem value="always">Luôn luôn</SelectItem>
+                  <SelectItem value="never">Không bao giờ</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <ToggleItem
-              title="Save to Gallery"
-              description="Automatically save media to your gallery"
+              title="Lưu vào Thư viện"
+              description="Tự động lưu media vào thư viện"
               checked={chatSettings.saveToGallery}
               onCheckedChange={(checked) => handleUpdateChatSettings({ saveToGallery: checked })}
               disabled={isSaving}
             />
             <ToggleItem
-              title="Auto-Play GIFs"
-              description="Play GIFs automatically in chat"
+              title="Tự động phát GIF"
+              description="Phát GIF tự động trong chat"
               checked={chatSettings.autoPlayGifs}
               onCheckedChange={(checked) => handleUpdateChatSettings({ autoPlayGifs: checked })}
               disabled={isSaving}
             />
             <ToggleItem
-              title="Auto-Play Videos"
-              description="Play videos automatically in chat"
+              title="Tự động phát Video"
+              description="Phát video tự động trong chat"
               checked={chatSettings.autoPlayVideos}
               onCheckedChange={(checked) => handleUpdateChatSettings({ autoPlayVideos: checked })}
               disabled={isSaving}
@@ -1050,10 +1060,10 @@ export default function Settings() {
           </div>
 
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Voice Messages</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Tin nhắn thoại</h3>
             <ToggleItem
-              title="Raise to Speak"
-              description="Hold phone to ear to record"
+              title="Giơ lên để nói"
+              description="Giữ điện thoại sát tai để ghi âm"
               checked={chatSettings.raiseToSpeak}
               onCheckedChange={(checked) => handleUpdateChatSettings({ raiseToSpeak: checked })}
               disabled={isSaving}
@@ -1070,34 +1080,34 @@ export default function Settings() {
         <>
           {/* Transport Connection Info */}
           <div className="p-4">
-            <h3 className="text-sm font-medium text-muted-foreground mb-4">Connection</h3>
+            <h3 className="text-sm font-medium text-muted-foreground mb-4">Kết nối</h3>
             <div className="p-4 rounded-lg border border-border bg-card">
               <TransportIndicator showDetails={true} />
             </div>
           </div>
 
           <div className="p-4">
-            <h3 className="text-sm font-medium text-muted-foreground mb-4">Storage Usage</h3>
+            <h3 className="text-sm font-medium text-muted-foreground mb-4">Dung lượng lưu trữ</h3>
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-foreground">Used Storage</span>
+                <span className="text-foreground">Đã sử dụng</span>
                 <span className="text-muted-foreground">{(dataStorage.storageUsed / 1024).toFixed(2)} GB</span>
               </div>
               <Progress value={(dataStorage.storageUsed / 5000) * 100} className="h-2" />
               <div className="flex justify-between text-sm">
-                <span className="text-foreground">Cache Size</span>
+                <span className="text-foreground">Bộ nhớ đệm</span>
                 <span className="text-muted-foreground">{dataStorage.cacheSize} MB</span>
               </div>
               <Button variant="outline" className="w-full" onClick={handleClearCache} disabled={isSaving}>
                 {isSaving ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Clearing...
+                    Đang xóa...
                   </>
                 ) : (
                   <>
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Clear Cache
+                    Xóa bộ nhớ đệm
                   </>
                 )}
               </Button>
@@ -1105,45 +1115,45 @@ export default function Settings() {
           </div>
 
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Media Retention</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Lưu giữ Media</h3>
             <div className="px-4 py-3 flex items-center justify-between">
               <div>
-                <p className="font-medium text-foreground">Keep Media</p>
-                <p className="text-sm text-muted-foreground">How long to keep downloaded media</p>
+                <p className="font-medium text-foreground">Giữ Media</p>
+                <p className="text-sm text-muted-foreground">Thời gian giữ media đã tải</p>
               </div>
               <Select value={dataStorage.keepMedia} onValueChange={(v) => handleUpdateDataStorage({ keepMedia: v as DataStorageSettings['keepMedia'] })} disabled={isSaving}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1week">1 Week</SelectItem>
-                  <SelectItem value="1month">1 Month</SelectItem>
-                  <SelectItem value="3months">3 Months</SelectItem>
-                  <SelectItem value="forever">Forever</SelectItem>
+                  <SelectItem value="1week">1 tuần</SelectItem>
+                  <SelectItem value="1month">1 tháng</SelectItem>
+                  <SelectItem value="3months">3 tháng</SelectItem>
+                  <SelectItem value="forever">Mãi mãi</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Auto-Download</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Tự động tải</h3>
             <ToggleItem
-              title="Photos"
-              description="Automatically download photos"
+              title="Ảnh"
+              description="Tự động tải ảnh"
               checked={dataStorage.autoDownloadPhotos}
               onCheckedChange={(checked) => handleUpdateDataStorage({ autoDownloadPhotos: checked })}
               disabled={isSaving}
             />
             <ToggleItem
-              title="Videos"
-              description="Automatically download videos"
+              title="Video"
+              description="Tự động tải video"
               checked={dataStorage.autoDownloadVideos}
               onCheckedChange={(checked) => handleUpdateDataStorage({ autoDownloadVideos: checked })}
               disabled={isSaving}
             />
             <ToggleItem
-              title="Files"
-              description="Automatically download files"
+              title="Tệp"
+              description="Tự động tải tệp"
               checked={dataStorage.autoDownloadFiles}
               onCheckedChange={(checked) => handleUpdateDataStorage({ autoDownloadFiles: checked })}
               disabled={isSaving}
@@ -1151,10 +1161,10 @@ export default function Settings() {
           </div>
 
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Network</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Mạng</h3>
             <ToggleItem
-              title="Data Saver"
-              description="Reduce data usage on mobile networks"
+              title="Tiết kiệm dữ liệu"
+              description="Giảm sử dụng dữ liệu trên mạng di động"
               checked={dataStorage.dataSaver}
               onCheckedChange={(checked) => handleUpdateDataStorage({ dataSaver: checked })}
               disabled={isSaving}
@@ -1171,12 +1181,12 @@ export default function Settings() {
       {appearance && (
         <>
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Theme</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Chủ đề</h3>
             <div className="px-4 py-3 grid grid-cols-3 gap-3">
               {[
-                { value: 'light', icon: Sun, label: 'Light' },
-                { value: 'dark', icon: Moon, label: 'Dark' },
-                { value: 'system', icon: Monitor, label: 'System' },
+                { value: 'light', icon: Sun, label: 'Sáng' },
+                { value: 'dark', icon: Moon, label: 'Tối' },
+                { value: 'system', icon: Monitor, label: 'Hệ thống' },
               ].map(({ value, icon: Icon, label }) => (
                 <button
                   key={value}
@@ -1207,12 +1217,12 @@ export default function Settings() {
           </div>
 
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Font Size</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Cỡ chữ</h3>
             <div className="px-4 py-3 grid grid-cols-3 gap-3">
               {[
-                { value: 'small', label: 'Small' },
-                { value: 'medium', label: 'Medium' },
-                { value: 'large', label: 'Large' },
+                { value: 'small', label: 'Nhỏ' },
+                { value: 'medium', label: 'Vừa' },
+                { value: 'large', label: 'Lớn' },
               ].map(({ value, label }) => (
                 <button
                   key={value}
@@ -1238,7 +1248,7 @@ export default function Settings() {
           </div>
 
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Accent Color</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Màu nhấn</h3>
             <div className="px-4 py-3 flex gap-3 flex-wrap">
               {colorThemes.map((theme) => (
                 <button
@@ -1262,10 +1272,10 @@ export default function Settings() {
           </div>
 
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Other</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Khác</h3>
             <ToggleItem
-              title="Animations"
-              description="Enable smooth animations"
+              title="Hiệu ứng"
+              description="Bật hiệu ứng mượt mà"
               checked={appearance.animationsEnabled}
               onCheckedChange={(checked) => handleUpdateAppearance({ animationsEnabled: checked })}
               disabled={isSaving}
@@ -1283,9 +1293,9 @@ export default function Settings() {
         <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/10 border border-primary/20">
           <Globe className="h-8 w-8 text-primary" />
           <div>
-            <p className="font-medium text-foreground">This Device</p>
+            <p className="font-medium text-foreground">Thiết bị này</p>
             <p className="text-sm text-muted-foreground">
-              {devices.find(d => d.isCurrent)?.name || 'Current Session'}
+              {devices.find(d => d.isCurrent)?.name || 'Phiên hiện tại'}
             </p>
           </div>
         </div>
@@ -1303,19 +1313,19 @@ export default function Settings() {
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Terminating...
+                  Đang kết thúc...
                 </>
               ) : (
                 <>
                   <LogOut className="h-4 w-4 mr-2" />
-                  Terminate All Other Sessions
+                  Kết thúc tất cả phiên khác
                 </>
               )}
             </Button>
           </div>
 
           <div className="py-2">
-            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Other Sessions</h3>
+            <h3 className="px-4 py-2 text-sm font-medium text-muted-foreground">Các phiên khác</h3>
             {devices.filter(d => !d.isCurrent).map((device) => (
               <div key={device.id} className="px-4 py-3 flex items-center gap-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent">
@@ -1324,7 +1334,7 @@ export default function Settings() {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground">{device.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {device.location} • {format(new Date(device.lastActive), 'MMM d, h:mm a')}
+                    {device.location} • {format(new Date(device.lastActive), 'dd/MM, HH:mm')}
                   </p>
                 </div>
                 <Button 
@@ -1349,8 +1359,8 @@ export default function Settings() {
       {devices.filter(d => !d.isCurrent).length === 0 && (
         <div className="p-8 text-center">
           <Check className="h-12 w-12 mx-auto text-primary mb-3" />
-          <p className="font-medium text-foreground">No other sessions</p>
-          <p className="text-sm text-muted-foreground">You're only logged in on this device</p>
+          <p className="font-medium text-foreground">Không có phiên khác</p>
+          <p className="text-sm text-muted-foreground">Bạn chỉ đăng nhập trên thiết bị này</p>
         </div>
       )}
     </div>
@@ -1366,6 +1376,7 @@ export default function Settings() {
       case 'data': return renderDataSection();
       case 'appearance': return renderAppearanceSection();
       case 'devices': return renderDevicesSection();
+      case 'inviteLinks': return <div className="p-4"><InviteLinksSettings /></div>;
     }
   };
 

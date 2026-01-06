@@ -48,7 +48,7 @@ export function ForwardModal({ isOpen, onClose, message, chats, onForward }: For
       <div className="relative z-10 w-full max-w-md mx-4 bg-card rounded-2xl shadow-xl animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h2 className="text-lg font-semibold text-foreground">Forward Message</h2>
+          <h2 className="text-lg font-semibold text-foreground">Chuyển tiếp tin nhắn</h2>
           <button
             onClick={handleClose}
             className="p-1.5 rounded-full hover:bg-accent transition-colors"
@@ -59,9 +59,9 @@ export function ForwardModal({ isOpen, onClose, message, chats, onForward }: For
 
         {/* Message Preview */}
         <div className="px-4 py-3 bg-accent/30 border-b border-border">
-          <p className="text-xs text-muted-foreground mb-1">Forwarding message:</p>
+          <p className="text-xs text-muted-foreground mb-1">Đang chuyển tiếp tin nhắn:</p>
           <p className="text-sm text-foreground line-clamp-2">
-            {message.text || (message.attachments?.length ? `${message.attachments.length} attachment(s)` : "Message")}
+            {message.text || (message.attachments?.length ? `${message.attachments.length} tệp đính kèm` : "Tin nhắn")}
           </p>
         </div>
 
@@ -73,7 +73,7 @@ export function ForwardModal({ isOpen, onClose, message, chats, onForward }: For
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search chats..."
+              placeholder="Tìm kiếm cuộc trò chuyện..."
               className="w-full pl-10 pr-4 py-2 rounded-xl bg-background border border-border text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
@@ -83,7 +83,7 @@ export function ForwardModal({ isOpen, onClose, message, chats, onForward }: For
         <div className="max-h-64 overflow-y-auto">
           {filteredChats.length === 0 ? (
             <div className="px-4 py-8 text-center text-muted-foreground text-sm">
-              No chats found
+              Không tìm thấy cuộc trò chuyện
             </div>
           ) : (
             filteredChats.map((chat) => (
@@ -105,7 +105,7 @@ export function ForwardModal({ isOpen, onClose, message, chats, onForward }: For
                 <div className="flex-1 min-w-0 text-left">
                   <p className="font-medium text-foreground truncate">{chat.name}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {chat.type === 'group' ? 'Group' : 'Private chat'}
+                    {chat.type === 'group' ? 'Nhóm' : 'Chat riêng tư'}
                   </p>
                 </div>
                 {selectedChatId === chat.id && (
@@ -124,7 +124,7 @@ export function ForwardModal({ isOpen, onClose, message, chats, onForward }: For
             onClick={handleClose}
             className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            Cancel
+            Hủy
           </button>
           <button
             onClick={handleForward}
@@ -137,7 +137,7 @@ export function ForwardModal({ isOpen, onClose, message, chats, onForward }: For
             )}
           >
             <Forward className="h-4 w-4" />
-            Forward
+            Chuyển tiếp
           </button>
         </div>
       </div>
