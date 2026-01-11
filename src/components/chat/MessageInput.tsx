@@ -352,18 +352,8 @@ export function MessageInput({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleVoiceSend = useCallback((audioBlob: Blob, duration: number) => {
-    const audioUrl = URL.createObjectURL(audioBlob);
-    const voiceAttachment: Attachment = {
-      id: `voice-${Date.now()}`,
-      type: 'file',
-      name: 'Voice message',
-      size: audioBlob.size,
-      url: audioUrl,
-      mimeType: audioBlob.type,
-      duration,
-    };
-    onSend('', [voiceAttachment], replyingTo ? {
+  const handleVoiceSend = useCallback((text: string, attachments?: Attachment[]) => {
+    onSend(text, attachments, replyingTo ? {
       id: replyingTo.id,
       text: replyingTo.text,
       senderId: replyingTo.senderId,
