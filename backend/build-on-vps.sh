@@ -38,6 +38,10 @@ echo "=========================================="
 # Deploy to /var/www/messages-api
 DEPLOY_DIR="/var/www/messages-api"
 
+# Stop service before copying (avoid "Text file busy" error)
+echo "Stopping messages-api service..."
+sudo systemctl stop messages-api 2>/dev/null || true
+
 # Create directory if not exists
 sudo mkdir -p $DEPLOY_DIR
 sudo mkdir -p $DEPLOY_DIR/uploads
