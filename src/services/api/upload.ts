@@ -4,8 +4,10 @@
  * Requirements: 8.1-8.3
  */
 
-import { apiClient } from './client';
+import axios from 'axios';
+import { apiClient, getAuthToken } from './client';
 import { Attachment, UploadProgress } from './types';
+import { getApiUrl } from '@/lib/config';
 
 // ============================================
 // Types
@@ -38,12 +40,12 @@ export const uploadService = {
       formData.append('file', file);
       formData.append('type', type);
 
-      const response = await apiClient.post<{ attachment: Attachment }>(
-        '/upload',
+      const response = await axios.post<{ attachment: Attachment }>(
+        `${getApiUrl()}/upload`,
         formData,
         {
           headers: {
-            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${getAuthToken()}`,
           },
           onUploadProgress: (progressEvent) => {
             if (onProgress && progressEvent.total) {

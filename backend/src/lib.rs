@@ -8,7 +8,7 @@ pub mod services;
 pub mod ws;
 
 use anyhow::Result;
-use axum::{routing::get, Router};
+use axum::{routing::get, Router, extract::DefaultBodyLimit};
 use config::Config;
 use db::Database;
 use std::sync::Arc;
@@ -88,6 +88,7 @@ pub async fn create_app(config: Config) -> Result<(Router, Arc<AppState>)> {
         .merge(routes::bot_api_routes()) // Bot API routes at root level (/bot:token/*)
         // Serve static files from uploads directory
         .nest_service("/uploads", ServeDir::new("uploads"))
+        .layer(DefaultBodyLimit::max(500 * 1024 * 1024)) // 500MB body limit
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state.clone());

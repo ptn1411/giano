@@ -21,7 +21,7 @@ pub fn routes() -> Router<Arc<AppState>> {
     Router::new().route("/", post(upload_file))
 }
 
-const MAX_FILE_SIZE: usize = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE: usize = 500 * 1024 * 1024; // 500MB
 
 #[derive(Debug, Serialize)]
 pub struct UploadResponse {

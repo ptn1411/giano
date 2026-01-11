@@ -177,16 +177,16 @@ export default function Auth() {
             {isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}
           </Button>
 
-          <div className="relative">
+          {/* <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-card px-2 text-muted-foreground">Hoặc</span>
             </div>
-          </div>
+          </div> */}
 
-          <Button
+          {/* <Button
             type="button"
             variant="outline"
             className="w-full"
@@ -194,7 +194,7 @@ export default function Auth() {
             disabled={isLoading}
           >
             Dùng thử tài khoản Demo
-          </Button>
+          </Button> */}
         </form>
 
         {/* Toggle */}
@@ -213,11 +213,11 @@ export default function Auth() {
         </p>
 
         {/* Demo credentials */}
-        <div className="text-center text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+        {/* <div className="text-center text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
           <p className="font-medium mb-1">Tài khoản Demo:</p>
           <p>Email: demo@example.com</p>
           <p>Mật khẩu: demo123</p>
-        </div>
+        </div> */}
       </div>
     </div>
   );
