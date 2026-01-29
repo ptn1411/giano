@@ -183,9 +183,11 @@ impl MessageService {
 
         // Validate message
         if text.trim().is_empty() {
+            tracing::warn!("Bot {} tried to send empty message", bot_id);
             return Err(AppError::EmptyMessage);
         }
 
+        tracing::debug!("Inserting bot message into database...");
         // Create message with sender_type = 'bot'
         let message: Message = sqlx::query_as(
             r#"
@@ -199,14 +201,27 @@ impl MessageService {
         .bind(&text)
         .bind(reply_to_id)
         .fetch_one(&db.pool)
-        .await?;
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to insert bot message: {:?}", e);
+            e
+        })?;
 
+        tracing::debug!(
+            "Message inserted with id {}, updating chat timestamp...",
+            message.id
+        );
         // Update chat timestamp
         sqlx::query("UPDATE chats SET updated_at = NOW() WHERE id = $1")
             .bind(chat_id)
             .execute(&db.pool)
-            .await?;
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to update chat timestamp: {:?}", e);
+                e
+            })?;
 
+        tracing::debug!("Incrementing unread counts...");
         // Increment unread count for all participants (bots don't have unread counts)
         sqlx::query(
             r#"
@@ -217,9 +232,22 @@ impl MessageService {
         )
         .bind(chat_id)
         .execute(&db.pool)
-        .await?;
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to increment unread counts: {:?}", e);
+            e
+        })?;
 
-        Self::build_message_response(db, message).await
+        tracing::debug!("Building message response...");
+        let response = Self::build_message_response(db, message)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to build message response: {:?}", e);
+                e
+            })?;
+
+        tracing::info!("Bot message sent successfully with id {}", response.id);
+        Ok(response)
     }
 
     pub async fn edit_message(
