@@ -1,6 +1,6 @@
 {
   "id": "giano-channel",
-  "channelId": "giano-channel",
+  "channels": ["giano-channel"],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
