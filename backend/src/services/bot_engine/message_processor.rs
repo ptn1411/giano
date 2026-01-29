@@ -7,7 +7,6 @@
 /// - Dispatch to bots when command detected
 ///
 /// Requirements covered: 6.1, 6.2
-
 use std::sync::Arc;
 
 use crate::db::Database;
@@ -60,35 +59,35 @@ impl MessageProcessor {
         // Only process messages with text
         let text = match &message.text {
             Some(t) if !t.is_empty() => t,
-            _ => return Ok(ProcessResult { command: None, botfather_response: None }),
+            _ => {
+                return Ok(ProcessResult {
+                    command: None,
+                    botfather_response: None,
+                })
+            }
         };
 
         // Check if message is a command (Requirement 6.1)
-        let parsed_command = match ParsedCommand::parse(text) {
-            Some(cmd) => cmd,
-            None => return Ok(ProcessResult { command: None, botfather_response: None }),
-        };
+        let parsed_command = ParsedCommand::parse(text);
 
-        tracing::debug!(
-            "Command detected in message {}: /{} {:?}",
-            message.id,
-            parsed_command.command,
-            parsed_command.args
-        );
+        if let Some(ref cmd) = parsed_command {
+            tracing::debug!(
+                "Command detected in message {}: /{} {:?}",
+                message.id,
+                cmd.command,
+                cmd.args
+            );
 
-        // Check if this is a BotFather command
-        if BotFather::is_botfather_command(&parsed_command) {
-            let response = BotFather::handle_command(
-                db,
-                message.sender_id,
-                message.chat_id,
-                &parsed_command,
-            ).await?;
+            // Check if this is a BotFather command
+            if BotFather::is_botfather_command(cmd) {
+                let response =
+                    BotFather::handle_command(db, message.sender_id, message.chat_id, cmd).await?;
 
-            return Ok(ProcessResult {
-                command: Some(parsed_command),
-                botfather_response: response,
-            });
+                return Ok(ProcessResult {
+                    command: parsed_command,
+                    botfather_response: response,
+                });
+            }
         }
 
         // Find all active bots subscribed to this chat (Requirement 6.2)
@@ -97,7 +96,7 @@ impl MessageProcessor {
         if bots.is_empty() {
             tracing::debug!("No bots subscribed to chat {}", message.chat_id);
             return Ok(ProcessResult {
-                command: Some(parsed_command),
+                command: parsed_command,
                 botfather_response: None,
             });
         }
@@ -117,7 +116,7 @@ impl MessageProcessor {
         }
 
         Ok(ProcessResult {
-            command: Some(parsed_command),
+            command: parsed_command,
             botfather_response: None,
         })
     }
@@ -189,15 +188,31 @@ mod tests {
     #[test]
     fn test_botfather_command_detection() {
         // BotFather commands
-        assert!(BotFather::is_botfather_command(&ParsedCommand::parse("/newbot").unwrap()));
-        assert!(BotFather::is_botfather_command(&ParsedCommand::parse("/mybots").unwrap()));
-        assert!(BotFather::is_botfather_command(&ParsedCommand::parse("/deletebot").unwrap()));
-        assert!(BotFather::is_botfather_command(&ParsedCommand::parse("/setwebhook").unwrap()));
-        assert!(BotFather::is_botfather_command(&ParsedCommand::parse("/bothelp").unwrap()));
+        assert!(BotFather::is_botfather_command(
+            &ParsedCommand::parse("/newbot").unwrap()
+        ));
+        assert!(BotFather::is_botfather_command(
+            &ParsedCommand::parse("/mybots").unwrap()
+        ));
+        assert!(BotFather::is_botfather_command(
+            &ParsedCommand::parse("/deletebot").unwrap()
+        ));
+        assert!(BotFather::is_botfather_command(
+            &ParsedCommand::parse("/setwebhook").unwrap()
+        ));
+        assert!(BotFather::is_botfather_command(
+            &ParsedCommand::parse("/bothelp").unwrap()
+        ));
 
         // Non-BotFather commands
-        assert!(!BotFather::is_botfather_command(&ParsedCommand::parse("/help").unwrap()));
-        assert!(!BotFather::is_botfather_command(&ParsedCommand::parse("/start").unwrap()));
-        assert!(!BotFather::is_botfather_command(&ParsedCommand::parse("/echo").unwrap()));
+        assert!(!BotFather::is_botfather_command(
+            &ParsedCommand::parse("/help").unwrap()
+        ));
+        assert!(!BotFather::is_botfather_command(
+            &ParsedCommand::parse("/start").unwrap()
+        ));
+        assert!(!BotFather::is_botfather_command(
+            &ParsedCommand::parse("/echo").unwrap()
+        ));
     }
 }
