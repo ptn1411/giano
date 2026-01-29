@@ -5,31 +5,9 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "accounts": {
-        "type": "object",
-        "additionalProperties": {
-          "type": "object",
-          "properties": {
-            "enabled": { "type": "boolean", "default": true },
-            "apiBaseUrl": {
-              "type": "string",
-              "default": "http://127.0.0.1:3000"
-            },
-            "wsUrl": { "type": "string", "default": "ws://127.0.0.1:3000/ws" },
-            "token": {
-              "type": "string",
-              "description": "User JWT access token"
-            },
-            "botUserId": {
-              "type": "string",
-              "description": "Bot's user ID to filter self messages"
-            },
-            "allowFrom": {
-              "type": "array",
-              "items": { "anyOf": [{ "type": "string" }, { "type": "number" }] }
-            }
-          }
-        }
+      "targetBotUserId": {
+        "type": "string",
+        "description": "User ID of the mcp-giano-bridge bot to send tasks to"
       }
     }
   }
