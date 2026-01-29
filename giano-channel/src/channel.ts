@@ -1,4 +1,3 @@
-import { Bot, Context } from "@messages-api/bot-sdk";
 import type {
   ChannelAccountSnapshot,
   ChannelGatewayAdapter,
@@ -13,6 +12,7 @@ import {
   finalizeInboundContext,
   resolveAgentRoute,
 } from "clawdbot/plugin-sdk";
+import { Bot, Context } from "gianobot";
 
 // Types
 export type GianoChannelAccount = {
@@ -388,7 +388,7 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
     label: "Giano",
     selectionLabel: "Giano",
     docsPath: "/channels/giano-channel",
-    blurb: "Giano backend chat channel using @messages-api/bot-sdk.",
+    blurb: "Giano backend chat channel using gianobot SDK.",
   },
   capabilities: {
     chatTypes: ["direct", "group"],
