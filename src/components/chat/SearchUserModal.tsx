@@ -108,12 +108,21 @@ export function SearchUserModal({
         handleClose();
       }
     } else {
-      // For bots, we need to create a group and add the bot
-      // For simplicity, show message to use BotFather
+      // Create private chat with bot
+      const result = await chatsService.createBotChat(searchResult.data.id);
+
       setCreatingChat(false);
-      setError(
-        "Để chat với bot, hãy tạo nhóm mới và thêm bot vào bằng lệnh /addbot trong BotFather",
-      );
+
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      if (result.chat) {
+        addChat(result.chat);
+        onChatCreated(result.chat.id);
+        handleClose();
+      }
     }
   };
 

@@ -12,7 +12,11 @@ use crate::{
     error::AppResult,
     models::{BotPublicResponse, ChatDetailResponse, ChatResponse, MessageResponse},
     routes::auth::get_current_user_id,
-    services::{bot_engine::BotEngineService, ChatService, MessageService, MessageProcessor, WebSocketService, message::{AttachmentInput, ReplyToInput}},
+    services::{
+        bot_engine::BotEngineService,
+        message::{AttachmentInput, ReplyToInput},
+        ChatService, MessageProcessor, MessageService, WebSocketService,
+    },
     AppState,
 };
 
@@ -21,17 +25,33 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/", get(get_chats))
         .route("/group", post(create_group))
         .route("/private", post(create_private_chat))
+        .route("/bot", post(create_bot_chat))
         .route("/:chat_id", get(get_chat).delete(delete_chat))
         .route("/:chat_id/pin", post(pin_chat))
         .route("/:chat_id/unpin", post(unpin_chat))
         .route("/:chat_id/read", post(mark_as_read))
-        .route("/:chat_id/messages", get(get_messages).post(send_message).delete(clear_messages))
-        .route("/:chat_id/messages/:message_id", axum::routing::put(edit_message).delete(delete_message))
-        .route("/:chat_id/messages/:message_id/reactions", post(toggle_reaction))
-        .route("/:chat_id/messages/:message_id/pin", post(pin_message).delete(unpin_message))
+        .route(
+            "/:chat_id/messages",
+            get(get_messages).post(send_message).delete(clear_messages),
+        )
+        .route(
+            "/:chat_id/messages/:message_id",
+            axum::routing::put(edit_message).delete(delete_message),
+        )
+        .route(
+            "/:chat_id/messages/:message_id/reactions",
+            post(toggle_reaction),
+        )
+        .route(
+            "/:chat_id/messages/:message_id/pin",
+            post(pin_message).delete(unpin_message),
+        )
         // Bot-Chat management routes (Requirements 4.1, 4.2)
         .route("/:chat_id/bots", get(list_chat_bots).post(add_bot_to_chat))
-        .route("/:chat_id/bots/:bot_id", axum::routing::delete(remove_bot_from_chat))
+        .route(
+            "/:chat_id/bots/:bot_id",
+            axum::routing::delete(remove_bot_from_chat),
+        )
 }
 
 #[derive(Debug, Deserialize)]
@@ -101,7 +121,8 @@ async fn create_group(
 ) -> AppResult<Json<ChatDetailResponseWrapper>> {
     let user_id = get_current_user_id(&state, &headers).await?;
 
-    let chat = ChatService::create_group(&state.db, user_id, &req.name, req.participant_ids).await?;
+    let chat =
+        ChatService::create_group(&state.db, user_id, &req.name, req.participant_ids).await?;
 
     Ok(Json(ChatDetailResponseWrapper { chat }))
 }
@@ -119,7 +140,28 @@ async fn create_private_chat(
 ) -> AppResult<Json<ChatDetailResponseWrapper>> {
     let current_user_id = get_current_user_id(&state, &headers).await?;
 
-    let chat = ChatService::create_or_get_private_chat(&state.db, current_user_id, req.user_id).await?;
+    let chat =
+        ChatService::create_or_get_private_chat(&state.db, current_user_id, req.user_id).await?;
+
+    Ok(Json(ChatDetailResponseWrapper { chat }))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateBotChatRequest {
+    #[serde(rename = "botId")]
+    bot_id: Uuid,
+}
+
+/// Create or get existing private chat with a bot
+/// POST /chats/bot
+async fn create_bot_chat(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(req): Json<CreateBotChatRequest>,
+) -> AppResult<Json<ChatDetailResponseWrapper>> {
+    let current_user_id = get_current_user_id(&state, &headers).await?;
+
+    let chat = ChatService::create_or_get_bot_chat(&state.db, current_user_id, req.bot_id).await?;
 
     Ok(Json(ChatDetailResponseWrapper { chat }))
 }
@@ -283,15 +325,9 @@ async fn send_message(
 
     let reply_to = req.reply_to.map(|r| ReplyToInput { id: r.id });
 
-    let message = MessageService::send_message(
-        &state.db,
-        chat_id,
-        user_id,
-        req.text,
-        attachments,
-        reply_to,
-    )
-    .await?;
+    let message =
+        MessageService::send_message(&state.db, chat_id, user_id, req.text, attachments, reply_to)
+            .await?;
 
     // Broadcast new message to all chat participants via WebSocket
     let participant_ids = ChatService::get_participant_ids(&state.db, chat_id).await?;
@@ -305,11 +341,9 @@ async fn send_message(
 
     // Process message for bot commands (Requirements 6.1, 6.2)
     // This will parse commands and dispatch to subscribed bots
-    if let Err(e) = MessageProcessor::process_message(
-        &state.db,
-        state.ws_manager.clone(),
-        &message,
-    ).await {
+    if let Err(e) =
+        MessageProcessor::process_message(&state.db, state.ws_manager.clone(), &message).await
+    {
         tracing::error!("Failed to process message for bots: {}", e);
     }
 
@@ -329,7 +363,8 @@ async fn edit_message(
 ) -> AppResult<Json<MessageResponseWrapper>> {
     let user_id = get_current_user_id(&state, &headers).await?;
 
-    let message = MessageService::edit_message(&state.db, chat_id, message_id, user_id, &req.text).await?;
+    let message =
+        MessageService::edit_message(&state.db, chat_id, message_id, user_id, &req.text).await?;
 
     // Broadcast message updated to all chat participants via WebSocket
     let participant_ids = ChatService::get_participant_ids(&state.db, chat_id).await?;
@@ -396,7 +431,9 @@ async fn toggle_reaction(
 ) -> AppResult<Json<MessageResponseWrapper>> {
     let user_id = get_current_user_id(&state, &headers).await?;
 
-    let message = MessageService::toggle_reaction(&state.db, chat_id, message_id, user_id, &req.emoji).await?;
+    let message =
+        MessageService::toggle_reaction(&state.db, chat_id, message_id, user_id, &req.emoji)
+            .await?;
 
     // Broadcast reaction updated to all chat participants via WebSocket
     let participant_ids = ChatService::get_participant_ids(&state.db, chat_id).await?;
@@ -458,7 +495,6 @@ async fn unpin_message(
 
     Ok(Json(MessageResponseWrapper { message }))
 }
-
 
 // ==================== Bot-Chat Management Routes ====================
 // Requirements: 4.1, 4.2
@@ -575,7 +611,10 @@ async fn list_chat_bots(
 
     // Get bots in chat
     let bots = BotEngineService::get_chat_bots(&state.db, chat_id).await?;
-    let bot_responses: Vec<BotPublicResponse> = bots.into_iter().map(BotPublicResponse::from).collect();
+    let bot_responses: Vec<BotPublicResponse> =
+        bots.into_iter().map(BotPublicResponse::from).collect();
 
-    Ok(Json(ChatBotsResponse { bots: bot_responses }))
+    Ok(Json(ChatBotsResponse {
+        bots: bot_responses,
+    }))
 }

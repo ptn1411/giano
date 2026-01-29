@@ -58,13 +58,12 @@ impl ChatService {
         user_id: Uuid,
     ) -> AppResult<ChatDetailResponse> {
         // Check if user is participant
-        let participant: Option<ChatParticipant> = sqlx::query_as(
-            "SELECT * FROM chat_participants WHERE chat_id = $1 AND user_id = $2",
-        )
-        .bind(chat_id)
-        .bind(user_id)
-        .fetch_optional(&db.pool)
-        .await?;
+        let participant: Option<ChatParticipant> =
+            sqlx::query_as("SELECT * FROM chat_participants WHERE chat_id = $1 AND user_id = $2")
+                .bind(chat_id)
+                .bind(user_id)
+                .fetch_optional(&db.pool)
+                .await?;
 
         if participant.is_none() {
             return Err(AppError::AccessDenied);
@@ -76,12 +75,11 @@ impl ChatService {
             .await?
             .ok_or(AppError::ChatNotFound)?;
 
-        let participants: Vec<Uuid> = sqlx::query_scalar(
-            "SELECT user_id FROM chat_participants WHERE chat_id = $1",
-        )
-        .bind(chat_id)
-        .fetch_all(&db.pool)
-        .await?;
+        let participants: Vec<Uuid> =
+            sqlx::query_scalar("SELECT user_id FROM chat_participants WHERE chat_id = $1")
+                .bind(chat_id)
+                .fetch_all(&db.pool)
+                .await?;
 
         let is_bot = chat.chat_type == "bot";
         let name = Self::get_chat_name(db, &chat, user_id).await?;
@@ -216,13 +214,12 @@ impl ChatService {
         }
 
         // Get other user's info for avatar
-        let other_user: (String, Option<String>) = sqlx::query_as(
-            "SELECT name, avatar FROM users WHERE id = $1"
-        )
-        .bind(other_user_id)
-        .fetch_optional(&db.pool)
-        .await?
-        .ok_or(AppError::UserNotFound)?;
+        let other_user: (String, Option<String>) =
+            sqlx::query_as("SELECT name, avatar FROM users WHERE id = $1")
+                .bind(other_user_id)
+                .fetch_optional(&db.pool)
+                .await?
+                .ok_or(AppError::UserNotFound)?;
 
         // Create new private chat
         let chat: Chat = sqlx::query_as(
@@ -266,14 +263,104 @@ impl ChatService {
         })
     }
 
-    pub async fn is_participant(db: &Database, chat_id: Uuid, user_id: Uuid) -> AppResult<bool> {
-        let exists: Option<(i32,)> = sqlx::query_as(
-            "SELECT 1 FROM chat_participants WHERE chat_id = $1 AND user_id = $2",
+    /// Create a private bot chat or return existing one
+    /// This allows users to chat 1-on-1 with a bot
+    pub async fn create_or_get_bot_chat(
+        db: &Database,
+        user_id: Uuid,
+        bot_id: Uuid,
+    ) -> AppResult<ChatDetailResponse> {
+        // Check if bot exists and get info
+        let bot: Option<(String, Option<String>)> =
+            sqlx::query_as("SELECT name, username FROM bots WHERE id = $1 AND is_active = true")
+                .bind(bot_id)
+                .fetch_optional(&db.pool)
+                .await?;
+
+        let (bot_name, bot_username) = bot.ok_or(AppError::BotNotFound)?;
+
+        // Check if private bot chat already exists (type='bot' and user is participant)
+        let existing_chat: Option<Chat> = sqlx::query_as(
+            r#"
+            SELECT c.* FROM chats c
+            INNER JOIN chat_participants cp ON c.id = cp.chat_id
+            INNER JOIN bot_chats bc ON c.id = bc.chat_id
+            WHERE c.type = 'bot'
+            AND cp.user_id = $1
+            AND bc.bot_id = $2
+            LIMIT 1
+            "#,
         )
-        .bind(chat_id)
         .bind(user_id)
+        .bind(bot_id)
         .fetch_optional(&db.pool)
         .await?;
+
+        if let Some(chat) = existing_chat {
+            return Self::get_chat_by_id(db, chat.id, user_id).await;
+        }
+
+        // Generate bot avatar URL
+        let bot_avatar = format!(
+            "https://api.dicebear.com/7.x/bottts/svg?seed={}&backgroundColor=0ea5e9",
+            bot_username.as_deref().unwrap_or(&bot_id.to_string())
+        );
+
+        // Create new bot chat
+        let chat: Chat = sqlx::query_as(
+            r#"
+            INSERT INTO chats (type, name, avatar, created_by)
+            VALUES ('bot', $1, $2, $3)
+            RETURNING *
+            "#,
+        )
+        .bind(&bot_name)
+        .bind(&bot_avatar)
+        .bind(user_id)
+        .fetch_one(&db.pool)
+        .await?;
+
+        // Add user as participant
+        sqlx::query(
+            "INSERT INTO chat_participants (chat_id, user_id, role) VALUES ($1, $2, 'member')",
+        )
+        .bind(chat.id)
+        .bind(user_id)
+        .execute(&db.pool)
+        .await?;
+
+        // Subscribe bot to this chat
+        sqlx::query(
+            r#"
+            INSERT INTO bot_chats (bot_id, chat_id, added_at)
+            VALUES ($1, $2, NOW())
+            ON CONFLICT (bot_id, chat_id) DO NOTHING
+            "#,
+        )
+        .bind(bot_id)
+        .bind(chat.id)
+        .execute(&db.pool)
+        .await?;
+
+        Ok(ChatDetailResponse {
+            id: chat.id,
+            chat_type: "bot".to_string(),
+            name: bot_name,
+            avatar: Some(bot_avatar),
+            participants: vec![user_id],
+            unread_count: 0,
+            is_typing: false,
+            is_bot: true,
+        })
+    }
+
+    pub async fn is_participant(db: &Database, chat_id: Uuid, user_id: Uuid) -> AppResult<bool> {
+        let exists: Option<(i32,)> =
+            sqlx::query_as("SELECT 1 FROM chat_participants WHERE chat_id = $1 AND user_id = $2")
+                .bind(chat_id)
+                .bind(user_id)
+                .fetch_optional(&db.pool)
+                .await?;
 
         Ok(exists.is_some())
     }
@@ -318,12 +405,11 @@ impl ChatService {
 
     /// Get all participant IDs for a chat
     pub async fn get_participant_ids(db: &Database, chat_id: Uuid) -> AppResult<Vec<Uuid>> {
-        let participants: Vec<Uuid> = sqlx::query_scalar(
-            "SELECT user_id FROM chat_participants WHERE chat_id = $1",
-        )
-        .bind(chat_id)
-        .fetch_all(&db.pool)
-        .await?;
+        let participants: Vec<Uuid> =
+            sqlx::query_scalar("SELECT user_id FROM chat_participants WHERE chat_id = $1")
+                .bind(chat_id)
+                .fetch_all(&db.pool)
+                .await?;
 
         Ok(participants)
     }
@@ -333,20 +419,18 @@ impl ChatService {
         chat: &Chat,
         user_id: Uuid,
     ) -> AppResult<ChatResponse> {
-        let participants: Vec<Uuid> = sqlx::query_scalar(
-            "SELECT user_id FROM chat_participants WHERE chat_id = $1",
-        )
-        .bind(chat.id)
-        .fetch_all(&db.pool)
-        .await?;
+        let participants: Vec<Uuid> =
+            sqlx::query_scalar("SELECT user_id FROM chat_participants WHERE chat_id = $1")
+                .bind(chat.id)
+                .fetch_all(&db.pool)
+                .await?;
 
-        let participant: ChatParticipant = sqlx::query_as(
-            "SELECT * FROM chat_participants WHERE chat_id = $1 AND user_id = $2",
-        )
-        .bind(chat.id)
-        .bind(user_id)
-        .fetch_one(&db.pool)
-        .await?;
+        let participant: ChatParticipant =
+            sqlx::query_as("SELECT * FROM chat_participants WHERE chat_id = $1 AND user_id = $2")
+                .bind(chat.id)
+                .bind(user_id)
+                .fetch_one(&db.pool)
+                .await?;
 
         let name = Self::get_chat_name(db, chat, user_id).await?;
         let is_bot = chat.chat_type == "bot";
@@ -354,7 +438,7 @@ impl ChatService {
         // Get last message
         let last_message: Option<MessageResponse> = {
             let msg: Option<Message> = sqlx::query_as(
-                "SELECT * FROM messages WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 1"
+                "SELECT * FROM messages WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 1",
             )
             .bind(chat.id)
             .fetch_optional(&db.pool)

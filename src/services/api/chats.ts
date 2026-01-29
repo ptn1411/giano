@@ -4,14 +4,14 @@
  * Requirements: 4.1-4.5
  */
 
-import { apiClient, parseApiError } from './client';
+import { apiClient, parseApiError } from "./client";
 import {
   Chat,
-  ChatsResponse,
   ChatResponse,
+  ChatsResponse,
   CreateGroupRequest,
   User,
-} from './types';
+} from "./types";
 
 // ============================================
 // Chats Service Interface
@@ -40,7 +40,7 @@ export const chatsService = {
   async getChats(search?: string): Promise<ChatsResult> {
     try {
       const params = search ? { search } : undefined;
-      const response = await apiClient.get<ChatsResponse>('/chats', { params });
+      const response = await apiClient.get<ChatsResponse>("/chats", { params });
       return { chats: response.data.chats, error: null };
     } catch (error) {
       const parsedError = parseApiError(error);
@@ -66,10 +66,16 @@ export const chatsService = {
    * Create a new group chat
    * Requirement 4.3: Create group chat with POST /chats/group
    */
-  async createGroup(name: string, participantIds: string[]): Promise<ChatResult> {
+  async createGroup(
+    name: string,
+    participantIds: string[],
+  ): Promise<ChatResult> {
     try {
       const request: CreateGroupRequest = { name, participantIds };
-      const response = await apiClient.post<ChatResponse>('/chats/group', request);
+      const response = await apiClient.post<ChatResponse>(
+        "/chats/group",
+        request,
+      );
       return { chat: response.data.chat, error: null };
     } catch (error) {
       const parsedError = parseApiError(error);
@@ -83,8 +89,24 @@ export const chatsService = {
    */
   async createPrivateChat(user: User): Promise<ChatResult> {
     try {
-      const response = await apiClient.post<ChatResponse>('/chats/private', {
+      const response = await apiClient.post<ChatResponse>("/chats/private", {
         userId: user.id,
+      });
+      return { chat: response.data.chat, error: null };
+    } catch (error) {
+      const parsedError = parseApiError(error);
+      return { chat: null, error: parsedError.message };
+    }
+  },
+
+  /**
+   * Create or get existing private chat with a bot
+   * POST /chats/bot
+   */
+  async createBotChat(botId: string): Promise<ChatResult> {
+    try {
+      const response = await apiClient.post<ChatResponse>("/chats/bot", {
+        botId,
       });
       return { chat: response.data.chat, error: null };
     } catch (error) {
@@ -111,7 +133,9 @@ export const chatsService = {
    * Delete a chat
    * DELETE /chats/:chatId
    */
-  async deleteChat(chatId: string): Promise<{ success: boolean; error: string | null }> {
+  async deleteChat(
+    chatId: string,
+  ): Promise<{ success: boolean; error: string | null }> {
     try {
       await apiClient.delete(`/chats/${chatId}`);
       return { success: true, error: null };
