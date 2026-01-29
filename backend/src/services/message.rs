@@ -85,16 +85,17 @@ impl MessageService {
 
         // Validate reply_to message belongs to the same chat to prevent cross-chat leakage.
         if let Some(reply_id) = reply_to_id {
-            let exists: Option<(Uuid,)> = sqlx::query_as(
-                "SELECT id FROM messages WHERE id = $1 AND chat_id = $2",
-            )
-            .bind(reply_id)
-            .bind(chat_id)
-            .fetch_optional(&db.pool)
-            .await?;
+            let exists: Option<(Uuid,)> =
+                sqlx::query_as("SELECT id FROM messages WHERE id = $1 AND chat_id = $2")
+                    .bind(reply_id)
+                    .bind(chat_id)
+                    .fetch_optional(&db.pool)
+                    .await?;
 
             if exists.is_none() {
-                return Err(AppError::BadRequest("Invalid replyTo: message not found in this chat".to_string()));
+                return Err(AppError::BadRequest(
+                    "Invalid replyTo: message not found in this chat".to_string(),
+                ));
             }
         }
 
@@ -154,21 +155,21 @@ impl MessageService {
     }
 
     /// Send a message from a bot.
-    /// 
+    ///
     /// This function creates a message with sender_type = 'bot'.
     /// Unlike send_message, it doesn't check if the sender is a chat participant
     /// because bots use their own subscription system (bot_chats table).
-    /// 
+    ///
     /// # Arguments
     /// * `db` - Database connection
     /// * `chat_id` - The chat to send the message to
     /// * `bot_id` - The bot's UUID
     /// * `text` - The message text
     /// * `reply_to_id` - Optional message ID to reply to
-    /// 
+    ///
     /// # Returns
     /// * `AppResult<MessageResponse>` - The created message
-    /// 
+    ///
     /// # Requirements
     /// - 7.3: Mark the sender as Bot(bot_id)
     pub async fn send_bot_message(
@@ -231,12 +232,13 @@ impl MessageService {
             return Err(AppError::AccessDenied);
         }
 
-        let message: Message = sqlx::query_as("SELECT * FROM messages WHERE id = $1 AND chat_id = $2")
-            .bind(message_id)
-            .bind(chat_id)
-            .fetch_optional(&db.pool)
-            .await?
-            .ok_or(AppError::MessageNotFound)?;
+        let message: Message =
+            sqlx::query_as("SELECT * FROM messages WHERE id = $1 AND chat_id = $2")
+                .bind(message_id)
+                .bind(chat_id)
+                .fetch_optional(&db.pool)
+                .await?
+                .ok_or(AppError::MessageNotFound)?;
 
         if message.sender_id != user_id {
             return Err(AppError::NotMessageOwner);
@@ -268,12 +270,13 @@ impl MessageService {
             return Err(AppError::AccessDenied);
         }
 
-        let message: Message = sqlx::query_as("SELECT * FROM messages WHERE id = $1 AND chat_id = $2")
-            .bind(message_id)
-            .bind(chat_id)
-            .fetch_optional(&db.pool)
-            .await?
-            .ok_or(AppError::MessageNotFound)?;
+        let message: Message =
+            sqlx::query_as("SELECT * FROM messages WHERE id = $1 AND chat_id = $2")
+                .bind(message_id)
+                .bind(chat_id)
+                .fetch_optional(&db.pool)
+                .await?
+                .ok_or(AppError::MessageNotFound)?;
 
         if message.sender_id != user_id {
             return Err(AppError::NotMessageOwner);
@@ -287,11 +290,7 @@ impl MessageService {
         Ok(())
     }
 
-    pub async fn clear_chat_messages(
-        db: &Database,
-        chat_id: Uuid,
-        user_id: Uuid,
-    ) -> AppResult<()> {
+    pub async fn clear_chat_messages(db: &Database, chat_id: Uuid, user_id: Uuid) -> AppResult<()> {
         // Check access - user must be a participant
         if !ChatService::is_participant(db, chat_id, user_id).await? {
             return Err(AppError::AccessDenied);
@@ -304,12 +303,10 @@ impl MessageService {
             .await?;
 
         // Reset unread count for all participants
-        sqlx::query(
-            "UPDATE chat_participants SET unread_count = 0 WHERE chat_id = $1"
-        )
-        .bind(chat_id)
-        .execute(&db.pool)
-        .await?;
+        sqlx::query("UPDATE chat_participants SET unread_count = 0 WHERE chat_id = $1")
+            .bind(chat_id)
+            .execute(&db.pool)
+            .await?;
 
         Ok(())
     }
@@ -326,12 +323,13 @@ impl MessageService {
             return Err(AppError::AccessDenied);
         }
 
-        let message: Message = sqlx::query_as("SELECT * FROM messages WHERE id = $1 AND chat_id = $2")
-            .bind(message_id)
-            .bind(chat_id)
-            .fetch_optional(&db.pool)
-            .await?
-            .ok_or(AppError::MessageNotFound)?;
+        let message: Message =
+            sqlx::query_as("SELECT * FROM messages WHERE id = $1 AND chat_id = $2")
+                .bind(message_id)
+                .bind(chat_id)
+                .fetch_optional(&db.pool)
+                .await?
+                .ok_or(AppError::MessageNotFound)?;
 
         // Check if reaction exists
         let existing: Option<Reaction> = sqlx::query_as(
@@ -355,14 +353,12 @@ impl MessageService {
             .await?;
         } else {
             // Add reaction
-            sqlx::query(
-                "INSERT INTO reactions (message_id, user_id, emoji) VALUES ($1, $2, $3)",
-            )
-            .bind(message_id)
-            .bind(user_id)
-            .bind(emoji)
-            .execute(&db.pool)
-            .await?;
+            sqlx::query("INSERT INTO reactions (message_id, user_id, emoji) VALUES ($1, $2, $3)")
+                .bind(message_id)
+                .bind(user_id)
+                .bind(emoji)
+                .execute(&db.pool)
+                .await?;
         }
 
         Self::build_message_response(db, message).await
@@ -418,7 +414,10 @@ impl MessageService {
         Ok(response)
     }
 
-    pub async fn build_message_response_public(db: &Database, message: Message) -> AppResult<MessageResponse> {
+    pub async fn build_message_response_public(
+        db: &Database,
+        message: Message,
+    ) -> AppResult<MessageResponse> {
         // Get attachments
         let attachments: Vec<Attachment> =
             sqlx::query_as("SELECT * FROM attachments WHERE message_id = $1")
@@ -450,17 +449,29 @@ impl MessageService {
                     .await?;
 
             if let Some(rm) = reply_msg {
-                let sender_name: (String,) =
-                    sqlx::query_as("SELECT name FROM users WHERE id = $1")
-                        .bind(rm.sender_id)
-                        .fetch_one(&db.pool)
-                        .await?;
+                let sender_name: String = if rm.sender_type.as_deref() == Some("bot") {
+                    let res: Option<(String,)> =
+                        sqlx::query_as("SELECT name FROM bots WHERE id = $1")
+                            .bind(rm.sender_id)
+                            .fetch_optional(&db.pool)
+                            .await?;
+                    res.map(|r| r.0)
+                        .unwrap_or_else(|| "Unknown Bot".to_string())
+                } else {
+                    let res: Option<(String,)> =
+                        sqlx::query_as("SELECT name FROM users WHERE id = $1")
+                            .bind(rm.sender_id)
+                            .fetch_optional(&db.pool)
+                            .await?;
+                    res.map(|r| r.0)
+                        .unwrap_or_else(|| "Unknown User".to_string())
+                };
 
                 Some(ReplyToResponse {
                     id: rm.id,
                     text: rm.text,
                     sender_id: rm.sender_id,
-                    sender_name: sender_name.0,
+                    sender_name,
                 })
             } else {
                 None
@@ -473,7 +484,10 @@ impl MessageService {
             id: message.id,
             chat_id: message.chat_id,
             sender_id: message.sender_id,
-            sender_type: message.sender_type.clone().unwrap_or_else(|| "user".to_string()),
+            sender_type: message
+                .sender_type
+                .clone()
+                .unwrap_or_else(|| "user".to_string()),
             text: message.text,
             timestamp: message.created_at,
             is_read: message.is_read,
