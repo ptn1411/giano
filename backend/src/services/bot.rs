@@ -40,7 +40,7 @@ impl BotService {
         db: &Database,
         bot_id: Uuid,
         chat_id: Uuid,
-        _message_id: Uuid,
+        message_id: Uuid,
         user_id: Uuid,
         callback_data: &str,
     ) -> AppResult<MessageResponse> {
@@ -50,6 +50,23 @@ impl BotService {
         // Verify user is a participant in the chat
         if !ChatService::is_participant(db, chat_id, user_id).await? {
             return Err(AppError::AccessDenied);
+        }
+
+        // Validate that the callback refers to a message in this chat.
+        // (Prevents users from forging callbacks with arbitrary message IDs.)
+        let original: Option<Message> = sqlx::query_as(
+            "SELECT * FROM messages WHERE id = $1 AND chat_id = $2",
+        )
+        .bind(message_id)
+        .bind(chat_id)
+        .fetch_optional(&db.pool)
+        .await?;
+
+        let original = original.ok_or(AppError::MessageNotFound)?;
+
+        // Optionally require the original message to be from this bot.
+        if original.sender_id != bot_id {
+            return Err(AppError::BadRequest("Invalid callback: message is not from this bot".to_string()));
         }
 
         // Generate response based on callback data

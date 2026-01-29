@@ -83,6 +83,21 @@ impl MessageService {
 
         let reply_to_id = reply_to.as_ref().map(|r| r.id);
 
+        // Validate reply_to message belongs to the same chat to prevent cross-chat leakage.
+        if let Some(reply_id) = reply_to_id {
+            let exists: Option<(Uuid,)> = sqlx::query_as(
+                "SELECT id FROM messages WHERE id = $1 AND chat_id = $2",
+            )
+            .bind(reply_id)
+            .bind(chat_id)
+            .fetch_optional(&db.pool)
+            .await?;
+
+            if exists.is_none() {
+                return Err(AppError::BadRequest("Invalid replyTo: message not found in this chat".to_string()));
+            }
+        }
+
         // Create message with sender_type = 'user'
         let message: Message = sqlx::query_as(
             r#"
@@ -211,6 +226,11 @@ impl MessageService {
         user_id: Uuid,
         text: &str,
     ) -> AppResult<MessageResponse> {
+        // Check access
+        if !ChatService::is_participant(db, chat_id, user_id).await? {
+            return Err(AppError::AccessDenied);
+        }
+
         let message: Message = sqlx::query_as("SELECT * FROM messages WHERE id = $1 AND chat_id = $2")
             .bind(message_id)
             .bind(chat_id)
@@ -243,6 +263,11 @@ impl MessageService {
         message_id: Uuid,
         user_id: Uuid,
     ) -> AppResult<()> {
+        // Check access
+        if !ChatService::is_participant(db, chat_id, user_id).await? {
+            return Err(AppError::AccessDenied);
+        }
+
         let message: Message = sqlx::query_as("SELECT * FROM messages WHERE id = $1 AND chat_id = $2")
             .bind(message_id)
             .bind(chat_id)
@@ -415,11 +440,12 @@ impl MessageService {
                 .fetch_all(&db.pool)
                 .await?;
 
-        // Get reply_to info
+        // Get reply_to info (restricted to same chat)
         let reply_to = if let Some(reply_id) = message.reply_to_id {
             let reply_msg: Option<Message> =
-                sqlx::query_as("SELECT * FROM messages WHERE id = $1")
+                sqlx::query_as("SELECT * FROM messages WHERE id = $1 AND chat_id = $2")
                     .bind(reply_id)
+                    .bind(message.chat_id)
                     .fetch_optional(&db.pool)
                     .await?;
 
