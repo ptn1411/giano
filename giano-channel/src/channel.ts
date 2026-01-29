@@ -425,10 +425,22 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
       cfg: MoltbotConfig,
       accountId?: string,
     ) => buildRuntimeSnapshot(cfg, account, accountId ?? "default"),
-    resolveAllowFrom: ({ account }: { account: GianoChannelAccount }) =>
-      account.allowFrom?.map((x: string | number) => String(x)),
-    formatAllowFrom: ({ allowFrom }: { allowFrom?: string[] }) =>
-      allowFrom?.map((x: string) => String(x).trim()).filter(Boolean) ?? [],
+    resolveAllowFrom: ({
+      cfg,
+      accountId,
+    }: {
+      cfg: MoltbotConfig;
+      accountId?: string;
+    }) =>
+      (getAccount(cfg, accountId ?? "default").allowFrom ?? []).map((entry) =>
+        String(entry),
+      ),
+    formatAllowFrom: ({ allowFrom }: { allowFrom: string[] }) =>
+      allowFrom
+        .map((entry) => String(entry).trim())
+        .filter(Boolean)
+        .map((entry) => entry.replace(/^(giano-channel|giano):/i, ""))
+        .map((entry) => entry.toLowerCase()),
   },
   outbound: gianoOutbound,
   gateway: gianoGateway,
