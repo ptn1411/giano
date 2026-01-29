@@ -17,7 +17,9 @@ impl Database {
     }
 
     pub async fn run_migrations(&self) -> Result<()> {
-        sqlx::migrate!("./migrations").run(&self.pool).await?;
+        // Use runtime migrations during development to avoid embedding issues
+        let migrator = sqlx::migrate::Migrator::new(std::path::Path::new("./migrations")).await?;
+        migrator.run(&self.pool).await?;
         Ok(())
     }
 }
