@@ -1,5 +1,5 @@
 {
-  "name": "giano-moltbot-channel",
+  "name": "giano-channel",
   "version": "0.1.0",
   "description": "Moltbot channel plugin for Giano chat backend",
   "main": "dist/index.js",
