@@ -7,12 +7,12 @@ Goal: Giano sends tasks to the bot → IDE Agent pulls tasks via MCP tools → I
 ## What it does
 
 - Connects to Giano bot WebSocket (using `@messages-api/bot-sdk`)
-- Treats incoming messages as tasks if they look like tasks (`/task`, `TASK...`, or contain `taskId:`)
+- Treats incoming messages as tasks if they look like tasks (`/task`, `TASK...`, contain `taskId:`, or JSON payload)
 - Exposes MCP tools:
   - `giano_task_pull`
   - `giano_task_ack`
-  - `giano_task_progress`
-  - `giano_task_complete`
+  - `giano_task_progress` (supports optional percent/phase)
+  - `giano_task_complete` (supports optional filesTouched/verify)
   - `giano_queue_stats`
 
 ## Install

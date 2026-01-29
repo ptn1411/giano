@@ -1,6 +1,6 @@
 {
   "name": "mcp-giano-bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "MCP server bridging Giano (Messages API bot) tasks into Antigravity/Cline via MCP tools.",

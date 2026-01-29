@@ -40,21 +40,15 @@ export GIANO_API_BASE_URL="http://127.0.0.1:3000"  # optional
 export GIANO_WS_URL="ws://127.0.0.1:3000/bot/ws"    # optional
 ```
 
-## Task message format (recommended)
+## Task message format (v0.2)
 
-Post tasks to the bot chat using either:
+See full reference: `docs/TASK_FORMAT.md`.
 
-### Option A: Prefix with /task
-```text
-/task Implement feature X. DoD: tests pass.
-```
+Quick summary:
 
-### Option B: Provide a taskId in the first line
-```text
-taskId: auth-rot-001
-Goal: Implement refresh token rotation
-DoD: tests pass
-```
+- Minimal: `/task ...`
+- Better for humans: key/value + lists
+- Best for machines: JSON payload
 
 If no `taskId` is found, the bridge uses `updateId` as the task id.
 

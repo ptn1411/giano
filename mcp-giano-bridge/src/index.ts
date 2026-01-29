@@ -4,16 +4,30 @@ import { z } from 'zod';
 import { Bot } from '@messages-api/bot-sdk';
 import type { Context } from '@messages-api/bot-sdk';
 
+type TaskPayloadV2 = {
+  version: 'v2';
+  taskId: string;
+  title?: string;
+  goal: string;
+  acceptanceCriteria?: string[];
+  steps?: string[];
+  repoPath?: string;
+  files?: string[];
+  commandsAllowed?: string[];
+  notes?: string;
+};
+
 type TaskItem = {
   taskId: string;
   updateId: string;
   messageId: string;
   chatId: string;
   fromUserId: string;
-  text: string;
+  rawText: string;
   receivedAt: string;
   // used for threaded replies
   replyToId: string;
+  payload: TaskPayloadV2;
 };
 
 const botTokenEnv = process.env.GIANO_BOT_TOKEN ?? process.env.MESSAGES_BOT_TOKEN;
@@ -33,38 +47,118 @@ const queue: TaskItem[] = [];
 const inFlight = new Map<string, TaskItem>();
 
 function normalizeTaskText(raw: string) {
-  return raw.trim();
+  return (raw ?? '').trim();
 }
 
-function parseTaskIdFromText(text: string): string | null {
-  // Supported formats:
-  // - first line: "taskId: <id>"
-  // - JSON containing {"taskId": "..."}
-  const firstLine = text.split(/\r?\n/)[0] ?? '';
-  const m = firstLine.match(/taskId\s*[:=]\s*([A-Za-z0-9._-]+)/i);
-  if (m) return m[1];
+function stripTaskPrefix(text: string) {
+  // Allow users to start tasks with "/task" and keep the rest as content.
+  return text.replace(/^\s*\/task\s*/i, '').trim();
+}
 
+function tryParseJson(text: string): any | null {
   try {
     const obj = JSON.parse(text);
-    if (obj && typeof obj.taskId === 'string') return obj.taskId;
+    return obj;
   } catch {
-    // ignore
+    return null;
   }
-  return null;
+}
+
+function parseKeyValueLines(text: string): Record<string, any> {
+  // Very small YAML-ish parser:
+  // key: value
+  // steps:
+  // - a
+  // - b
+  const lines = text.split(/\r?\n/);
+  const out: Record<string, any> = {};
+
+  let currentListKey: string | null = null;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    const listItem = line.match(/^[-*]\s+(.*)$/);
+    if (listItem && currentListKey) {
+      out[currentListKey] = out[currentListKey] ?? [];
+      if (Array.isArray(out[currentListKey])) {
+        out[currentListKey].push(listItem[1]);
+      }
+      continue;
+    }
+
+    const kv = line.match(/^([A-Za-z0-9_\-]+)\s*:\s*(.*)$/);
+    if (kv) {
+      const key = kv[1];
+      const value = kv[2];
+
+      if (value === '') {
+        // start list mode
+        currentListKey = key;
+        out[key] = out[key] ?? [];
+      } else {
+        currentListKey = null;
+        out[key] = value;
+      }
+    } else {
+      currentListKey = null;
+    }
+  }
+
+  return out;
+}
+
+function parseTaskPayloadV2(rawText: string, fallbackUpdateId: string): TaskPayloadV2 {
+  const normalized = normalizeTaskText(rawText);
+  const stripped = stripTaskPrefix(normalized);
+
+  const json = tryParseJson(stripped);
+  const kv = json ? null : parseKeyValueLines(stripped);
+
+  const taskId: string =
+    (json?.taskId ?? json?.task_id ?? kv?.taskId ?? kv?.task_id ?? kv?.id ?? null) || fallbackUpdateId;
+
+  const goal: string =
+    (json?.goal ?? kv?.goal ?? json?.text ?? kv?.text ?? stripped) || stripped || '(empty)';
+
+  const title: string | undefined = json?.title ?? kv?.title;
+
+  const toList = (v: any): string[] | undefined => {
+    if (!v) return undefined;
+    if (Array.isArray(v)) return v.map(String);
+    if (typeof v === 'string') return v.split(',').map((s) => s.trim()).filter(Boolean);
+    return undefined;
+  };
+
+  return {
+    version: 'v2',
+    taskId: String(taskId),
+    title: title ? String(title) : undefined,
+    goal: String(goal).trim(),
+    acceptanceCriteria: toList(json?.acceptanceCriteria ?? json?.dod ?? kv?.acceptanceCriteria ?? kv?.dod),
+    steps: toList(json?.steps ?? kv?.steps),
+    repoPath: (json?.repoPath ?? json?.repo_path ?? kv?.repoPath ?? kv?.repo_path) ? String(json?.repoPath ?? json?.repo_path ?? kv?.repoPath ?? kv?.repo_path) : undefined,
+    files: toList(json?.files ?? kv?.files),
+    commandsAllowed: toList(json?.commandsAllowed ?? json?.commands_allowed ?? kv?.commandsAllowed ?? kv?.commands_allowed),
+    notes: (json?.notes ?? kv?.notes) ? String(json?.notes ?? kv?.notes) : undefined,
+  };
 }
 
 function ctxToTask(ctx: any): TaskItem {
-  const text = normalizeTaskText(ctx.text ?? '');
-  const taskId = parseTaskIdFromText(text) ?? String(ctx.updateId);
+  const rawText = normalizeTaskText(ctx.text ?? '');
+  const updateId = String(ctx.updateId);
+  const payload = parseTaskPayloadV2(rawText, updateId);
+
   return {
-    taskId,
-    updateId: String(ctx.updateId),
+    taskId: payload.taskId,
+    updateId,
     messageId: String(ctx.message?.messageId ?? ''),
     chatId: String(ctx.chatId),
     fromUserId: String(ctx.userId),
-    text,
+    rawText,
     receivedAt: new Date().toISOString(),
     replyToId: String(ctx.message?.messageId ?? ''),
+    payload,
   };
 }
 
@@ -79,11 +173,12 @@ async function startBot() {
   bot.on('text', async (ctx: Context) => {
     const task = ctxToTask(ctx as any);
 
-    // Heuristic: treat messages starting with /task or having taskId/json as tasks.
+    // Heuristic: treat messages starting with /task or containing taskId/json-ish payload as tasks.
     const isLikelyTask =
-      task.text.startsWith('/task') ||
-      task.text.startsWith('TASK') ||
-      /taskId\s*[:=]/i.test(task.text);
+      task.rawText.startsWith('/task') ||
+      task.rawText.startsWith('TASK') ||
+      /taskId\s*[:=]/i.test(task.rawText) ||
+      task.rawText.trim().startsWith('{');
 
     if (!isLikelyTask) return;
 
@@ -92,7 +187,7 @@ async function startBot() {
     // Optional immediate ACK back to Giano chat
     const autoAck = (process.env.GIANO_AUTO_ACK ?? 'true') === 'true';
     if (autoAck) {
-      await ctx.reply(`✅ Task received (taskId=${task.taskId}).\nAgent will start soon.`);
+      await ctx.reply(`✅ Task received (taskId=${task.taskId}).\nGoal: ${task.payload.goal.slice(0, 200)}${task.payload.goal.length > 200 ? '…' : ''}`);
     }
   });
 
@@ -107,12 +202,12 @@ async function startBot() {
 
 const server = new McpServer({
   name: 'mcp-giano-bridge',
-  version: '0.1.0',
+  version: '0.2.0',
 });
 
 server.tool(
   'giano_task_pull',
-  'Pull the next pending task sent to the Giano bot. Returns null if none.',
+  'Pull the next pending task sent to the Giano bot. Returns {task:null} if none.',
   {
     timeoutMs: z.number().int().positive().default(0),
   },
@@ -132,13 +227,24 @@ server.tool(
       item = tryPop();
     }
 
+    const response = {
+      version: 'v2',
+      task: item
+        ? {
+            taskId: item.taskId,
+            chatId: item.chatId,
+            messageId: item.messageId,
+            replyToId: item.replyToId,
+            fromUserId: item.fromUserId,
+            receivedAt: item.receivedAt,
+            payload: item.payload,
+            rawText: item.rawText,
+          }
+        : null,
+    };
+
     return {
-      content: [
-        {
-          type: 'text',
-          text: item ? JSON.stringify(item, null, 2) : 'null',
-        },
-      ],
+      content: [{ type: 'text', text: JSON.stringify(response, null, 2) }],
     };
   }
 );
@@ -166,12 +272,20 @@ server.tool(
   {
     taskId: z.string(),
     message: z.string(),
+    percent: z.number().int().min(0).max(100).optional(),
+    phase: z.string().optional(),
   },
-  async ({ taskId, message }) => {
+  async ({ taskId, message, percent, phase }) => {
     const task = inFlight.get(taskId);
     if (!task) throw new Error(`Unknown taskId: ${taskId}`);
 
-    await botGlobal.sendMessage(task.chatId, message, { replyToId: task.replyToId });
+    const prefixParts: string[] = [];
+    if (phase) prefixParts.push(`phase=${phase}`);
+    if (percent !== undefined) prefixParts.push(`${percent}%`);
+
+    const prefix = prefixParts.length ? `🟪 Progress (${prefixParts.join(', ')}): ` : '🟪 Progress: ';
+
+    await botGlobal.sendMessage(task.chatId, prefix + message, { replyToId: task.replyToId });
 
     return { content: [{ type: 'text', text: 'OK' }] };
   }
@@ -184,21 +298,55 @@ server.tool(
     taskId: z.string(),
     status: z.enum(['success', 'failed', 'blocked']).default('success'),
     summary: z.string(),
+    filesTouched: z.array(z.string()).optional(),
+    verify: z.array(z.string()).optional(),
   },
-  async ({ taskId, status, summary }) => {
+  async ({ taskId, status, summary, filesTouched, verify }) => {
     const task = inFlight.get(taskId);
     if (!task) throw new Error(`Unknown taskId: ${taskId}`);
 
     inFlight.delete(taskId);
 
+    const lines: string[] = [summary.trim()];
+    if (filesTouched?.length) {
+      lines.push('', 'Files:', ...filesTouched.map((f) => `- ${f}`));
+    }
+    if (verify?.length) {
+      lines.push('', 'Verify:', ...verify.map((c) => `- ${c}`));
+    }
+
+    const body = lines.join('\n').trim();
+
     const text =
       status === 'success'
-        ? `✅ Done (taskId=${taskId})\n${summary}`
+        ? `✅ Done (taskId=${taskId})\n${body}`
         : status === 'blocked'
-          ? `🟨 Blocked (taskId=${taskId})\n${summary}`
-          : `❌ Failed (taskId=${taskId})\n${summary}`;
+          ? `🟨 Blocked (taskId=${taskId})\n${body}`
+          : `❌ Failed (taskId=${taskId})\n${body}`;
 
     await botGlobal.sendMessage(task.chatId, text, { replyToId: task.replyToId });
+
+    return { content: [{ type: 'text', text: 'OK' }] };
+  }
+);
+
+server.tool(
+  'giano_task_release',
+  'Release an in-flight task back into the queue (e.g. if agent aborted).',
+  {
+    taskId: z.string(),
+    reason: z.string().default('released'),
+  },
+  async ({ taskId, reason }) => {
+    const task = inFlight.get(taskId);
+    if (!task) throw new Error(`Unknown taskId: ${taskId}`);
+
+    inFlight.delete(taskId);
+    queue.unshift(task);
+
+    await botGlobal.sendMessage(task.chatId, `🟧 Task released (taskId=${taskId}). Reason: ${reason}`, {
+      replyToId: task.replyToId,
+    });
 
     return { content: [{ type: 'text', text: 'OK' }] };
   }
@@ -209,7 +357,7 @@ server.tool(
   'Get queue size and in-flight count.',
   {},
   async () => {
-    const stats = { queued: queue.length, inFlight: inFlight.size };
+    const stats = { queued: queue.length, inFlight: inFlight.size, version: '0.2.0' };
     return { content: [{ type: 'text', text: JSON.stringify(stats, null, 2) }] };
   }
 );
