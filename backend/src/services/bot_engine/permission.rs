@@ -4,7 +4,6 @@
 /// - Scope constants for bot permissions
 /// - Functions to check if a bot has a specific scope
 /// - Functions to check if a bot is subscribed to a chat
-
 use uuid::Uuid;
 
 use crate::db::Database;
@@ -33,13 +32,12 @@ impl PermissionChecker {
     /// - 3.4: Verify bot has required scope before proceeding
     /// - 3.5: Reject request with permission error if scope is missing
     pub async fn check_scope(db: &Database, bot_id: Uuid, scope: &str) -> Result<bool, AppError> {
-        let result: Option<(i64,)> = sqlx::query_as(
-            "SELECT 1 FROM bot_permissions WHERE bot_id = $1 AND scope = $2"
-        )
-        .bind(bot_id)
-        .bind(scope)
-        .fetch_optional(&db.pool)
-        .await?;
+        let result: Option<(i32,)> =
+            sqlx::query_as("SELECT 1 FROM bot_permissions WHERE bot_id = $1 AND scope = $2")
+                .bind(bot_id)
+                .bind(scope)
+                .fetch_optional(&db.pool)
+                .await?;
 
         Ok(result.is_some())
     }
@@ -62,13 +60,12 @@ impl PermissionChecker {
         bot_id: Uuid,
         chat_id: Uuid,
     ) -> Result<bool, AppError> {
-        let result: Option<(i64,)> = sqlx::query_as(
-            "SELECT 1 FROM bot_chats WHERE bot_id = $1 AND chat_id = $2"
-        )
-        .bind(bot_id)
-        .bind(chat_id)
-        .fetch_optional(&db.pool)
-        .await?;
+        let result: Option<(i32,)> =
+            sqlx::query_as("SELECT 1 FROM bot_chats WHERE bot_id = $1 AND chat_id = $2")
+                .bind(bot_id)
+                .bind(chat_id)
+                .fetch_optional(&db.pool)
+                .await?;
 
         Ok(result.is_some())
     }
