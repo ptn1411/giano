@@ -9,6 +9,6 @@
     ]
   },
   "dependencies": {
-    "gianobot": "^1.0.0"
+    "gianobot": "^1.0.1"
   }
 }

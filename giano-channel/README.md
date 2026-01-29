@@ -15,12 +15,12 @@ Thêm vào file cấu hình Moltbot:
 
 ```yaml
 channels:
-  giano:
+  giano-channel:
     accounts:
       default:
         enabled: true
         apiBaseUrl: "https://messages-api.bug.edu.vn"
-        wsUrl: "wss://messages-api.bug.edu.vn/ws"
+        wsUrl: "wss://messages-api.bug.edu.vn/bot/ws"
         token: "your_jwt_access_token"
         botUserId: "uuid-of-bot-user" # Optional: để filter tin nhắn từ chính bot
         allowFrom:

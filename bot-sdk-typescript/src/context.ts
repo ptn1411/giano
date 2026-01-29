@@ -1,7 +1,7 @@
 // Context class for Bot SDK
-import { Update, Message, InlineButton, SendMessageOptions } from './types';
-import { ApiClient } from './api-client';
-import { ValidationError } from './errors';
+import { ApiClient } from "./api-client";
+import { ValidationError } from "./errors";
+import { InlineButton, Message, SendMessageOptions, Update } from "./types";
 
 /**
  * Context object provided to message handlers
@@ -27,14 +27,10 @@ export class Context {
    * (Requirement 6.2, 6.3)
    */
   async reply(text: string, options?: SendMessageOptions): Promise<Message> {
-    return this.apiClient.sendMessage(
-      this.message.chat.id,
-      text,
-      {
-        ...options,
-        replyToId: this.message.messageId,
-      }
-    );
+    return this.apiClient.sendMessage(this.message.chat.id, text, {
+      ...options,
+      replyToId: this.message.messageId,
+    });
   }
 
   /**
@@ -44,19 +40,15 @@ export class Context {
    */
   async replyWithButtons(
     text: string,
-    buttons: InlineButton[][]
+    buttons: InlineButton[][],
   ): Promise<Message> {
     // Validate each button has either callback_data or url (not both) (Requirement 8.5)
     this.validateButtons(buttons);
 
-    return this.apiClient.sendMessage(
-      this.message.chat.id,
-      text,
-      {
-        replyToId: this.message.messageId,
-        inlineKeyboard: buttons,
-      }
-    );
+    return this.apiClient.sendMessage(this.message.chat.id, text, {
+      replyToId: this.message.messageId,
+      inlineKeyboard: buttons,
+    });
   }
 
   /**
@@ -81,13 +73,13 @@ export class Context {
         // Button must have either callback_data or url, but not both
         if (hasCallbackData && hasUrl) {
           throw new ValidationError(
-            `Button "${button.text}" cannot have both callbackData and url`
+            `Button "${button.text}" cannot have both callbackData and url`,
           );
         }
 
         if (!hasCallbackData && !hasUrl) {
           throw new ValidationError(
-            `Button "${button.text}" must have either callbackData or url`
+            `Button "${button.text}" must have either callbackData or url`,
           );
         }
       }
@@ -116,5 +108,12 @@ export class Context {
    */
   get text(): string {
     return this.message.text;
+  }
+
+  /**
+   * Convenience getter for message ID
+   */
+  get messageId(): string {
+    return this.message.messageId;
   }
 }

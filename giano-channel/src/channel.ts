@@ -28,6 +28,15 @@ type GianoChannelConfig = {
   accounts?: Record<string, GianoChannelAccount>;
 };
 
+// Send text params type
+type SendTextParams = {
+  to: string;
+  text: string;
+  cfg: MoltbotConfig;
+  replyToId?: string;
+  accountId?: string;
+};
+
 // Helpers
 function now() {
   return Date.now();
@@ -135,7 +144,7 @@ const gianoOutbound: ChannelOutboundAdapter = {
   deliveryMode: "direct",
   chunkerMode: "text",
   textChunkLimit: 4000,
-  sendText: async ({ to, text, cfg, replyToId, accountId }) => {
+  sendText: async ({ to, text, cfg, replyToId, accountId }: SendTextParams) => {
     const channelCfg = getAccount(cfg, accountId ?? "default");
     const token = channelCfg.token;
     if (!token) {
@@ -157,7 +166,7 @@ const gianoOutbound: ChannelOutboundAdapter = {
 
     return {
       channel: "giano-channel",
-      messageId: String(result.id),
+      messageId: String(result.messageId),
       chatId: to,
     };
   },
@@ -324,12 +333,16 @@ const gianoGateway: ChannelGatewayAdapter<GianoChannelAccount> = {
     });
 
     ctx.abortSignal.removeEventListener("abort", onAbort);
-    ctx.setStatus({
-      ...ctx.getStatus(),
-      connected: false,
-      running: false,
-      lastStopAt: now(),
-      lastDisconnect: { at: now() },
+
+    // Emit stopped event if bot hasn't already
+    bot.on("stopped", () => {
+      ctx.setStatus({
+        ...ctx.getStatus(),
+        connected: false,
+        running: false,
+        lastStopAt: now(),
+        lastDisconnect: { at: now() },
+      });
     });
   },
 
@@ -414,8 +427,8 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
     ) => buildRuntimeSnapshot(cfg, account, accountId ?? "default"),
     resolveAllowFrom: ({ account }: { account: GianoChannelAccount }) =>
       account.allowFrom?.map((x: string | number) => String(x)),
-    formatAllowFrom: ({ allowFrom }: { allowFrom: string[] }) =>
-      allowFrom.map((x: string) => String(x).trim()).filter(Boolean),
+    formatAllowFrom: ({ allowFrom }: { allowFrom?: string[] }) =>
+      allowFrom?.map((x: string) => String(x).trim()).filter(Boolean) ?? [],
   },
   outbound: gianoOutbound,
   gateway: gianoGateway,
