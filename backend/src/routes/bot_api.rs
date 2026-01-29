@@ -103,6 +103,13 @@ async fn send_message(
     // 1. Validate token and get bot
     let bot = extract_bot_from_token(&state, &token).await?;
 
+    tracing::info!(
+        "Bot {} ({}) attempting to send message to chat {}",
+        bot.name,
+        bot.id,
+        body.chat_id
+    );
+
     // 2. Check if bot is active
     if !bot.is_active {
         return Ok(Json(BotApiResponse::error(403, "Bot is not active")));

@@ -49,16 +49,16 @@ bot.on("text", async (ctx: Context) => {
     await ctx.reply(`Bạn nói: ${text}`);
     console.log("   ↪️ Replied success");
   } catch (err) {
-    console.error("   ❌ Reply failed:", err);
+    console.error("   ❌ Reply failed:", JSON.stringify(err));
   }
 });
 
 // Khi có lỗi
 bot.on("error", (err) => {
-  console.error("🔥 Bot Error:", err);
+  console.error("🔥 Bot Error:", JSON.stringify(err));
 });
 
 // 4. Chạy bot
 bot.start().catch((err) => {
-  console.error("Failed to start bot:", err);
+  console.error("Failed to start bot:", JSON.stringify(err));
 });

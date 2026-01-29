@@ -179,6 +179,8 @@ impl MessageService {
         text: String,
         reply_to_id: Option<Uuid>,
     ) -> AppResult<MessageResponse> {
+        tracing::info!("Bot {} sending message to chat {}", bot_id, chat_id);
+
         // Validate message
         if text.trim().is_empty() {
             return Err(AppError::EmptyMessage);
