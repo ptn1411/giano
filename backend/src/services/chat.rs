@@ -138,26 +138,58 @@ impl ChatService {
         .execute(&db.pool)
         .await?;
 
-        // Add other participants
-        for pid in &participant_ids {
-            sqlx::query(
-                "INSERT INTO chat_participants (chat_id, user_id, role) VALUES ($1, $2, 'member')",
-            )
-            .bind(chat.id)
-            .bind(pid)
-            .execute(&db.pool)
-            .await?;
-        }
+        let mut user_participants = vec![creator_id];
 
-        let mut all_participants = vec![creator_id];
-        all_participants.extend(participant_ids);
+        // Add other participants (check if each ID is a user or a bot)
+        for pid in &participant_ids {
+            // First check if it's a user
+            let is_user: Option<(i32,)> = sqlx::query_as("SELECT 1 FROM users WHERE id = $1")
+                .bind(pid)
+                .fetch_optional(&db.pool)
+                .await?;
+
+            if is_user.is_some() {
+                // Add as user participant
+                sqlx::query(
+                    "INSERT INTO chat_participants (chat_id, user_id, role) VALUES ($1, $2, 'member') ON CONFLICT DO NOTHING",
+                )
+                .bind(chat.id)
+                .bind(pid)
+                .execute(&db.pool)
+                .await?;
+                user_participants.push(*pid);
+            } else {
+                // Check if it's a bot
+                let is_bot: Option<(i32,)> =
+                    sqlx::query_as("SELECT 1 FROM bots WHERE id = $1 AND is_active = true")
+                        .bind(pid)
+                        .fetch_optional(&db.pool)
+                        .await?;
+
+                if is_bot.is_some() {
+                    // Add bot to chat via bot_chats table
+                    sqlx::query(
+                        r#"
+                        INSERT INTO bot_chats (bot_id, chat_id, added_at)
+                        VALUES ($1, $2, NOW())
+                        ON CONFLICT (bot_id, chat_id) DO NOTHING
+                        "#,
+                    )
+                    .bind(pid)
+                    .bind(chat.id)
+                    .execute(&db.pool)
+                    .await?;
+                }
+                // If neither user nor bot, silently skip (could be invalid ID)
+            }
+        }
 
         Ok(ChatDetailResponse {
             id: chat.id,
             chat_type: "group".to_string(),
             name: name.to_string(),
             avatar: Some(avatar),
-            participants: all_participants,
+            participants: user_participants,
             unread_count: 0,
             is_typing: false,
             is_bot: false,

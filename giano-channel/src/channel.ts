@@ -1,64 +1,72 @@
-import { Bot, Context } from "gianobot";
-import type { ChannelPlugin, MoltbotConfig } from "moltbot/plugin-sdk";
-import {
-  createReplyDispatcherWithTyping,
-  DEFAULT_ACCOUNT_ID,
-  dispatchReplyFromConfig,
-  finalizeInboundContext,
-  getChatChannelMeta,
-  resolveAgentRoute,
+import type {
+  ChannelAccountSnapshot,
+  ChannelDock,
+  ChannelPlugin,
+  MoltbotConfig,
 } from "moltbot/plugin-sdk";
+import { DEFAULT_ACCOUNT_ID, getChatChannelMeta } from "moltbot/plugin-sdk";
 
-// Types
-export type GianoChannelAccount = {
-  accountId?: string;
-  name?: string;
-  enabled?: boolean;
-  apiBaseUrl?: string;
-  wsUrl?: string;
-  token?: string;
-  botUserId?: string;
-  allowFrom?: Array<string | number>;
-};
-
-type GianoChannelConfig = {
-  enabled?: boolean;
-  accounts?: Record<string, GianoChannelAccount>;
-};
+import {
+  getChannelConfig,
+  listGianoAccountIds,
+  resolveDefaultGianoAccountId,
+  resolveGianoAccount,
+} from "./accounts.js";
+import { probeGiano } from "./probe.js";
+import { sendMessageGiano } from "./send.js";
+import { collectGianoStatusIssues } from "./status-issues.js";
+import type { ResolvedGianoAccount } from "./types.js";
 
 // Helpers
 function now() {
   return Date.now();
 }
 
-function getChannelConfig(cfg: MoltbotConfig): GianoChannelConfig {
-  const channels = cfg.channels as Record<string, unknown> | undefined;
-  return (channels?.["giano-channel"] ?? channels?.["giano"] ?? {}) as GianoChannelConfig;
+function normalizeAccountId(accountId?: string | null): string {
+  const trimmed = accountId?.trim();
+  return trimmed || DEFAULT_ACCOUNT_ID;
 }
 
-function resolveGianoAccount(params: {
-  cfg: MoltbotConfig;
-  accountId?: string;
-}): GianoChannelAccount {
-  const channelCfg = getChannelConfig(params.cfg);
-  const accountId = params.accountId ?? DEFAULT_ACCOUNT_ID;
-  const account = channelCfg.accounts?.[accountId] ?? {};
-  return {
-    ...account,
-    accountId,
-    enabled: account.enabled !== false,
-  };
-}
-
-function listGianoAccountIds(cfg: MoltbotConfig): string[] {
-  const channelCfg = getChannelConfig(cfg);
-  return Object.keys(channelCfg.accounts ?? {});
+function normalizeGianoMessagingTarget(raw: string): string | undefined {
+  const trimmed = raw?.trim();
+  if (!trimmed) return undefined;
+  return trimmed.replace(/^(giano-channel|giano):/i, "");
 }
 
 const meta = getChatChannelMeta("giano-channel");
 
+// ChannelDock - shared capabilities
+export const gianoDock: ChannelDock = {
+  id: "giano-channel",
+  capabilities: {
+    chatTypes: ["direct", "group"],
+    media: false,
+    blockStreaming: false,
+  },
+  outbound: { textChunkLimit: 4000 },
+  config: {
+    resolveAllowFrom: ({ cfg, accountId }) =>
+      (
+        resolveGianoAccount({ cfg: cfg as MoltbotConfig, accountId }).config
+          .allowFrom ?? []
+      ).map((entry) => String(entry)),
+    formatAllowFrom: ({ allowFrom }) =>
+      allowFrom
+        .map((entry) => String(entry).trim())
+        .filter(Boolean)
+        .map((entry) => entry.replace(/^(giano-channel|giano):/i, ""))
+        .map((entry) => entry.toLowerCase()),
+  },
+  groups: {
+    resolveRequireMention: () => false,
+  },
+  threading: {
+    resolveReplyToMode: () => "enabled",
+  },
+};
+
 // Exported channel plugin
-export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
+export const gianoChannelPlugin: ChannelPlugin<ResolvedGianoAccount> = {
   id: "giano-channel",
   meta: {
     ...meta,
@@ -67,28 +75,40 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
     selectionLabel: "Giano",
     docsPath: "/channels/giano-channel",
     blurb: "Giano backend chat channel using gianobot SDK.",
+    aliases: ["giano"],
+    order: 100,
+    quickstartAllowFrom: true,
   },
   capabilities: {
     chatTypes: ["direct", "group"],
     media: false,
     reactions: false,
+    threads: true,
+    polls: false,
+    nativeCommands: false,
+    blockStreaming: false,
   },
+  reload: { configPrefixes: ["channels.giano-channel", "channels.giano"] },
   config: {
-    listAccountIds: (cfg) => listGianoAccountIds(cfg),
-    resolveAccount: (cfg, accountId) => resolveGianoAccount({ cfg, accountId }),
-    isEnabled: (account) => account.enabled !== false,
+    listAccountIds: (cfg) => listGianoAccountIds(cfg as MoltbotConfig),
+    resolveAccount: (cfg, accountId) =>
+      resolveGianoAccount({ cfg: cfg as MoltbotConfig, accountId }),
+    defaultAccountId: (cfg) =>
+      resolveDefaultGianoAccountId(cfg as MoltbotConfig),
     isConfigured: async (account) => Boolean(account.token?.trim()),
-    unconfiguredReason: () => "missing token (channels.giano.accounts.<id>.token)",
-    describeAccount: (account) => ({
-      accountId: account.accountId ?? DEFAULT_ACCOUNT_ID,
+    unconfiguredReason: () =>
+      "missing token (channels.giano-channel.token or GIANO_BOT_TOKEN)",
+    describeAccount: (account): ChannelAccountSnapshot => ({
+      accountId: account.accountId,
       name: account.name,
-      enabled: account.enabled !== false,
+      enabled: account.enabled,
       configured: Boolean(account.token?.trim()),
     }),
     resolveAllowFrom: ({ cfg, accountId }) =>
-      (resolveGianoAccount({ cfg, accountId }).allowFrom ?? []).map((entry) =>
-        String(entry),
-      ),
+      (
+        resolveGianoAccount({ cfg: cfg as MoltbotConfig, accountId }).config
+          .allowFrom ?? []
+      ).map((entry) => String(entry)),
     formatAllowFrom: ({ allowFrom }) =>
       allowFrom
         .map((entry) => String(entry).trim())
@@ -96,33 +116,200 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
         .map((entry) => entry.replace(/^(giano-channel|giano):/i, ""))
         .map((entry) => entry.toLowerCase()),
   },
+  security: {
+    resolveDmPolicy: ({ cfg, accountId, account }) => {
+      const resolvedAccountId =
+        accountId ?? account.accountId ?? DEFAULT_ACCOUNT_ID;
+      const gianoConfig = getChannelConfig(cfg as MoltbotConfig);
+      const useAccountPath = Boolean(gianoConfig.accounts?.[resolvedAccountId]);
+      const basePath = useAccountPath
+        ? `channels.giano-channel.accounts.${resolvedAccountId}.`
+        : "channels.giano-channel.";
+      return {
+        policy: account.config.dmPolicy ?? "open",
+        allowFrom: account.config.allowFrom ?? [],
+        policyPath: `${basePath}dmPolicy`,
+        allowFromPath: basePath,
+        approveHint: `Add user ID to channels.giano-channel.allowFrom`,
+        normalizeEntry: (raw) => raw.replace(/^(giano-channel|giano):/i, ""),
+      };
+    },
+  },
+  groups: {
+    resolveRequireMention: () => false,
+  },
+  threading: {
+    resolveReplyToMode: () => "enabled",
+  },
+  messaging: {
+    normalizeTarget: normalizeGianoMessagingTarget,
+    targetResolver: {
+      looksLikeId: (raw) => {
+        const trimmed = raw.trim();
+        if (!trimmed) return false;
+        // Giano uses UUIDs or numeric IDs
+        return /^[a-f0-9-]{36}$/.test(trimmed) || /^\d+$/.test(trimmed);
+      },
+      hint: "<chatId>",
+    },
+  },
+  directory: {
+    self: async () => null,
+    listPeers: async ({ cfg, accountId, query, limit }) => {
+      const account = resolveGianoAccount({
+        cfg: cfg as MoltbotConfig,
+        accountId,
+      });
+      const q = query?.trim().toLowerCase() || "";
+      const peers = Array.from(
+        new Set(
+          (account.config.allowFrom ?? [])
+            .map((entry) => String(entry).trim())
+            .filter((entry) => Boolean(entry) && entry !== "*")
+            .map((entry) => entry.replace(/^(giano-channel|giano):/i, "")),
+        ),
+      )
+        .filter((id) => (q ? id.toLowerCase().includes(q) : true))
+        .slice(0, limit && limit > 0 ? limit : undefined)
+        .map((id) => ({ kind: "user", id }) as const);
+      return peers;
+    },
+    listGroups: async () => [],
+  },
+  setup: {
+    resolveAccountId: ({ accountId }) => normalizeAccountId(accountId),
+    applyAccountName: ({ cfg, accountId, name }) => {
+      const current = (cfg as MoltbotConfig).channels?.["giano-channel"] ?? {};
+      if (accountId === DEFAULT_ACCOUNT_ID) {
+        return {
+          ...cfg,
+          channels: {
+            ...(cfg as MoltbotConfig).channels,
+            "giano-channel": { ...current, name },
+          },
+        } as MoltbotConfig;
+      }
+      return {
+        ...cfg,
+        channels: {
+          ...(cfg as MoltbotConfig).channels,
+          "giano-channel": {
+            ...current,
+            accounts: {
+              ...current.accounts,
+              [accountId]: { ...current.accounts?.[accountId], name },
+            },
+          },
+        },
+      } as MoltbotConfig;
+    },
+    validateInput: ({ accountId, input }) => {
+      if (input.useEnv && accountId !== DEFAULT_ACCOUNT_ID) {
+        return "GIANO_BOT_TOKEN can only be used for the default account.";
+      }
+      if (!input.useEnv && !input.token) {
+        return "Giano requires token (or --use-env).";
+      }
+      return null;
+    },
+    applyAccountConfig: ({ cfg, accountId, input }) => {
+      const current = (cfg as MoltbotConfig).channels?.["giano-channel"] ?? {};
+      if (accountId === DEFAULT_ACCOUNT_ID) {
+        return {
+          ...cfg,
+          channels: {
+            ...(cfg as MoltbotConfig).channels,
+            "giano-channel": {
+              ...current,
+              enabled: true,
+              ...(input.name ? { name: input.name } : {}),
+              ...(input.useEnv
+                ? {}
+                : input.token
+                  ? { token: input.token }
+                  : {}),
+              ...(input.apiBaseUrl ? { apiBaseUrl: input.apiBaseUrl } : {}),
+              ...(input.wsUrl ? { wsUrl: input.wsUrl } : {}),
+            },
+          },
+        } as MoltbotConfig;
+      }
+      return {
+        ...cfg,
+        channels: {
+          ...(cfg as MoltbotConfig).channels,
+          "giano-channel": {
+            ...current,
+            enabled: true,
+            accounts: {
+              ...current.accounts,
+              [accountId]: {
+                ...current.accounts?.[accountId],
+                enabled: true,
+                ...(input.name ? { name: input.name } : {}),
+                ...(input.token ? { token: input.token } : {}),
+                ...(input.apiBaseUrl ? { apiBaseUrl: input.apiBaseUrl } : {}),
+                ...(input.wsUrl ? { wsUrl: input.wsUrl } : {}),
+              },
+            },
+          },
+        },
+      } as MoltbotConfig;
+    },
+  },
+  pairing: {
+    idLabel: "gianoUserId",
+    normalizeAllowEntry: (entry) =>
+      entry.replace(/^(giano-channel|giano):/i, ""),
+    notifyApproval: async ({ cfg, id }) => {
+      const account = resolveGianoAccount({ cfg: cfg as MoltbotConfig });
+      if (!account.token) throw new Error("Giano token not configured");
+      await sendMessageGiano(id, "Your pairing request has been approved.", {
+        token: account.token,
+        cfg: cfg as MoltbotConfig,
+      });
+    },
+  },
   outbound: {
     deliveryMode: "direct",
-    chunker: null,
-    textChunkLimit: 4000,
-    sendText: async ({ to, text, cfg, replyToId, accountId }) => {
-      const account = resolveGianoAccount({ cfg, accountId });
-      const token = account.token?.trim();
-      if (!token) {
-        throw new Error(
-          "giano-channel missing token (channels.giano-channel.accounts.<id>.token)",
+    chunker: (text, limit) => {
+      if (!text) return [];
+      if (limit <= 0 || text.length <= limit) return [text];
+      const chunks: string[] = [];
+      let remaining = text;
+      while (remaining.length > limit) {
+        const window = remaining.slice(0, limit);
+        const lastNewline = window.lastIndexOf("\n");
+        const lastSpace = window.lastIndexOf(" ");
+        let breakIdx = lastNewline > 0 ? lastNewline : lastSpace;
+        if (breakIdx <= 0) breakIdx = limit;
+        const rawChunk = remaining.slice(0, breakIdx);
+        const chunk = rawChunk.trimEnd();
+        if (chunk.length > 0) chunks.push(chunk);
+        const brokeOnSeparator =
+          breakIdx < remaining.length && /\s/.test(remaining[breakIdx]);
+        const nextStart = Math.min(
+          remaining.length,
+          breakIdx + (brokeOnSeparator ? 1 : 0),
         );
+        remaining = remaining.slice(nextStart).trimStart();
       }
-
-      const bot = new Bot(token, {
-        mode: "websocket",
-        apiBaseUrl: account.apiBaseUrl ?? "http://127.0.0.1:3000",
-        wsUrl: account.wsUrl ?? "ws://127.0.0.1:3000",
-      });
-
-      const result = await bot.sendMessage(to, text, {
+      if (remaining.length) chunks.push(remaining);
+      return chunks;
+    },
+    chunkerMode: "text",
+    textChunkLimit: 4000,
+    sendText: async ({ to, text, accountId, cfg, replyToId }) => {
+      const result = await sendMessageGiano(to, text, {
+        accountId: accountId ?? undefined,
+        cfg: cfg as MoltbotConfig,
         replyToId: replyToId ?? undefined,
       });
-
       return {
         channel: "giano-channel",
-        messageId: String(result.messageId),
-        chatId: to,
+        ok: result.ok,
+        messageId: result.messageId ?? "",
+        error: result.error ? new Error(result.error) : undefined,
       };
     },
   },
@@ -134,18 +321,38 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
       lastStopAt: null,
       lastError: null,
     },
-    buildAccountSnapshot: ({ account, runtime }) => ({
-      accountId: account.accountId ?? DEFAULT_ACCOUNT_ID,
-      name: account.name,
-      enabled: account.enabled !== false,
-      configured: Boolean(account.token?.trim()),
-      running: runtime?.running ?? false,
-      lastStartAt: runtime?.lastStartAt ?? null,
-      lastStopAt: runtime?.lastStopAt ?? null,
-      lastError: runtime?.lastError ?? null,
-      lastInboundAt: runtime?.lastInboundAt ?? null,
-      lastOutboundAt: runtime?.lastOutboundAt ?? null,
+    collectStatusIssues: (params) =>
+      collectGianoStatusIssues({
+        account: params.account as ResolvedGianoAccount,
+        cfg: params.cfg as MoltbotConfig,
+      }),
+    buildChannelSummary: ({ snapshot }) => ({
+      configured: snapshot.configured ?? false,
+      running: snapshot.running ?? false,
+      lastStartAt: snapshot.lastStartAt ?? null,
+      lastStopAt: snapshot.lastStopAt ?? null,
+      lastError: snapshot.lastError ?? null,
+      probe: snapshot.probe,
+      lastProbeAt: snapshot.lastProbeAt ?? null,
     }),
+    probeAccount: async ({ account, timeoutMs }) =>
+      probeGiano(account as ResolvedGianoAccount, timeoutMs),
+    buildAccountSnapshot: ({ account, runtime }) => {
+      const configured = Boolean(account.token?.trim());
+      return {
+        accountId: account.accountId,
+        name: account.name,
+        enabled: account.enabled,
+        configured,
+        running: runtime?.running ?? false,
+        lastStartAt: runtime?.lastStartAt ?? null,
+        lastStopAt: runtime?.lastStopAt ?? null,
+        lastError: runtime?.lastError ?? null,
+        lastInboundAt: runtime?.lastInboundAt ?? null,
+        lastOutboundAt: runtime?.lastOutboundAt ?? null,
+        dmPolicy: account.config.dmPolicy ?? "open",
+      };
+    },
   },
   gateway: {
     startAccount: async (ctx) => {
@@ -160,12 +367,26 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
           configured: false,
         });
         throw new Error(
-          "giano-channel missing token (channels.giano-channel.accounts.<id>.token)",
+          "giano-channel missing token (channels.giano-channel.token or GIANO_BOT_TOKEN)",
         );
       }
 
+      // Probe to get bot info
+      let botLabel = "";
+      try {
+        const probe = await probeGiano(account, 2500);
+        const name = probe.ok ? probe.bot?.name?.trim() : null;
+        if (name) botLabel = ` (${name})`;
+        ctx.setStatus({
+          accountId: account.accountId,
+          bot: probe.bot,
+        });
+      } catch {
+        // ignore probe errors
+      }
+
       ctx.log?.info?.(
-        `[${account.accountId ?? DEFAULT_ACCOUNT_ID}] starting giano provider`,
+        `[${account.accountId}] starting giano provider${botLabel}`,
       );
 
       ctx.setStatus({
@@ -178,124 +399,16 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
         configured: true,
       });
 
-      const bot = new Bot(token, {
-        mode: "websocket",
-        apiBaseUrl: account.apiBaseUrl ?? "http://127.0.0.1:3000",
-        wsUrl: account.wsUrl ?? "ws://127.0.0.1:3000",
+      // Import and use monitor
+      const { monitorGianoProvider } = await import("./monitor.js");
+      return monitorGianoProvider({
+        account,
+        config: ctx.cfg as MoltbotConfig,
+        runtime: ctx.runtime,
+        abortSignal: ctx.abortSignal,
+        statusSink: (patch) =>
+          ctx.setStatus({ accountId: ctx.accountId, ...patch }),
       });
-
-      // Handle incoming messages
-      bot.on("text", async (botCtx: Context) => {
-        if (ctx.abortSignal.aborted) return;
-
-        const chatId = botCtx.chatId;
-        const senderId = botCtx.userId;
-        const text = botCtx.text ?? "";
-        const messageId = botCtx.messageId;
-
-        if (!chatId || !text.trim()) return;
-
-        // Skip messages from self (bot) to prevent reply loops
-        if (account.botUserId && senderId === account.botUserId) {
-          return;
-        }
-
-        const route = resolveAgentRoute({
-          cfg: ctx.cfg,
-          channel: "giano-channel",
-          accountId: ctx.accountId,
-          peer: { kind: "dm", id: chatId },
-        });
-
-        ctx.setStatus({
-          ...ctx.getStatus(),
-          lastInboundAt: now(),
-        });
-
-        const inbound = finalizeInboundContext({
-          Body: text,
-          RawBody: text,
-          CommandBody: text,
-          From: senderId,
-          To: chatId,
-          SessionKey: route.sessionKey,
-          AccountId: route.accountId,
-          MessageSid: messageId,
-          ChatType: "direct",
-          Provider: "giano-channel",
-          Surface: "giano-channel",
-          OriginatingChannel: "giano-channel",
-          OriginatingTo: chatId,
-          SenderId: senderId,
-          SenderName: undefined,
-        });
-
-        const { dispatcher, replyOptions } = createReplyDispatcherWithTyping({
-          deliver: async (
-            payload: { text?: string },
-            info: { kind: string },
-          ) => {
-            if (info.kind === "tool") return;
-            const outText = payload.text ?? "";
-            if (!outText.trim()) return;
-
-            await bot.sendMessage(chatId, outText, {
-              replyToId: messageId,
-            });
-            ctx.setStatus({ ...ctx.getStatus(), lastOutboundAt: now() });
-          },
-          onError: (err: unknown, info: { kind: string }) => {
-            ctx.log?.error?.(
-              `giano deliver failed (${info.kind}): ${String(err)}`,
-            );
-          },
-          onReplyStart: () => {
-            // no typing indicator in giano yet
-          },
-        });
-
-        await dispatchReplyFromConfig({
-          ctx: inbound,
-          cfg: ctx.cfg,
-          dispatcher,
-          replyOptions,
-        });
-      });
-
-      // Handle ready event
-      bot.on("ready", () => {
-        ctx.log?.info?.(
-          `[${account.accountId ?? DEFAULT_ACCOUNT_ID}] giano provider connected`,
-        );
-        ctx.setStatus({
-          ...ctx.getStatus(),
-          connected: true,
-        });
-      });
-
-      // Handle abort signal
-      const onAbort = async () => {
-        await bot.stop();
-      };
-      ctx.abortSignal.addEventListener("abort", onAbort);
-
-      // Start the bot
-      await bot.start();
-
-      // Wait for bot to be stopped
-      await new Promise<void>((resolve) => {
-        bot.on("stopped", () => {
-          ctx.setStatus({
-            ...ctx.getStatus(),
-            connected: false,
-            running: false,
-            lastStopAt: now(),
-          });
-          resolve();
-        });
-      });
-
-      ctx.abortSignal.removeEventListener("abort", onAbort);
     },
     stopAccount: async (ctx) => {
       ctx.setStatus({
@@ -309,3 +422,5 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
     },
   },
 };
+
+export type { ResolvedGianoAccount };

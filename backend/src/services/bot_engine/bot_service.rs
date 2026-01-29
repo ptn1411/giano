@@ -8,7 +8,6 @@
 /// - Default permission assignment
 ///
 /// Requirements covered: 1.1, 1.2, 1.3, 1.4, 1.5, 3.1
-
 use rand::Rng;
 use uuid::Uuid;
 
@@ -59,7 +58,7 @@ impl BotEngineService {
     ) -> AppResult<BotResponse> {
         // Generate a new UUID for the bot
         let bot_id = Uuid::new_v4();
-        
+
         // Generate unique token
         let token = Self::generate_token(bot_id);
 
@@ -80,17 +79,14 @@ impl BotEngineService {
         .await?;
 
         // Assign default permission (send_message)
-        sqlx::query(
-            "INSERT INTO bot_permissions (bot_id, scope) VALUES ($1, $2)"
-        )
-        .bind(bot_id)
-        .bind(SCOPE_SEND_MESSAGE)
-        .execute(&db.pool)
-        .await?;
+        sqlx::query("INSERT INTO bot_permissions (bot_id, scope) VALUES ($1, $2)")
+            .bind(bot_id)
+            .bind(SCOPE_SEND_MESSAGE)
+            .execute(&db.pool)
+            .await?;
 
         Ok(BotResponse::from(bot))
     }
-
 
     /// Get a bot by its ID.
     ///
@@ -102,12 +98,10 @@ impl BotEngineService {
     /// * `AppResult<Bot>` - The bot if found
     /// * `AppError::BotNotFound` - If the bot doesn't exist
     pub async fn get_bot_by_id(db: &Database, bot_id: Uuid) -> AppResult<Bot> {
-        let bot: Option<Bot> = sqlx::query_as(
-            "SELECT * FROM bots WHERE id = $1"
-        )
-        .bind(bot_id)
-        .fetch_optional(&db.pool)
-        .await?;
+        let bot: Option<Bot> = sqlx::query_as("SELECT * FROM bots WHERE id = $1")
+            .bind(bot_id)
+            .fetch_optional(&db.pool)
+            .await?;
 
         bot.ok_or(AppError::BotNotFound)
     }
@@ -125,12 +119,10 @@ impl BotEngineService {
     /// # Requirements
     /// - 7.2: Identify bot by extracting and validating token
     pub async fn get_bot_by_token(db: &Database, token: &str) -> AppResult<Bot> {
-        let bot: Option<Bot> = sqlx::query_as(
-            "SELECT * FROM bots WHERE token = $1"
-        )
-        .bind(token)
-        .fetch_optional(&db.pool)
-        .await?;
+        let bot: Option<Bot> = sqlx::query_as("SELECT * FROM bots WHERE token = $1")
+            .bind(token)
+            .fetch_optional(&db.pool)
+            .await?;
 
         bot.ok_or(AppError::BotNotFound)
     }
@@ -144,12 +136,29 @@ impl BotEngineService {
     /// # Returns
     /// * `AppResult<Vec<Bot>>` - List of bots owned by the user
     pub async fn get_bots_by_owner(db: &Database, owner_id: Uuid) -> AppResult<Vec<Bot>> {
-        let bots: Vec<Bot> = sqlx::query_as(
-            "SELECT * FROM bots WHERE owner_id = $1 ORDER BY created_at DESC"
-        )
-        .bind(owner_id)
-        .fetch_all(&db.pool)
-        .await?;
+        let bots: Vec<Bot> =
+            sqlx::query_as("SELECT * FROM bots WHERE owner_id = $1 ORDER BY created_at DESC")
+                .bind(owner_id)
+                .fetch_all(&db.pool)
+                .await?;
+
+        Ok(bots)
+    }
+
+    /// Get all active bots that can be added to chats.
+    ///
+    /// # Arguments
+    /// * `db` - Database connection
+    /// * `limit` - Maximum number of bots to return
+    ///
+    /// # Returns
+    /// * `AppResult<Vec<Bot>>` - List of active bots
+    pub async fn get_all_active_bots(db: &Database, limit: i64) -> AppResult<Vec<Bot>> {
+        let bots: Vec<Bot> =
+            sqlx::query_as("SELECT * FROM bots WHERE is_active = true ORDER BY name ASC LIMIT $1")
+                .bind(limit)
+                .fetch_all(&db.pool)
+                .await?;
 
         Ok(bots)
     }
@@ -198,7 +207,6 @@ impl BotEngineService {
 
         Ok(bot)
     }
-
 
     /// Delete a bot and all associated data.
     ///
@@ -307,7 +315,6 @@ impl BotEngineService {
         Ok(bot)
     }
 
-
     /// Regenerate a bot's token.
     ///
     /// # Arguments
@@ -351,12 +358,11 @@ impl BotEngineService {
     /// # Returns
     /// * `AppResult<Vec<BotPermission>>` - List of permissions for the bot
     pub async fn get_bot_permissions(db: &Database, bot_id: Uuid) -> AppResult<Vec<BotPermission>> {
-        let permissions: Vec<BotPermission> = sqlx::query_as(
-            "SELECT * FROM bot_permissions WHERE bot_id = $1"
-        )
-        .bind(bot_id)
-        .fetch_all(&db.pool)
-        .await?;
+        let permissions: Vec<BotPermission> =
+            sqlx::query_as("SELECT * FROM bot_permissions WHERE bot_id = $1")
+                .bind(bot_id)
+                .fetch_all(&db.pool)
+                .await?;
 
         Ok(permissions)
     }
@@ -371,13 +377,12 @@ impl BotEngineService {
     /// # Returns
     /// * `AppResult<bool>` - True if the bot has the permission
     pub async fn has_permission(db: &Database, bot_id: Uuid, scope: &str) -> AppResult<bool> {
-        let result: Option<(i64,)> = sqlx::query_as(
-            "SELECT 1 FROM bot_permissions WHERE bot_id = $1 AND scope = $2"
-        )
-        .bind(bot_id)
-        .bind(scope)
-        .fetch_optional(&db.pool)
-        .await?;
+        let result: Option<(i64,)> =
+            sqlx::query_as("SELECT 1 FROM bot_permissions WHERE bot_id = $1 AND scope = $2")
+                .bind(bot_id)
+                .bind(scope)
+                .fetch_optional(&db.pool)
+                .await?;
 
         Ok(result.is_some())
     }
@@ -434,21 +439,15 @@ impl BotEngineService {
     ///
     /// # Requirements
     /// - 3.3: Remove the scope from bot_permissions
-    pub async fn revoke_permission(
-        db: &Database,
-        bot_id: Uuid,
-        scope: &str,
-    ) -> AppResult<bool> {
+    pub async fn revoke_permission(db: &Database, bot_id: Uuid, scope: &str) -> AppResult<bool> {
         // Verify bot exists
         Self::get_bot_by_id(db, bot_id).await?;
 
-        let result = sqlx::query(
-            "DELETE FROM bot_permissions WHERE bot_id = $1 AND scope = $2"
-        )
-        .bind(bot_id)
-        .bind(scope)
-        .execute(&db.pool)
-        .await?;
+        let result = sqlx::query("DELETE FROM bot_permissions WHERE bot_id = $1 AND scope = $2")
+            .bind(bot_id)
+            .bind(scope)
+            .execute(&db.pool)
+            .await?;
 
         Ok(result.rows_affected() > 0)
     }
@@ -468,11 +467,7 @@ impl BotEngineService {
     ///
     /// # Requirements
     /// - 4.1: Create a bot_chats record linking the bot and chat
-    pub async fn add_bot_to_chat(
-        db: &Database,
-        bot_id: Uuid,
-        chat_id: Uuid,
-    ) -> AppResult<BotChat> {
+    pub async fn add_bot_to_chat(db: &Database, bot_id: Uuid, chat_id: Uuid) -> AppResult<BotChat> {
         // Verify bot exists
         Self::get_bot_by_id(db, bot_id).await?;
 
@@ -510,13 +505,11 @@ impl BotEngineService {
         bot_id: Uuid,
         chat_id: Uuid,
     ) -> AppResult<bool> {
-        let result = sqlx::query(
-            "DELETE FROM bot_chats WHERE bot_id = $1 AND chat_id = $2"
-        )
-        .bind(bot_id)
-        .bind(chat_id)
-        .execute(&db.pool)
-        .await?;
+        let result = sqlx::query("DELETE FROM bot_chats WHERE bot_id = $1 AND chat_id = $2")
+            .bind(bot_id)
+            .bind(chat_id)
+            .execute(&db.pool)
+            .await?;
 
         Ok(result.rows_affected() > 0)
     }
@@ -530,12 +523,11 @@ impl BotEngineService {
     /// # Returns
     /// * `AppResult<Vec<BotChat>>` - List of chat subscriptions for the bot
     pub async fn get_bot_chats(db: &Database, bot_id: Uuid) -> AppResult<Vec<BotChat>> {
-        let bot_chats: Vec<BotChat> = sqlx::query_as(
-            "SELECT * FROM bot_chats WHERE bot_id = $1 ORDER BY added_at DESC"
-        )
-        .bind(bot_id)
-        .fetch_all(&db.pool)
-        .await?;
+        let bot_chats: Vec<BotChat> =
+            sqlx::query_as("SELECT * FROM bot_chats WHERE bot_id = $1 ORDER BY added_at DESC")
+                .bind(bot_id)
+                .fetch_all(&db.pool)
+                .await?;
 
         Ok(bot_chats)
     }
@@ -574,13 +566,12 @@ impl BotEngineService {
     /// # Returns
     /// * `AppResult<bool>` - True if the bot is subscribed to the chat
     pub async fn is_bot_in_chat(db: &Database, bot_id: Uuid, chat_id: Uuid) -> AppResult<bool> {
-        let result: Option<(i64,)> = sqlx::query_as(
-            "SELECT 1 FROM bot_chats WHERE bot_id = $1 AND chat_id = $2"
-        )
-        .bind(bot_id)
-        .bind(chat_id)
-        .fetch_optional(&db.pool)
-        .await?;
+        let result: Option<(i64,)> =
+            sqlx::query_as("SELECT 1 FROM bot_chats WHERE bot_id = $1 AND chat_id = $2")
+                .bind(bot_id)
+                .bind(chat_id)
+                .fetch_optional(&db.pool)
+                .await?;
 
         Ok(result.is_some())
     }
@@ -596,12 +587,11 @@ impl BotEngineService {
     /// # Returns
     /// * `AppResult<bool>` - True if the username is taken
     pub async fn is_username_taken(db: &Database, username: &str) -> AppResult<bool> {
-        let result: Option<(i64,)> = sqlx::query_as(
-            "SELECT 1 FROM bots WHERE LOWER(username) = LOWER($1)"
-        )
-        .bind(username)
-        .fetch_optional(&db.pool)
-        .await?;
+        let result: Option<(i64,)> =
+            sqlx::query_as("SELECT 1 FROM bots WHERE LOWER(username) = LOWER($1)")
+                .bind(username)
+                .fetch_optional(&db.pool)
+                .await?;
 
         Ok(result.is_some())
     }
@@ -615,12 +605,11 @@ impl BotEngineService {
     /// # Returns
     /// * `AppResult<Bot>` - The bot if found
     pub async fn get_bot_by_username(db: &Database, username: &str) -> AppResult<Bot> {
-        let bot: Option<Bot> = sqlx::query_as(
-            "SELECT * FROM bots WHERE LOWER(username) = LOWER($1)"
-        )
-        .bind(username)
-        .fetch_optional(&db.pool)
-        .await?;
+        let bot: Option<Bot> =
+            sqlx::query_as("SELECT * FROM bots WHERE LOWER(username) = LOWER($1)")
+                .bind(username)
+                .fetch_optional(&db.pool)
+                .await?;
 
         bot.ok_or(AppError::BotNotFound)
     }
@@ -793,11 +782,11 @@ mod tests {
     fn test_generate_token_format() {
         let bot_id = Uuid::new_v4();
         let token = BotEngineService::generate_token(bot_id);
-        
+
         // Token should contain the bot_id followed by a colon and random string
         assert!(token.starts_with(&bot_id.to_string()));
         assert!(token.contains(':'));
-        
+
         // The random part should be 32 characters
         let parts: Vec<&str> = token.split(':').collect();
         assert_eq!(parts.len(), 2);
@@ -809,7 +798,7 @@ mod tests {
         let bot_id = Uuid::new_v4();
         let token1 = BotEngineService::generate_token(bot_id);
         let token2 = BotEngineService::generate_token(bot_id);
-        
+
         // Even for the same bot_id, tokens should be different
         assert_ne!(token1, token2);
     }

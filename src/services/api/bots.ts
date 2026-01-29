@@ -43,11 +43,39 @@ interface BotSearchResponse {
   bot: BotPublic;
 }
 
+interface BotsListResponse {
+  bots: BotPublic[];
+}
+
+export interface BotsListResult {
+  bots: BotPublic[];
+  error: string | null;
+}
+
 // ============================================
 // Bot Service
 // ============================================
 
 export const botsService = {
+  /**
+   * Get all available active bots that can be added to chats
+   * GET /bots/available
+   */
+  getAvailableBots: async (limit: number = 50): Promise<BotsListResult> => {
+    try {
+      const response = await apiClient.get<BotsListResponse>(
+        "/bots/available",
+        {
+          params: { limit },
+        },
+      );
+      return { bots: response.data.bots, error: null };
+    } catch (error) {
+      const parsedError = parseApiError(error);
+      return { bots: [], error: parsedError.message };
+    }
+  },
+
   /**
    * Search for a bot by username
    * GET /bots/search?username=xxx

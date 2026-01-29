@@ -32,9 +32,15 @@ use crate::{
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", post(create_bot).get(list_bots))
+        .route("/available", get(list_available_bots))
         .route("/search", get(search_bot))
         .route("/:bot_id", get(get_bot).delete(delete_bot))
         .route("/:bot_id/callback", post(handle_callback))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AvailableBotsQuery {
+    limit: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -128,6 +134,39 @@ async fn list_bots(
     let bot_responses: Vec<BotResponse> = bots.into_iter().map(BotResponse::from).collect();
 
     Ok(Json(BotsListResponse {
+        bots: bot_responses,
+    }))
+}
+
+/// Response wrapper for available bots (using public info)
+#[derive(Debug, Serialize)]
+pub struct AvailableBotsResponse {
+    bots: Vec<BotPublicResponse>,
+}
+
+/// List all available active bots that can be added to chats.
+///
+/// GET /api/v1/bots/available
+///
+/// # Query Parameters
+/// - `limit`: Optional, maximum number of bots to return (default: 50)
+///
+/// # Returns
+/// List of active bots with public info (without tokens).
+async fn list_available_bots(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Query(query): Query<AvailableBotsQuery>,
+) -> AppResult<Json<AvailableBotsResponse>> {
+    // Verify authentication
+    let _ = get_current_user_id(&state, &headers).await?;
+
+    let limit = query.limit.unwrap_or(50).min(100);
+    let bots = BotEngineService::get_all_active_bots(&state.db, limit).await?;
+    let bot_responses: Vec<BotPublicResponse> =
+        bots.into_iter().map(BotPublicResponse::from).collect();
+
+    Ok(Json(AvailableBotsResponse {
         bots: bot_responses,
     }))
 }
