@@ -1,42 +1,32 @@
-# Hướng dẫn Cài đặt MCP Bridge cho IDE (Antigravity & Kiro)
+# Hướng dẫn Cài đặt Full AI Team cho IDE (Antigravity & Kiro)
 
-Dưới đây là cách cấu hình MCP Bridge để kết nối AI của IDE với Giano Chat.
+Để biến IDE thành một "AI Team Member" hoàn chỉnh có thể nhận lệnh từ chat và thực thi code, bạn cần cài đặt **2 MCP Servers**:
+
+1. **`giano-bridge`**: Để nhận tasks từ Giano Chat.
+2. **`ide-controller`**: Để AI có quyền đọc/ghi file và chạy lệnh terminal.
 
 ## 1. Chuẩn bị
 
-Trước khi cấu hình IDE, hãy đảm bảo bạn đã build MCP Bridge:
+Build cả 2 project:
 
 ```bash
+# 1. Build Bridge (Người đưa thư)
 cd mcp-giano-bridge
-npm install
-npm run build
+npm install && npm run build
+
+# 2. Build Controller (Tay chân)
+cd ../mcp-ide-controller
+npm install && npm run build
 ```
 
-Lấy đường dẫn tuyệt đối tới file chạy (ví dụ):
+Lấy đường dẫn tuyệt đối (Ví dụ trên Windows):
 
-- Windows: `C:\Users\NAM\Code\web\smooth-messenger\mcp-giano-bridge\dist\index.js`
+- Bridge: `C:\Users\NAM\Code\web\smooth-messenger\mcp-giano-bridge\dist\index.js`
+- Controller: `C:\Users\NAM\Code\web\smooth-messenger\mcp-ide-controller\dist\index.js`
 
-## 2. Antigravity IDE (Agent-First)
+## 2. Antigravity IDE Setup
 
-Antigravity thường hỗ trợ config MCP qua file settings hoặc UI "Agent Manager".
-
-### Cách 1: Config qua UI
-
-1. Mở Command Palette (`Ctrl+Shift+P`) hoặc Settings menu.
-2. Tìm "MCP: Manage Servers" hoặc "Agent: Add Tool".
-3. Chọn "Add Custom Server" (Stdio).
-4. Điền thông tin:
-   - **Name**: `giano-bridge`
-   - **Command**: `node`
-   - **Arguments**: `C:\Users\NAM\Code\web\smooth-messenger\mcp-giano-bridge\dist\index.js`
-   - **Environment Variables**:
-     - `GIANO_BOT_TOKEN`: `<Token của MCPBot>`
-     - `GIANO_API_BASE_URL`: `https://messages-api.bug.edu.vn`
-     - `GIANO_WS_URL`: `wss://messages-api.bug.edu.vn/bot/ws`
-
-### Cách 2: Config file (nếu có)
-
-Tìm file config của project (ví dụ `.antigravity/mcp.json` hoặc trong `settings.json`):
+Vào **Settings** hoặc file config MCP của project:
 
 ```json
 {
@@ -47,26 +37,31 @@ Tìm file config của project (ví dụ `.antigravity/mcp.json` hoặc trong `s
         "C:\\Users\\NAM\\Code\\web\\smooth-messenger\\mcp-giano-bridge\\dist\\index.js"
       ],
       "env": {
-        "GIANO_BOT_TOKEN": "YOUR_MCP_BOT_TOKEN",
+        "GIANO_BOT_TOKEN": "<TOKEN_CUA_MCPBOT>",
         "GIANO_API_BASE_URL": "https://messages-api.bug.edu.vn",
         "GIANO_WS_URL": "wss://messages-api.bug.edu.vn/bot/ws"
+      }
+    },
+    "ide-controller": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\NAM\\Code\\web\\smooth-messenger\\mcp-ide-controller\\dist\\index.js"
+      ],
+      "env": {
+        "WORKSPACE_ROOT": "C:\\Users\\NAM\\Code\\web\\smooth-messenger",
+        "MESSAGES_BOT_TOKEN": "<TOKEN_CUA_MCPBOT>",
+        "MESSAGES_CHAT_ID": "<ID_GROUP_CHAT>"
       }
     }
   }
 }
 ```
 
-## 3. Kiro IDE
+_Note: `ide-controller` cần `MESSAGES_CHAT_ID` để báo cáo tiến độ chạy lệnh (ví dụ: "Đang chạy npm install...") vào group chat cho bạn thấy._
 
-Kiro IDE hỗ trợ MCP native qua file cấu hình project.
+## 3. Kiro IDE Setup
 
-### Bước 1: Mở Config
-
-Tìm file `.kiro/config.json` hoặc thư mục `.kiro/` trong project root.
-
-### Bước 2: Thêm MCP Server
-
-Thêm vào section `mcpServers` trong config:
+Sửa file `.kiro/config.json`:
 
 ```json
 {
@@ -75,9 +70,19 @@ Thêm vào section `mcpServers` trong config:
       "command": "node",
       "args": ["${projectRoot}/mcp-giano-bridge/dist/index.js"],
       "env": {
-        "GIANO_BOT_TOKEN": "YOUR_MCP_BOT_TOKEN",
+        "GIANO_BOT_TOKEN": "<TOKEN_CUA_MCPBOT>",
         "GIANO_API_BASE_URL": "https://messages-api.bug.edu.vn",
         "GIANO_WS_URL": "wss://messages-api.bug.edu.vn/bot/ws"
+      },
+      "enabled": true
+    },
+    "ide-controller": {
+      "command": "node",
+      "args": ["${projectRoot}/mcp-ide-controller/dist/index.js"],
+      "env": {
+        "WORKSPACE_ROOT": "${projectRoot}",
+        "MESSAGES_BOT_TOKEN": "<TOKEN_CUA_MCPBOT>",
+        "MESSAGES_CHAT_ID": "<ID_GROUP_CHAT>"
       },
       "enabled": true
     }
@@ -85,12 +90,19 @@ Thêm vào section `mcpServers` trong config:
 }
 ```
 
-### Bước 3: Restart Agent
+## 🔐 Bảo mật
 
-Restart Kiro IDE hoặc reload window để agent load server mới.
+- **`ide-controller` rất mạnh**: Nó cho phép AI đọc/ghi bất kỳ file nào trong folder dự án và chạy lệnh terminal.
+- Chỉ chạy trong môi trường dev trusted.
+- Đảm bảo `WORKSPACE_ROOT` trỏ đúng vào folder dự án, tránh trỏ vào `C:\` hoặc `/`.
 
-## Kiểm tra hoạt động
+## ✅ Kịch bản hoạt động
 
-1. Mở Giano Chat, vào group có MCPBot.
-2. Từ IDE, ra lệnh cho AI Agent: "Check for any pending tasks from Giano".
-3. AI sẽ gọi tool `giano_task_pull` và hiển thị task nếu có.
+1. **Bạn** chat trong group: "@moltbot refactor file index.ts giúp tôi"
+2. **MoltBot** gọi tool `delegate_to_ide` để tạo task.
+3. **`giano-bridge`** nhận task và đưa vào hàng đợi.
+4. **IDE Agent** (Antigravity/Kiro) thấy task, bắt đầu làm việc.
+5. Agent dùng tools của **`ide-controller`** (`read_file`, `write_file`) để sửa code.
+6. Agent dùng tool `run_command` để chạy test.
+   - Controller tự động gửi tin nhắn: "Running: npm test..." vào group chat.
+7. Agent báo cáo hoàn thành qua `giano-bridge`.
