@@ -3,6 +3,7 @@
 /// This module provides:
 /// - POST /api/v1/bots - Create a new bot
 /// - GET /api/v1/bots - List user's bots
+/// - GET /api/v1/bots/search - Search bot by username
 /// - GET /api/v1/bots/:id - Get bot details
 /// - DELETE /api/v1/bots/:id - Delete a bot
 /// - POST /api/v1/bots/:bot_id/callback - Handle inline button callback
@@ -10,9 +11,8 @@
 /// # Requirements
 /// - 1.1: Create bot with unique token
 /// - 1.5: Delete bot and cascade to related records
-
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::HeaderMap,
     routing::{get, post},
     Json, Router,
@@ -23,7 +23,7 @@ use uuid::Uuid;
 
 use crate::{
     error::AppResult,
-    models::{BotResponse, CreateBotRequest, MessageResponse},
+    models::{BotPublicResponse, BotResponse, CreateBotRequest, MessageResponse},
     routes::auth::get_current_user_id,
     services::{bot_engine::BotEngineService, BotService, ChatService, WebSocketService},
     AppState,
@@ -32,6 +32,7 @@ use crate::{
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", post(create_bot).get(list_bots))
+        .route("/search", get(search_bot))
         .route("/:bot_id", get(get_bot).delete(delete_bot))
         .route("/:bot_id/callback", post(handle_callback))
 }
@@ -70,6 +71,18 @@ pub struct BotsListResponse {
 #[derive(Debug, Serialize)]
 pub struct SimpleMessage {
     message: String,
+}
+
+/// Query for searching bots
+#[derive(Debug, Deserialize)]
+pub struct SearchBotQuery {
+    username: String,
+}
+
+/// Response wrapper for public bot info
+#[derive(Debug, Serialize)]
+pub struct BotPublicResponseWrapper {
+    bot: BotPublicResponse,
 }
 
 /// Create a new bot.
@@ -114,7 +127,9 @@ async fn list_bots(
     let bots = BotEngineService::get_bots_by_owner(&state.db, user_id).await?;
     let bot_responses: Vec<BotResponse> = bots.into_iter().map(BotResponse::from).collect();
 
-    Ok(Json(BotsListResponse { bots: bot_responses }))
+    Ok(Json(BotsListResponse {
+        bots: bot_responses,
+    }))
 }
 
 /// Get bot details by ID.
@@ -131,13 +146,15 @@ async fn get_bot(
     let user_id = get_current_user_id(&state, &headers).await?;
 
     let bot = BotEngineService::get_bot_by_id(&state.db, bot_id).await?;
-    
+
     // Verify ownership
     if bot.owner_id != user_id {
         return Err(crate::error::AppError::AccessDenied);
     }
 
-    Ok(Json(BotResponseWrapper { bot: BotResponse::from(bot) }))
+    Ok(Json(BotResponseWrapper {
+        bot: BotResponse::from(bot),
+    }))
 }
 
 /// Delete a bot and all associated data.
@@ -191,4 +208,28 @@ async fn handle_callback(
     .await;
 
     Ok(Json(MessageResponseWrapper { message }))
+}
+
+/// Search for a bot by username.
+///
+/// GET /api/v1/bots/search?username=xxx
+///
+/// # Query Parameters
+/// - `username`: The bot's username to search for
+///
+/// # Returns
+/// Public bot info if found (without token for security).
+async fn search_bot(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Query(query): Query<SearchBotQuery>,
+) -> AppResult<Json<BotPublicResponseWrapper>> {
+    // Verify authentication
+    let _ = get_current_user_id(&state, &headers).await?;
+
+    let bot = BotEngineService::get_bot_by_username(&state.db, &query.username).await?;
+
+    Ok(Json(BotPublicResponseWrapper {
+        bot: BotPublicResponse::from(bot),
+    }))
 }

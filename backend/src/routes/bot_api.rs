@@ -13,7 +13,6 @@
 /// - 7.5: Return auth error for invalid token
 /// - 7.6: Return forbidden error if not subscribed
 /// - 2.1, 2.2, 2.3, 2.4: Webhook management
-
 use axum::{
     extract::{Path, State},
     routing::{get, post},
@@ -28,7 +27,10 @@ use crate::{
         SetWebhookRequest,
     },
     services::{
-        bot_engine::{BotEngineService, PermissionChecker, RateLimitResult, SCOPE_SEND_MESSAGE},
+        bot_engine::{
+            dispatcher::{BotDispatcher, CommandContext},
+            BotEngineService, PermissionChecker, RateLimitResult, SCOPE_SEND_MESSAGE,
+        },
         ChatService, MessageService, WebSocketService,
     },
     AppState,
@@ -60,7 +62,7 @@ pub fn bot_api_routes() -> Router<Arc<AppState>> {
 async fn extract_bot_from_token(state: &AppState, token: &str) -> AppResult<Bot> {
     // Remove leading colon if present (from :token path parameter)
     let clean_token = token.strip_prefix(':').unwrap_or(token);
-    
+
     if clean_token.is_empty() {
         return Err(AppError::InvalidToken);
     }
@@ -72,7 +74,6 @@ async fn extract_bot_from_token(state: &AppState, token: &str) -> AppResult<Bot>
             other => other,
         })
 }
-
 
 /// Send a message to a chat.
 ///
@@ -124,15 +125,23 @@ async fn send_message(
     }
 
     // 4. Check chat subscription
-    let is_subscribed = PermissionChecker::check_chat_subscription(&state.db, bot.id, body.chat_id).await?;
+    let is_subscribed =
+        PermissionChecker::check_chat_subscription(&state.db, bot.id, body.chat_id).await?;
     if !is_subscribed {
-        return Ok(Json(BotApiResponse::error(403, "Bot not subscribed to chat")));
+        return Ok(Json(BotApiResponse::error(
+            403,
+            "Bot not subscribed to chat",
+        )));
     }
 
     // 5. Check send_message permission
-    let has_permission = PermissionChecker::check_scope(&state.db, bot.id, SCOPE_SEND_MESSAGE).await?;
+    let has_permission =
+        PermissionChecker::check_scope(&state.db, bot.id, SCOPE_SEND_MESSAGE).await?;
     if !has_permission {
-        return Ok(Json(BotApiResponse::error(403, "Permission denied: missing send_message scope")));
+        return Ok(Json(BotApiResponse::error(
+            403,
+            "Permission denied: missing send_message scope",
+        )));
     }
 
     // 6. Create message with Bot sender using MessageService
@@ -142,12 +151,13 @@ async fn send_message(
         bot.id,
         body.text.clone(),
         body.reply_to_id,
-    ).await?;
+    )
+    .await?;
 
     // Add inline keyboard if provided
     message.inline_keyboard = body.inline_keyboard.clone();
 
-    // 7. Broadcast via WebSocket
+    // 7. Broadcast via WebSocket to users
     let participant_ids = ChatService::get_participant_ids(&state.db, body.chat_id).await?;
     WebSocketService::broadcast_new_message(
         &state.ws_manager,
@@ -156,6 +166,28 @@ async fn send_message(
         bot.id, // Use bot.id as sender for exclusion
     )
     .await;
+
+    // 8. Dispatch to other bots in the chat (bot-to-bot messaging)
+    // Get all bots subscribed to this chat, excluding the sender bot to prevent loops
+    let other_bots = BotEngineService::get_chat_bots(&state.db, body.chat_id)
+        .await?
+        .into_iter()
+        .filter(|b| b.id != bot.id) // Anti-loop: exclude sender bot
+        .collect::<Vec<_>>();
+
+    if !other_bots.is_empty() {
+        let ctx = CommandContext {
+            user_id: bot.id, // Sender is a bot
+            chat_id: body.chat_id,
+            message_id: message.id,
+            text: body.text.clone(),
+        };
+
+        let dispatcher = BotDispatcher::new(state.ws_manager.clone());
+        if let Err(e) = dispatcher.dispatch(&ctx, other_bots).await {
+            tracing::warn!("Failed to dispatch bot message to other bots: {}", e);
+        }
+    }
 
     Ok(Json(BotApiResponse::success(message)))
 }
@@ -189,12 +221,18 @@ async fn set_webhook(
         if !url.is_empty() {
             // Basic URL validation
             if !url.starts_with("http://") && !url.starts_with("https://") {
-                return Ok(Json(BotApiResponse::error(400, "Invalid webhook URL: must start with http:// or https://")));
+                return Ok(Json(BotApiResponse::error(
+                    400,
+                    "Invalid webhook URL: must start with http:// or https://",
+                )));
             }
 
             // Parse URL to validate format
             if url::Url::parse(url).is_err() {
-                return Ok(Json(BotApiResponse::error(400, "Invalid webhook URL format")));
+                return Ok(Json(BotApiResponse::error(
+                    400,
+                    "Invalid webhook URL format",
+                )));
             }
 
             // TODO: Send test request to verify connectivity (Requirement 2.4)
@@ -205,13 +243,11 @@ async fn set_webhook(
     // 3. Update webhook URL
     let webhook_url = body.url.filter(|u| !u.is_empty());
 
-    sqlx::query(
-        "UPDATE bots SET webhook_url = $1, updated_at = NOW() WHERE id = $2"
-    )
-    .bind(&webhook_url)
-    .bind(bot.id)
-    .execute(&state.db.pool)
-    .await?;
+    sqlx::query("UPDATE bots SET webhook_url = $1, updated_at = NOW() WHERE id = $2")
+        .bind(&webhook_url)
+        .bind(bot.id)
+        .execute(&state.db.pool)
+        .await?;
 
     Ok(Json(BotApiResponse::success(true)))
 }
@@ -241,11 +277,15 @@ mod tests {
     fn test_token_extraction_removes_colon() {
         // Test that colon prefix is properly handled
         let token_with_colon = ":abc123:xyz";
-        let clean = token_with_colon.strip_prefix(':').unwrap_or(token_with_colon);
+        let clean = token_with_colon
+            .strip_prefix(':')
+            .unwrap_or(token_with_colon);
         assert_eq!(clean, "abc123:xyz");
 
         let token_without_colon = "abc123:xyz";
-        let clean = token_without_colon.strip_prefix(':').unwrap_or(token_without_colon);
+        let clean = token_without_colon
+            .strip_prefix(':')
+            .unwrap_or(token_without_colon);
         assert_eq!(clean, "abc123:xyz");
     }
 }
