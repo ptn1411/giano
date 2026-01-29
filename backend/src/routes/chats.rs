@@ -22,6 +22,8 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/group", post(create_group))
         .route("/private", post(create_private_chat))
         .route("/:chat_id", get(get_chat).delete(delete_chat))
+        .route("/:chat_id/pin", post(pin_chat))
+        .route("/:chat_id/unpin", post(unpin_chat))
         .route("/:chat_id/read", post(mark_as_read))
         .route("/:chat_id/messages", get(get_messages).post(send_message).delete(clear_messages))
         .route("/:chat_id/messages/:message_id", axum::routing::put(edit_message).delete(delete_message))
@@ -164,6 +166,34 @@ async fn mark_as_read(
 
     Ok(Json(SimpleMessage {
         message: "Chat marked as read".to_string(),
+    }))
+}
+
+async fn pin_chat(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path(chat_id): Path<Uuid>,
+) -> AppResult<Json<SimpleMessage>> {
+    let user_id = get_current_user_id(&state, &headers).await?;
+
+    ChatService::pin_chat(&state.db, chat_id, user_id).await?;
+
+    Ok(Json(SimpleMessage {
+        message: "Chat pinned successfully".to_string(),
+    }))
+}
+
+async fn unpin_chat(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path(chat_id): Path<Uuid>,
+) -> AppResult<Json<SimpleMessage>> {
+    let user_id = get_current_user_id(&state, &headers).await?;
+
+    ChatService::unpin_chat(&state.db, chat_id, user_id).await?;
+
+    Ok(Json(SimpleMessage {
+        message: "Chat unpinned successfully".to_string(),
     }))
 }
 

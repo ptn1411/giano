@@ -18,6 +18,7 @@ export const BOTFATHER_CHAT: Chat = {
   participants: [BOTFATHER_ID],
   unreadCount: 0,
   isBot: true,
+  isPinned: false,
 };
 
 // Check if a chat ID is BotFather

@@ -24,6 +24,8 @@ pub struct ChatParticipant {
     pub user_id: Uuid,
     pub role: String,
     pub unread_count: i32,
+    pub is_pinned: Option<bool>,
+    pub pinned_at: Option<DateTime<Utc>>,
     pub joined_at: DateTime<Utc>,
 }
 
@@ -45,6 +47,8 @@ pub struct ChatResponse {
     pub typing_user: Option<String>,
     #[serde(rename = "isBot")]
     pub is_bot: bool,
+    #[serde(rename = "isPinned")]
+    pub is_pinned: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

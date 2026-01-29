@@ -257,12 +257,18 @@ pub async fn use_invite_link(
                 .await?;
 
             if existing.is_none() {
-                // Add user to group
-                sqlx::query("INSERT INTO chat_participants (chat_id, user_id, role) VALUES ($1, $2, 'member')")
-                    .bind(chat_id)
-                    .bind(user_id)
-                    .execute(&mut *tx)
-                    .await?;
+                // Add user to group (use ON CONFLICT to handle race conditions)
+                sqlx::query(
+                    r#"
+                    INSERT INTO chat_participants (chat_id, user_id, role) 
+                    VALUES ($1, $2, 'member')
+                    ON CONFLICT (chat_id, user_id) DO NOTHING
+                    "#
+                )
+                .bind(chat_id)
+                .bind(user_id)
+                .execute(&mut *tx)
+                .await?;
             }
 
             chat_id
@@ -298,13 +304,19 @@ pub async fn use_invite_link(
                     .await?;
                 let new_chat_id: Uuid = chat_row.get("id");
 
-                // Add both users as participants
-                sqlx::query("INSERT INTO chat_participants (chat_id, user_id, role) VALUES ($1, $2, 'member'), ($1, $3, 'member')")
-                    .bind(new_chat_id)
-                    .bind(user_id)
-                    .bind(creator_id)
-                    .execute(&mut *tx)
-                    .await?;
+                // Add both users as participants (use ON CONFLICT to handle duplicates)
+                sqlx::query(
+                    r#"
+                    INSERT INTO chat_participants (chat_id, user_id, role) 
+                    VALUES ($1, $2, 'member'), ($1, $3, 'member')
+                    ON CONFLICT (chat_id, user_id) DO NOTHING
+                    "#
+                )
+                .bind(new_chat_id)
+                .bind(user_id)
+                .bind(creator_id)
+                .execute(&mut *tx)
+                .await?;
 
                 new_chat_id
             }

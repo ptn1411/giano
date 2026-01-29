@@ -120,6 +120,34 @@ export const chatsService = {
       return { success: false, error: parsedError.message };
     }
   },
+
+  /**
+   * Pin a chat
+   * POST /chats/:chatId/pin
+   */
+  async pinChat(chatId: string): Promise<{ error: string | null }> {
+    try {
+      await apiClient.post(`/chats/${chatId}/pin`);
+      return { error: null };
+    } catch (error) {
+      const parsedError = parseApiError(error);
+      return { error: parsedError.message };
+    }
+  },
+
+  /**
+   * Unpin a chat
+   * POST /chats/:chatId/unpin
+   */
+  async unpinChat(chatId: string): Promise<{ error: string | null }> {
+    try {
+      await apiClient.post(`/chats/${chatId}/unpin`);
+      return { error: null };
+    } catch (error) {
+      const parsedError = parseApiError(error);
+      return { error: parsedError.message };
+    }
+  },
 };
 
 export default chatsService;

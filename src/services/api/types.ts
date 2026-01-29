@@ -117,6 +117,7 @@ export interface Chat {
   isTyping?: boolean;
   typingUser?: string;
   isBot?: boolean;
+  isPinned: boolean;
 }
 
 export interface ChatsResponse {

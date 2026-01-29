@@ -25,6 +25,8 @@ interface ChatsState {
   getChat: (chatId: string) => Promise<Chat | null>;
   createGroup: (name: string, participantIds: string[]) => Promise<Chat | null>;
   markAsRead: (chatId: string) => Promise<void>;
+  pinChat: (chatId: string) => Promise<void>;
+  unpinChat: (chatId: string) => Promise<void>;
   addChat: (chat: Chat) => void;
   updateChat: (chatId: string, updates: Partial<Chat>) => void;
   deleteChat: (chatId: string) => void;
@@ -176,6 +178,76 @@ export const useChatsStore = create<ChatsState>()((set, get) => ({
       chats: state.chats.map((chat) =>
         chat.id === chatId ? { ...chat, unreadCount: 0 } : chat
       ),
+      error: null,
+    }));
+  },
+
+  /**
+   * Pin a chat
+   */
+  pinChat: async (chatId: string) => {
+    // Optimistic update
+    set((state) => ({
+      chats: state.chats.map((chat) =>
+        chat.id === chatId ? { ...chat, isPinned: true } : chat
+      ),
+    }));
+
+    const result = await chatsService.pinChat(chatId);
+    
+    if (result.error) {
+      // Rollback on error
+      set((state) => ({
+        chats: state.chats.map((chat) =>
+          chat.id === chatId ? { ...chat, isPinned: false } : chat
+        ),
+        error: result.error,
+      }));
+      return;
+    }
+
+    // Re-sort chats to move pinned chat to top
+    set((state) => ({
+      chats: [...state.chats].sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return 0;
+      }),
+      error: null,
+    }));
+  },
+
+  /**
+   * Unpin a chat
+   */
+  unpinChat: async (chatId: string) => {
+    // Optimistic update
+    set((state) => ({
+      chats: state.chats.map((chat) =>
+        chat.id === chatId ? { ...chat, isPinned: false } : chat
+      ),
+    }));
+
+    const result = await chatsService.unpinChat(chatId);
+    
+    if (result.error) {
+      // Rollback on error
+      set((state) => ({
+        chats: state.chats.map((chat) =>
+          chat.id === chatId ? { ...chat, isPinned: true } : chat
+        ),
+        error: result.error,
+      }));
+      return;
+    }
+
+    // Re-sort chats
+    set((state) => ({
+      chats: [...state.chats].sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return 0;
+      }),
       error: null,
     }));
   },

@@ -22,7 +22,7 @@ impl ChatService {
                 JOIN chat_participants cp ON c.id = cp.chat_id
                 LEFT JOIN messages m ON c.id = m.chat_id
                 WHERE cp.user_id = $1 AND (c.name ILIKE $2 OR m.text ILIKE $2)
-                ORDER BY c.updated_at DESC
+                ORDER BY cp.is_pinned DESC NULLS LAST, c.updated_at DESC
                 "#,
             )
             .bind(user_id)
@@ -35,7 +35,7 @@ impl ChatService {
                 SELECT c.* FROM chats c
                 JOIN chat_participants cp ON c.id = cp.chat_id
                 WHERE cp.user_id = $1
-                ORDER BY c.updated_at DESC
+                ORDER BY cp.is_pinned DESC NULLS LAST, c.updated_at DESC
                 "#,
             )
             .bind(user_id)
@@ -378,6 +378,7 @@ impl ChatService {
             is_typing: false,
             typing_user: None,
             is_bot,
+            is_pinned: participant.is_pinned.unwrap_or(false),
         })
     }
 
@@ -407,5 +408,59 @@ impl ChatService {
         }
 
         Ok("Unknown".to_string())
+    }
+
+    /// Pin a chat for a user
+    pub async fn pin_chat(db: &Database, chat_id: Uuid, user_id: Uuid) -> AppResult<()> {
+        // Check if user is participant
+        if !Self::is_participant(db, chat_id, user_id).await? {
+            return Err(AppError::AccessDenied);
+        }
+
+        // Update pinned status
+        let result = sqlx::query(
+            r#"
+            UPDATE chat_participants 
+            SET is_pinned = true, pinned_at = NOW()
+            WHERE chat_id = $1 AND user_id = $2
+            "#,
+        )
+        .bind(chat_id)
+        .bind(user_id)
+        .execute(&db.pool)
+        .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(AppError::ChatNotFound);
+        }
+
+        Ok(())
+    }
+
+    /// Unpin a chat for a user
+    pub async fn unpin_chat(db: &Database, chat_id: Uuid, user_id: Uuid) -> AppResult<()> {
+        // Check if user is participant
+        if !Self::is_participant(db, chat_id, user_id).await? {
+            return Err(AppError::AccessDenied);
+        }
+
+        // Update pinned status
+        let result = sqlx::query(
+            r#"
+            UPDATE chat_participants 
+            SET is_pinned = false, pinned_at = NULL
+            WHERE chat_id = $1 AND user_id = $2
+            "#,
+        )
+        .bind(chat_id)
+        .bind(user_id)
+        .execute(&db.pool)
+        .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(AppError::ChatNotFound);
+        }
+
+        Ok(())
     }
 }
