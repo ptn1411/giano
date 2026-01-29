@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  # MCP Bridge - Connects Giano Chat to IDE Agents (Cursor/Claude)
+  mcp-bridge:
+    build: ./mcp-giano-bridge
+    container_name: giano-mcp-bridge
+    restart: always
+    environment:
+      - GIANO_API_BASE_URL=http://host.docker.internal:3000/api/v1
+      - GIANO_WS_URL=ws://host.docker.internal:3000/bot/ws
+      # Replace with your actual MCP Bot Token created in Giano
+      - GIANO_BOT_TOKEN=${MCP_BOT_TOKEN}
+      - GIANO_AUTO_ACK=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - giano-net
+
+networks:
+  giano-net:
+    driver: bridge

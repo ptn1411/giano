@@ -339,5 +339,68 @@ export default {
     };
 
     api.registerChannel({ plugin });
+
+    // Register delegate_to_ide agent tool
+    api.registerAgentTool?.({
+      tool: {
+        name: "delegate_to_ide",
+        description: `Delegate a coding task to the IDE agent (Cursor/Claude). Use when user needs code changes, file modifications, or complex technical tasks.`,
+        parameters: {
+          type: "object",
+          properties: {
+            goal: {
+              type: "string",
+              description: "What the IDE agent should accomplish",
+            },
+            title: {
+              type: "string",
+              description: "Short task title (optional)",
+            },
+            steps: {
+              type: "array",
+              items: { type: "string" },
+              description: "Suggested steps (optional)",
+            },
+            files: {
+              type: "array",
+              items: { type: "string" },
+              description: "Files to modify (optional)",
+            },
+            notes: {
+              type: "string",
+              description: "Additional context (optional)",
+            },
+          },
+          required: ["goal"],
+        },
+        execute: async (params: any, context: any) => {
+          const taskId = `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          const taskPayload = { version: "v2", taskId, ...params };
+          const taskMessage = `/task ${JSON.stringify(taskPayload)}`;
+
+          // Send via outbound adapter
+          try {
+            await gianoOutbound.sendText({
+              to: context.chatId,
+              text: taskMessage,
+              cfg: context.cfg,
+              accountId: context.accountId,
+            });
+            return {
+              success: true,
+              taskId,
+              message: `✅ Task delegated (taskId=${taskId})`,
+            };
+          } catch (err) {
+            return {
+              success: false,
+              taskId,
+              message: `❌ Failed: ${String(err)}`,
+            };
+          }
+        },
+      },
+      channels: ["giano"],
+    });
   },
 } as const;
