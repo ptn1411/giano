@@ -112,44 +112,71 @@ async fn send_message(
 
     // 2. Check if bot is active
     if !bot.is_active {
+        tracing::debug!("Bot {} is not active", bot.id);
         return Ok(Json(BotApiResponse::error(403, "Bot is not active")));
     }
+    tracing::debug!("Bot {} is active, checking rate limit...", bot.id);
 
     // 3. Check rate limit (Requirements 8.1-8.4)
     if let Some(ref rate_limiter) = state.rate_limiter {
         match rate_limiter.check_rate_limit(bot.id).await {
             Ok(RateLimitResult::Exceeded { retry_after }) => {
+                tracing::debug!(
+                    "Bot {} rate limited, retry after {} seconds",
+                    bot.id,
+                    retry_after
+                );
                 return Ok(Json(BotApiResponse::rate_limited(retry_after)));
             }
             Ok(RateLimitResult::Allowed { remaining: _ }) => {
-                // Rate limit check passed, continue
+                tracing::debug!("Bot {} rate limit OK", bot.id);
             }
             Err(e) => {
                 tracing::warn!("Rate limit check failed: {}. Allowing request.", e);
-                // Allow request on rate limiter error to avoid blocking bots
             }
         }
     }
 
+    tracing::debug!(
+        "Checking chat subscription for bot {} in chat {}...",
+        bot.id,
+        body.chat_id
+    );
     // 4. Check chat subscription
-    let is_subscribed =
-        PermissionChecker::check_chat_subscription(&state.db, bot.id, body.chat_id).await?;
+    let is_subscribed = PermissionChecker::check_chat_subscription(&state.db, bot.id, body.chat_id)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to check chat subscription: {:?}", e);
+            e
+        })?;
     if !is_subscribed {
+        tracing::debug!("Bot {} not subscribed to chat {}", bot.id, body.chat_id);
         return Ok(Json(BotApiResponse::error(
             403,
             "Bot not subscribed to chat",
         )));
     }
+    tracing::debug!("Bot {} is subscribed to chat {}", bot.id, body.chat_id);
 
     // 5. Check send_message permission
-    let has_permission =
-        PermissionChecker::check_scope(&state.db, bot.id, SCOPE_SEND_MESSAGE).await?;
+    tracing::debug!("Checking send_message permission for bot {}...", bot.id);
+    let has_permission = PermissionChecker::check_scope(&state.db, bot.id, SCOPE_SEND_MESSAGE)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to check send_message permission: {:?}", e);
+            e
+        })?;
     if !has_permission {
+        tracing::debug!("Bot {} missing send_message permission", bot.id);
         return Ok(Json(BotApiResponse::error(
             403,
             "Permission denied: missing send_message scope",
         )));
     }
+    tracing::debug!(
+        "Bot {} has send_message permission, sending message...",
+        bot.id
+    );
 
     // 6. Create message with Bot sender using MessageService
     let mut message = MessageService::send_bot_message(
@@ -159,7 +186,12 @@ async fn send_message(
         body.text.clone(),
         body.reply_to_id,
     )
-    .await?;
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to send bot message: {:?}", e);
+        e
+    })?;
+    tracing::debug!("Bot message created with id {}", message.id);
 
     // Add inline keyboard if provided
     message.inline_keyboard = body.inline_keyboard.clone();
