@@ -1,6 +1,6 @@
 {
   "name": "giano-channel",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Moltbot channel plugin for Giano chat backend",
   "moltbot": {
