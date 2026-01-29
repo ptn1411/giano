@@ -1,9 +1,19 @@
 {
-  "name": "@messages-api/bot-sdk",
+  "name": "gianobot",
   "version": "1.0.0",
-  "description": "TypeScript SDK for building bots on the Messages API platform",
+  "description": "TypeScript SDK for building bots on the Giano Messages platform",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ptn1411/giano.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "test": "jest",

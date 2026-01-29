@@ -9,6 +9,6 @@
     ]
   },
   "dependencies": {
-    "@messages-api/bot-sdk": "file:../bot-sdk-typescript"
+    "gianobot": "^1.0.0"
   }
 }
