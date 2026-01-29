@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "giano": {
+      "command": "node",
+      "args": [
+        "/root/clawd/giano/mcp-giano-bridge/dist/index.js"
+      ],
+      "env": {
+        "GIANO_BOT_TOKEN": "${GIANO_BOT_TOKEN}",
+        "GIANO_API_BASE_URL": "${GIANO_API_BASE_URL}",
+        "GIANO_WS_URL": "${GIANO_WS_URL}",
+        "GIANO_AUTO_ACK": "true"
+      }
+    }
+  }
+}

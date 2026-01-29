@@ -1,0 +1,19 @@
+{
+  "name": "mcp-ide-controller",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server exposing basic IDE-like tools (read/write/edit files, run terminal) for VS Code clients.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.25.0",
+    "@messages-api/bot-sdk": "file:../bot-sdk-typescript"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

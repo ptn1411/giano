@@ -128,7 +128,8 @@ export class WebSocketManager {
       const event = JSON.parse(data);
       
       // Handle BotUpdate events - route to UpdateRouter (Requirement 2.6)
-      if (event.event === 'BotUpdate') {
+      // Server uses snake_case (bot_update) but some clients may emit PascalCase.
+      if (event.event === 'BotUpdate' || event.event === 'bot_update') {
         const update: Update = {
           updateId: event.data.updateId,
           message: event.data.message,
@@ -141,8 +142,9 @@ export class WebSocketManager {
         this.updateRouter.route(update);
       } 
       // Handle BotConnected events - log authentication success (Requirement 2.3)
-      else if (event.event === 'BotConnected') {
-        this.logger.info('Bot authenticated:', event.data.botName);
+      else if (event.event === 'BotConnected' || event.event === 'bot_connected') {
+        // payload keys may be botName (camel) depending on serializer; fall back.
+        this.logger.info('Bot authenticated:', event.data.botName ?? event.data.bot_name);
       }
     } catch (error) {
       this.logger.error('Failed to parse message:', error);

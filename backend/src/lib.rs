@@ -84,6 +84,7 @@ pub async fn create_app(config: Config) -> Result<(Router, Arc<AppState>)> {
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/ws", get(ws::ws_handler))
+        .route("/bot/ws", get(ws::bot_ws_handler))
         .nest("/api/v1", routes::api_routes())
         .merge(routes::bot_api_routes()) // Bot API routes at root level (/bot:token/*)
         // Serve static files from uploads directory
