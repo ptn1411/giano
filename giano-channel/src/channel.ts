@@ -1,4 +1,5 @@
-import type { ChannelPlugin, MoltbotConfig } from "clawdbot/plugin-sdk";
+import { Bot, Context } from "gianobot";
+import type { ChannelPlugin, MoltbotConfig } from "moltbot/plugin-sdk";
 import {
   createReplyDispatcherWithTyping,
   DEFAULT_ACCOUNT_ID,
@@ -6,8 +7,7 @@ import {
   finalizeInboundContext,
   getChatChannelMeta,
   resolveAgentRoute,
-} from "clawdbot/plugin-sdk";
-import { Bot, Context } from "gianobot";
+} from "moltbot/plugin-sdk";
 
 // Types
 export type GianoChannelAccount = {
@@ -180,7 +180,7 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
       });
 
       // Handle incoming messages
-      bot.on("message", async (botCtx: Context) => {
+      bot.on("text", async (botCtx: Context) => {
         if (ctx.abortSignal.aborted) return;
 
         const chatId = botCtx.chatId;
