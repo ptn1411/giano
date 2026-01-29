@@ -8,19 +8,19 @@ pub mod services;
 pub mod ws;
 
 use anyhow::Result;
-use axum::{routing::get, Router, extract::DefaultBodyLimit};
+use axum::{extract::DefaultBodyLimit, routing::get, Router};
 use config::Config;
 use db::Database;
 use std::sync::Arc;
 use tower_http::{
-    cors::CorsLayer, 
-    trace::TraceLayer,
+    cors::{Any, CorsLayer},
     services::ServeDir,
+    trace::TraceLayer,
 };
 
+use quic::{ConnectionManager, StreamAllocator};
 use services::bot_engine::{BotDispatcher, RateLimiter};
 use ws::WsManager;
-use quic::{ConnectionManager, StreamAllocator};
 
 pub struct AppState {
     pub db: Database,
@@ -35,7 +35,7 @@ pub struct AppState {
 pub async fn create_app(config: Config) -> Result<(Router, Arc<AppState>)> {
     // Initialize database
     let db = Database::new(&config.database_url).await?;
-    
+
     // Run migrations
     db.run_migrations().await?;
 
@@ -44,18 +44,19 @@ pub async fn create_app(config: Config) -> Result<(Router, Arc<AppState>)> {
 
     // Initialize rate limiter with Redis (optional - gracefully handle connection failures)
     let rate_limiter = match redis::Client::open(config.redis_url.as_str()) {
-        Ok(client) => {
-            match client.get_connection_manager().await {
-                Ok(conn_manager) => {
-                    tracing::info!("Redis connected for rate limiting");
-                    Some(RateLimiter::with_defaults(conn_manager))
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to connect to Redis for rate limiting: {}. Rate limiting disabled.", e);
-                    None
-                }
+        Ok(client) => match client.get_connection_manager().await {
+            Ok(conn_manager) => {
+                tracing::info!("Redis connected for rate limiting");
+                Some(RateLimiter::with_defaults(conn_manager))
             }
-        }
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to connect to Redis for rate limiting: {}. Rate limiting disabled.",
+                    e
+                );
+                None
+            }
+        },
         Err(e) => {
             tracing::warn!("Invalid Redis URL: {}. Rate limiting disabled.", e);
             None
@@ -71,8 +72,8 @@ pub async fn create_app(config: Config) -> Result<(Router, Arc<AppState>)> {
     // Initialize stream allocator (for QUIC stream management)
     let stream_allocator = Arc::new(StreamAllocator::new());
 
-    let state = Arc::new(AppState { 
-        db, 
+    let state = Arc::new(AppState {
+        db,
         config,
         ws_manager: ws_manager.clone(),
         rate_limiter,
@@ -90,7 +91,14 @@ pub async fn create_app(config: Config) -> Result<(Router, Arc<AppState>)> {
         // Serve static files from uploads directory
         .nest_service("/uploads", ServeDir::new("uploads"))
         .layer(DefaultBodyLimit::max(500 * 1024 * 1024)) // 500MB body limit
-        .layer(CorsLayer::permissive())
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any)
+                .expose_headers(Any)
+                .allow_credentials(false),
+        )
         .layer(TraceLayer::new_for_http())
         .with_state(state.clone());
 
