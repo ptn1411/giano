@@ -29,6 +29,7 @@ declare module "moltbot/plugin-sdk" {
 
   export interface ChannelOutboundAdapter {
     deliveryMode: "direct" | "queue";
+    chunker?: any;
     chunkerMode?: "text" | "markdown";
     textChunkLimit?: number;
     sendText: (params: {
@@ -86,11 +87,16 @@ declare module "moltbot/plugin-sdk" {
       resolveAllowFrom?: (params: {
         cfg: MoltbotConfig;
         account: T;
+        accountId?: string;
       }) => string[] | undefined;
       formatAllowFrom?: (params: { allowFrom: string[] }) => string[];
     };
     outbound: ChannelOutboundAdapter;
     gateway?: ChannelGatewayAdapter<T>;
+    status?: {
+      defaultRuntime: any;
+      buildAccountSnapshot: (params: { account: T; runtime: any }) => ChannelAccountSnapshot;
+    };
     agentPrompt?: {
       messageToolHints?: () => string[];
     };
@@ -150,10 +156,20 @@ declare module "moltbot/plugin-sdk" {
     onReplyStart?: () => void;
   }): { dispatcher: ReplyDispatcher; replyOptions: ReplyOptions };
 
-  export function dispatchReplyFromConfig(params: {
+  export const DEFAULT_ACCOUNT_ID: string;
+  export const getChatChannelMeta: (id: string) => ChannelPluginMeta;
+  export const emptyPluginConfigSchema: () => any;
+  export const dispatchReplyFromConfig: (params: {
     ctx: InboundContext;
     cfg: MoltbotConfig;
     dispatcher: ReplyDispatcher;
     replyOptions: ReplyOptions;
-  }): Promise<void>;
+  }) => Promise<void>;
+  
+  export type MoltbotPluginApi = {
+    registerChannel: (params: { plugin: ChannelPlugin<any> }) => void;
+    registerAgentTool?: (params: any) => void;
+    runtime: any;
+  };
+  export type PluginRuntime = any;
 }

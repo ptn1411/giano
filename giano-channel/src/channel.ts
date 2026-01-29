@@ -33,7 +33,7 @@ function now() {
 
 function getChannelConfig(cfg: MoltbotConfig): GianoChannelConfig {
   const channels = cfg.channels as Record<string, unknown> | undefined;
-  return (channels?.["giano-channel"] ?? {}) as GianoChannelConfig;
+  return (channels?.["giano-channel"] ?? channels?.["giano"] ?? {}) as GianoChannelConfig;
 }
 
 function resolveGianoAccount(params: {
@@ -77,7 +77,8 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
     listAccountIds: (cfg) => listGianoAccountIds(cfg),
     resolveAccount: (cfg, accountId) => resolveGianoAccount({ cfg, accountId }),
     isEnabled: (account) => account.enabled !== false,
-    isConfigured: (account) => Boolean(account.token?.trim()),
+    isConfigured: async (account) => Boolean(account.token?.trim()),
+    unconfiguredReason: () => "missing token (channels.giano.accounts.<id>.token)",
     describeAccount: (account) => ({
       accountId: account.accountId ?? DEFAULT_ACCOUNT_ID,
       name: account.name,
@@ -155,13 +156,15 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
         ctx.setStatus({
           accountId: account.accountId ?? DEFAULT_ACCOUNT_ID,
           lastError: "missing token",
+          enabled: true,
+          configured: false,
         });
         throw new Error(
           "giano-channel missing token (channels.giano-channel.accounts.<id>.token)",
         );
       }
 
-      ctx.log?.info(
+      ctx.log?.info?.(
         `[${account.accountId ?? DEFAULT_ACCOUNT_ID}] starting giano provider`,
       );
 
@@ -171,6 +174,8 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
         connected: false,
         lastStartAt: now(),
         lastError: null,
+        enabled: true,
+        configured: true,
       });
 
       const bot = new Bot(token, {
@@ -259,7 +264,7 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
 
       // Handle ready event
       bot.on("ready", () => {
-        ctx.log?.info(
+        ctx.log?.info?.(
           `[${account.accountId ?? DEFAULT_ACCOUNT_ID}] giano provider connected`,
         );
         ctx.setStatus({
@@ -291,6 +296,16 @@ export const gianoChannelPlugin: ChannelPlugin<GianoChannelAccount> = {
       });
 
       ctx.abortSignal.removeEventListener("abort", onAbort);
+    },
+    stopAccount: async (ctx) => {
+      ctx.setStatus({
+        accountId: ctx.accountId ?? DEFAULT_ACCOUNT_ID,
+        running: false,
+        connected: false,
+        lastStopAt: now(),
+        enabled: true,
+        configured: true,
+      });
     },
   },
 };
