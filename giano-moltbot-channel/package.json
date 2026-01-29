@@ -1,0 +1,29 @@
+{
+  "name": "giano-moltbot-channel",
+  "version": "0.1.0",
+  "description": "Moltbot channel plugin for Giano chat backend",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "moltbot",
+    "plugin",
+    "channel",
+    "giano"
+  ],
+  "peerDependencies": {
+    "moltbot": "^0.1.0"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.0",
+    "rimraf": "^5.0.0"
+  }
+}
