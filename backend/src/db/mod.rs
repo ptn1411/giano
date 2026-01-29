@@ -17,9 +17,9 @@ impl Database {
     }
 
     pub async fn run_migrations(&self) -> Result<()> {
-        sqlx::migrate!("./migrations")
-            .run(&self.pool)
-            .await?;
+        sqlx::migrate!("./migrations").run(&self.pool).await?;
         Ok(())
     }
 }
+
+// Force rebuild to pick up new migrations
