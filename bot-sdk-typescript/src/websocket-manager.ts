@@ -25,6 +25,10 @@ export class WebSocketManager {
   private isConnected: boolean = false;
   private shouldReconnect: boolean = true;
 
+  // Ping interval to keep connection alive
+  private pingInterval?: ReturnType<typeof setInterval>;
+  private pingIntervalMs: number = 20000; // 20 seconds
+
   // Track last update ID for reconnection (Requirement 2.6)
   // This will be used in future enhancement to resume from last processed update
   private lastUpdateId?: string;
@@ -51,6 +55,33 @@ export class WebSocketManager {
   }
 
   /**
+   * Start ping interval to keep WebSocket alive
+   */
+  private startPingInterval(): void {
+    this.stopPingInterval();
+    this.pingInterval = setInterval(() => {
+      if (this.ws && this.isConnected) {
+        try {
+          this.ws.ping();
+          this.logger.debug?.("Sent ping to keep connection alive");
+        } catch (err) {
+          this.logger.error?.("Failed to send ping:", err);
+        }
+      }
+    }, this.pingIntervalMs);
+  }
+
+  /**
+   * Stop ping interval
+   */
+  private stopPingInterval(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = undefined;
+    }
+  }
+
+  /**
    * Connect to WebSocket server
    * Creates WebSocket connection with token in URL
    * Sets up event handlers: open, message, close, error
@@ -68,6 +99,7 @@ export class WebSocketManager {
         this.logger.info("WebSocket connected");
         this.isConnected = true;
         this.reconnectAttempts = 0;
+        this.startPingInterval();
         resolve();
       });
 
@@ -76,12 +108,18 @@ export class WebSocketManager {
         this.handleMessage(data.toString());
       });
 
+      // Handle pong response
+      this.ws.on("pong", () => {
+        this.logger.debug?.("Received pong from server");
+      });
+
       // Setup event handler: close (Requirement 2.5)
       this.ws.on("close", (code: number, reason: Buffer) => {
         this.logger.info(
           `WebSocket closed (Code: ${code}, Reason: ${reason.toString()})`,
         );
         this.isConnected = false;
+        this.stopPingInterval();
 
         // Automatically attempt to reconnect if shouldReconnect is true
         if (this.shouldReconnect) {
@@ -109,6 +147,7 @@ export class WebSocketManager {
   async disconnect(): Promise<void> {
     // Set shouldReconnect to false to prevent auto-reconnect
     this.shouldReconnect = false;
+    this.stopPingInterval();
 
     // Close WebSocket connection
     if (this.ws) {
