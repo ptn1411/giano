@@ -1,6 +1,5 @@
 import { Bot, Context } from "gianobot";
 import type { MoltbotConfig } from "moltbot/plugin-sdk";
-import { finalizeInboundContext, resolveAgentRoute } from "moltbot/plugin-sdk";
 
 import { getGianoRuntime } from "./runtime.js";
 import type { ResolvedGianoAccount } from "./types.js";
@@ -152,7 +151,7 @@ async function processMessage(params: {
     }
   }
 
-  const route = resolveAgentRoute({
+  const route = core.channel.routing.resolveAgentRoute({
     cfg: config,
     channel: "giano-channel",
     accountId: account.accountId,
@@ -161,7 +160,7 @@ async function processMessage(params: {
 
   statusSink?.({ lastInboundAt: now() });
 
-  const ctxPayload = finalizeInboundContext({
+  const ctxPayload = core.channel.reply.finalizeInboundContext({
     Body: rawBody,
     RawBody: rawBody,
     CommandBody: rawBody,
