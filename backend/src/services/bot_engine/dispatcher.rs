@@ -6,21 +6,20 @@
 /// - Consistent payload format (Requirement 9.6)
 ///
 /// Requirements covered: 6.2, 6.3, 6.4, 6.5, 9.2, 9.4, 9.5, 9.6
-
 use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
 use crate::models::Bot;
-use crate::ws::{
-    BotServerEvent, BotUpdateChat, BotUpdateMessage, BotUpdateUser, WsManager,
-};
+use crate::ws::{BotServerEvent, BotUpdateChat, BotUpdateMessage, BotUpdateUser, WsManager};
 
 /// Context for a command/message being dispatched to bots
 #[derive(Debug, Clone)]
 pub struct CommandContext {
     pub user_id: Uuid,
+    /// Username of the sender (user or bot)
+    pub sender_username: Option<String>,
     pub chat_id: Uuid,
     pub message_id: Uuid,
     pub text: String,
@@ -106,7 +105,10 @@ impl BotDispatcher {
             message: BotUpdateMessage {
                 message_id: ctx.message_id,
                 chat: BotUpdateChat { id: ctx.chat_id },
-                from: BotUpdateUser { id: ctx.user_id },
+                from: BotUpdateUser {
+                    id: ctx.user_id,
+                    username: ctx.sender_username.clone(),
+                },
                 text: ctx.text.clone(),
             },
         };
@@ -254,6 +256,7 @@ mod tests {
     fn test_command_context_creation() {
         let ctx = CommandContext {
             user_id: Uuid::new_v4(),
+            sender_username: Some("test_user".to_string()),
             chat_id: Uuid::new_v4(),
             message_id: Uuid::new_v4(),
             text: "/help".to_string(),

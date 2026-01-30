@@ -1,11 +1,34 @@
-import { useRef, useEffect, useCallback, memo } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { Message, User, InlineButton } from "@/services/api/types";
-import { MessageBubble } from "./MessageBubble";
-import { TypingIndicator } from "./TypingIndicator";
-import { MessageSkeleton } from "./MessageSkeleton";
+import { InlineButton, Message, User } from "@/services/api/types";
 import { useAuthStore } from "@/stores/authStore";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Loader2 } from "lucide-react";
+import { memo, useCallback, useEffect, useRef } from "react";
+import { MessageBubble } from "./MessageBubble";
+import { MessageSkeleton } from "./MessageSkeleton";
+import { TypingIndicator } from "./TypingIndicator";
+
+/**
+ * Helper to find sender for a message.
+ * For bot messages, creates a fallback User object if not found in users list.
+ */
+function getSender(message: Message, users: User[]): User | undefined {
+  // First, try to find in users list
+  const userSender = users.find((u) => u.id === message.senderId);
+  if (userSender) return userSender;
+
+  // If sender is a bot and not found in users, create a fallback User
+  if (message.senderType === "bot") {
+    return {
+      id: message.senderId,
+      name: "Bot", // Fallback name
+      avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${message.senderId}`,
+      status: "online" as const,
+      isBot: true,
+    };
+  }
+
+  return undefined;
+}
 
 interface MessageListProps {
   messages: Message[];
@@ -86,15 +109,15 @@ const MessageItem = memo(function MessageItem({
   );
 });
 
-export function MessageList({ 
+export function MessageList({
   messages,
   users,
-  onReaction, 
-  onReply, 
-  onForward, 
-  onEdit, 
-  onDelete, 
-  onPin, 
+  onReaction,
+  onReply,
+  onForward,
+  onEdit,
+  onDelete,
+  onPin,
   onUnpin,
   onRetry,
   onInlineButtonClick,
@@ -102,9 +125,9 @@ export function MessageList({
   onLoadMore,
   hasMore,
   isLoadingMore,
-  loading, 
-  searchQuery, 
-  typingUsers = [] 
+  loading,
+  searchQuery,
+  typingUsers = [],
 }: MessageListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const currentUserId = useAuthStore((state) => state.session?.user?.id);
@@ -128,31 +151,34 @@ export function MessageList({
         virtualizer.measureElement(el);
       });
     },
-    [virtualizer]
+    [virtualizer],
   );
 
   // Scroll to bottom function
-  const scrollToBottom = useCallback((smooth = false) => {
-    if (messages.length > 0 && parentRef.current) {
-      virtualizer.scrollToIndex(messages.length - 1, {
-        align: "end",
-        behavior: smooth ? "smooth" : "auto",
-      });
-    }
-  }, [virtualizer, messages.length]);
+  const scrollToBottom = useCallback(
+    (smooth = false) => {
+      if (messages.length > 0 && parentRef.current) {
+        virtualizer.scrollToIndex(messages.length - 1, {
+          align: "end",
+          behavior: smooth ? "smooth" : "auto",
+        });
+      }
+    },
+    [virtualizer, messages.length],
+  );
 
   // QUAN TRỌNG: Scroll xuống khi vừa vào chat (lần đầu load messages)
   useEffect(() => {
     if (messages.length > 0 && isInitialScrollRef.current) {
       isInitialScrollRef.current = false;
-      
+
       // Đợi virtualizer render xong
       const timers = [
         setTimeout(() => scrollToBottom(false), 0),
         setTimeout(() => scrollToBottom(false), 50),
         setTimeout(() => scrollToBottom(false), 100),
       ];
-      
+
       return () => timers.forEach(clearTimeout);
     }
   }, [messages.length, scrollToBottom]);
@@ -186,7 +212,8 @@ export function MessageList({
     if (!element) return;
 
     // Check xem user có đang ở gần cuối không
-    const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 150;
+    const isNearBottom =
+      element.scrollHeight - element.scrollTop - element.clientHeight < 150;
     shouldScrollToBottomRef.current = isNearBottom;
 
     // Load more khi scroll gần đầu - lưu offset trước khi load
@@ -206,7 +233,9 @@ export function MessageList({
         <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
           <span className="text-3xl">💬</span>
         </div>
-        <h3 className="font-semibold text-lg text-foreground">Chưa có tin nhắn</h3>
+        <h3 className="font-semibold text-lg text-foreground">
+          Chưa có tin nhắn
+        </h3>
         <p className="text-sm text-muted-foreground mt-1">
           Gửi tin nhắn để bắt đầu cuộc trò chuyện
         </p>
@@ -223,19 +252,17 @@ export function MessageList({
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       )}
-      
+
       <div
         ref={parentRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
-      >
+        className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
         <div
           style={{
             height: `${virtualizer.getTotalSize()}px`,
             width: "100%",
             position: "relative",
-          }}
-        >
+          }}>
           {items.map((virtualRow) => {
             const message = messages[virtualRow.index];
             return (
@@ -249,12 +276,11 @@ export function MessageList({
                   left: 0,
                   width: "100%",
                   transform: `translateY(${virtualRow.start}px)`,
-                }}
-              >
+                }}>
                 <MessageItem
                   message={message}
                   isOwn={message.senderId === currentUserId}
-                  sender={users.find((u) => u.id === message.senderId)}
+                  sender={getSender(message, users)}
                   users={users}
                   onReaction={(emoji) => onReaction(message.id, emoji)}
                   onReply={onReply}

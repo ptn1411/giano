@@ -18,14 +18,14 @@ export interface ApiErrorResponse {
   error: ApiError;
 }
 
-export type ErrorType = 
-  | 'validation'
-  | 'auth'
-  | 'forbidden'
-  | 'not_found'
-  | 'rate_limit'
-  | 'server'
-  | 'network';
+export type ErrorType =
+  | "validation"
+  | "auth"
+  | "forbidden"
+  | "not_found"
+  | "rate_limit"
+  | "server"
+  | "network";
 
 export interface ParsedError {
   type: ErrorType;
@@ -47,7 +47,7 @@ export interface ApiResponse<T> {
 // User Types
 // ============================================
 
-export type UserStatus = 'online' | 'offline' | 'away';
+export type UserStatus = "online" | "offline" | "away";
 
 export interface User {
   id: string;
@@ -104,7 +104,7 @@ export interface RefreshTokenRequest {
 // Chat Types
 // ============================================
 
-export type ChatType = 'private' | 'group' | 'bot';
+export type ChatType = "private" | "group" | "bot";
 
 export interface Chat {
   id: string;
@@ -137,7 +137,12 @@ export interface CreateGroupRequest {
 // Message Types
 // ============================================
 
-export type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+export type DeliveryStatus =
+  | "sending"
+  | "sent"
+  | "delivered"
+  | "read"
+  | "failed";
 
 export interface Reaction {
   emoji: string;
@@ -147,7 +152,7 @@ export interface Reaction {
 
 export interface Attachment {
   id: string;
-  type: 'image' | 'file' | 'voice';
+  type: "image" | "file" | "voice";
   name: string;
   size: number;
   url: string;
@@ -177,6 +182,8 @@ export interface Message {
   id: string;
   chatId: string;
   senderId: string;
+  /** Type of sender: 'user' or 'bot' */
+  senderType?: "user" | "bot";
   text: string;
   timestamp: string;
   isRead: boolean;
@@ -251,9 +258,9 @@ export interface ProfileSettings {
 }
 
 export interface PrivacySettings {
-  lastSeen: 'everyone' | 'contacts' | 'nobody';
-  profilePhoto: 'everyone' | 'contacts' | 'nobody';
-  onlineStatus: 'everyone' | 'contacts' | 'nobody';
+  lastSeen: "everyone" | "contacts" | "nobody";
+  profilePhoto: "everyone" | "contacts" | "nobody";
+  onlineStatus: "everyone" | "contacts" | "nobody";
   readReceipts: boolean;
 }
 
@@ -266,15 +273,15 @@ export interface NotificationSettings {
 }
 
 export interface AppearanceSettings {
-  theme: 'light' | 'dark' | 'system';
-  fontSize: 'small' | 'medium' | 'large';
+  theme: "light" | "dark" | "system";
+  fontSize: "small" | "medium" | "large";
   chatBackground?: string;
 }
 
 export interface Device {
   id: string;
   name: string;
-  type: 'desktop' | 'mobile' | 'tablet';
+  type: "desktop" | "mobile" | "tablet";
   lastActive: string;
   isCurrent: boolean;
 }
@@ -336,15 +343,15 @@ export interface MessageReadEvent {
 }
 
 export type WebSocketEvent =
-  | { event: 'new_message'; data: NewMessageEvent }
-  | { event: 'message_updated'; data: MessageUpdatedEvent }
-  | { event: 'message_deleted'; data: MessageDeletedEvent }
-  | { event: 'message_pinned'; data: MessagePinnedEvent }
-  | { event: 'reaction_updated'; data: ReactionUpdatedEvent }
-  | { event: 'typing'; data: TypingEvent }
-  | { event: 'user_status'; data: UserStatusEvent }
-  | { event: 'message_status'; data: MessageStatusEvent }
-  | { event: 'message_read'; data: MessageReadEvent };
+  | { event: "new_message"; data: NewMessageEvent }
+  | { event: "message_updated"; data: MessageUpdatedEvent }
+  | { event: "message_deleted"; data: MessageDeletedEvent }
+  | { event: "message_pinned"; data: MessagePinnedEvent }
+  | { event: "reaction_updated"; data: ReactionUpdatedEvent }
+  | { event: "typing"; data: TypingEvent }
+  | { event: "user_status"; data: UserStatusEvent }
+  | { event: "message_status"; data: MessageStatusEvent }
+  | { event: "message_read"; data: MessageReadEvent };
 
 // ============================================
 // Bot Types

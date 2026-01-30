@@ -172,6 +172,37 @@ export const chatsService = {
       return { error: parsedError.message };
     }
   },
+
+  /**
+   * Get all bots in a chat
+   * GET /chats/:chatId/bots
+   */
+  async getChatBots(
+    chatId: string,
+  ): Promise<{ bots: User[]; error: string | null }> {
+    try {
+      const response = await apiClient.get<{
+        bots: Array<{
+          id: string;
+          name: string;
+          username: string | null;
+          isActive: boolean;
+        }>;
+      }>(`/chats/${chatId}/bots`);
+      // Convert BotPublic to User format for display
+      const bots: User[] = response.data.bots.map((bot) => ({
+        id: bot.id,
+        name: bot.name,
+        avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${bot.id}`,
+        status: "online" as const,
+        isBot: true,
+      }));
+      return { bots, error: null };
+    } catch (error) {
+      const parsedError = parseApiError(error);
+      return { bots: [], error: parsedError.message };
+    }
+  },
 };
 
 export default chatsService;

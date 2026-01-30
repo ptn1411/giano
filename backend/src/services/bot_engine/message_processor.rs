@@ -102,8 +102,11 @@ impl MessageProcessor {
         }
 
         // Create command context
+        // Note: sender_username is not available in MessageResponse, set to None for now
+        // A full implementation would query the user/bot name from the database
         let ctx = CommandContext {
             user_id: message.sender_id,
+            sender_username: None, // TODO: Query username from users/bots table based on sender_type
             chat_id: message.chat_id,
             message_id: message.id,
             text: text.clone(),
@@ -152,8 +155,10 @@ impl MessageProcessor {
         }
 
         // Create command context
+        // Note: sender_username is not available in MessageResponse, set to None for now
         let ctx = CommandContext {
             user_id: message.sender_id,
+            sender_username: None, // TODO: Query username from users/bots table
             chat_id: message.chat_id,
             message_id: message.id,
             text: text.clone(),

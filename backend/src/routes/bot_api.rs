@@ -217,6 +217,7 @@ async fn send_message(
     if !other_bots.is_empty() {
         let ctx = CommandContext {
             user_id: bot.id, // Sender is a bot
+            sender_username: bot.username.clone().or_else(|| Some(bot.name.clone())),
             chat_id: body.chat_id,
             message_id: message.id,
             text: body.text.clone(),

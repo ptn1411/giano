@@ -25,10 +25,7 @@ pub enum BotServerEvent {
         bot_name: String,
     },
     /// Error event for bots
-    BotError {
-        code: String,
-        message: String,
-    },
+    BotError { code: String, message: String },
 }
 
 /// Message data in bot update (matches webhook payload format per Requirement 9.6)
@@ -51,6 +48,9 @@ pub struct BotUpdateChat {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BotUpdateUser {
     pub id: Uuid,
+    /// Username of the sender (user or bot)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
 }
 
 // ==================== User WebSocket Events ====================
@@ -61,13 +61,9 @@ pub struct BotUpdateUser {
 #[serde(rename_all = "snake_case")]
 pub enum ServerEvent {
     /// New message received
-    NewMessage {
-        message: MessageResponse,
-    },
+    NewMessage { message: MessageResponse },
     /// Message updated (edited)
-    MessageUpdated {
-        message: MessageResponse,
-    },
+    MessageUpdated { message: MessageResponse },
     /// Message deleted
     MessageDeleted {
         #[serde(rename = "chatId")]
@@ -85,9 +81,7 @@ pub enum ServerEvent {
         is_pinned: bool,
     },
     /// Reaction added/removed
-    ReactionUpdated {
-        message: MessageResponse,
-    },
+    ReactionUpdated { message: MessageResponse },
     /// User typing indicator
     Typing {
         #[serde(rename = "chatId")]
@@ -125,10 +119,7 @@ pub enum ServerEvent {
         read_by: ReadByInfo,
     },
     /// Error event
-    Error {
-        code: String,
-        message: String,
-    },
+    Error { code: String, message: String },
     /// Connection established
     Connected {
         #[serde(rename = "userId")]

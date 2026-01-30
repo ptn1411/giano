@@ -8,6 +8,7 @@ import { NewGroupModal } from "@/components/chat/NewGroupModal";
 import { SearchUserModal } from "@/components/chat/SearchUserModal";
 import { ErrorAlert } from "@/components/ui/error-alert";
 import { toast } from "@/hooks/use-toast";
+import { BOTFATHER_CHAT, BOTFATHER_ID, isBotFatherChat } from "@/lib/botfather";
 import { botsService, chatsService, messagesService } from "@/services/api";
 import {
   Attachment,
@@ -17,14 +18,13 @@ import {
   User,
 } from "@/services/api/types";
 import { useAuthStore } from "@/stores/authStore";
+import { useBotFatherStore } from "@/stores/botfatherStore";
 import { selectCallState, useCallStore } from "@/stores/callStore";
 import { useChats, useChatsStore } from "@/stores/chatsStore";
 import { useChatStore } from "@/stores/chatStore";
 import { useMessages, useMessagesStore } from "@/stores/messagesStore";
 import { useUsers, useUsersStore } from "@/stores/usersStore";
-import { useBotFatherStore } from "@/stores/botfatherStore";
-import { isBotFatherChat, BOTFATHER_CHAT, BOTFATHER_ID } from "@/lib/botfather";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const Index = () => {
   // Use Zustand store for UI state
@@ -73,7 +73,7 @@ const Index = () => {
     loadMore,
   } = useMessages(activeChatId);
   const clearChatMessages = useMessagesStore(
-    (state) => state.clearChatMessages
+    (state) => state.clearChatMessages,
   );
   const deleteChatAsync = useChatsStore((state) => state.deleteChatAsync);
   const { users } = useUsers();
@@ -83,9 +83,16 @@ const Index = () => {
   // BotFather store
   const botfatherMessages = useBotFatherStore((state) => state.messages);
   const sendBotFatherMessage = useBotFatherStore((state) => state.sendMessage);
-  const loadBotFatherMessages = useBotFatherStore((state) => state.loadMessages);
+  const loadBotFatherMessages = useBotFatherStore(
+    (state) => state.loadMessages,
+  );
   const botfatherLoading = useBotFatherStore((state) => state.loading);
-  const botfatherLoadingHistory = useBotFatherStore((state) => state.loadingHistory);
+  const botfatherLoadingHistory = useBotFatherStore(
+    (state) => state.loadingHistory,
+  );
+
+  // Bots in current chat (for displaying their messages)
+  const [chatBots, setChatBots] = useState<User[]>([]);
 
   // Check if current chat is BotFather
   const isBotFather = activeChatId ? isBotFatherChat(activeChatId) : false;
@@ -136,6 +143,21 @@ const Index = () => {
     }
   }, [activeChatId]);
 
+  // Fetch bots in current chat for displaying their messages
+  useEffect(() => {
+    const fetchChatBots = async () => {
+      if (activeChatId && !isBotFatherChat(activeChatId)) {
+        const result = await chatsService.getChatBots(activeChatId);
+        if (!result.error) {
+          setChatBots(result.bots);
+        }
+      } else {
+        setChatBots([]);
+      }
+    };
+    fetchChatBots();
+  }, [activeChatId]);
+
   // Load BotFather messages when BotFather chat is selected
   useEffect(() => {
     if (isBotFather) {
@@ -151,7 +173,7 @@ const Index = () => {
         setSidebarOpen(false);
       }
     },
-    [setActiveChatId, setSidebarOpen]
+    [setActiveChatId, setSidebarOpen],
   );
 
   const handleBack = useCallback(() => {
@@ -163,7 +185,7 @@ const Index = () => {
     async (
       text: string,
       attachments?: Attachment[],
-      replyTo?: Message["replyTo"]
+      replyTo?: Message["replyTo"],
     ) => {
       // Handle BotFather messages specially
       if (isBotFather) {
@@ -171,12 +193,12 @@ const Index = () => {
         setReplyingTo(null);
         return;
       }
-      
+
       await sendMessage(text, attachments, replyTo);
       setReplyingTo(null);
       useChatsStore.getState().fetchChats();
     },
-    [sendMessage, setReplyingTo, isBotFather, sendBotFatherMessage]
+    [sendMessage, setReplyingTo, isBotFather, sendBotFatherMessage],
   );
 
   const handleInlineButtonClick = useCallback(
@@ -226,7 +248,7 @@ const Index = () => {
         window.open(button.url, "_blank");
       }
     },
-    [activeChat, activeChatId, addMessage]
+    [activeChat, activeChatId, addMessage],
   );
 
   const handleForwardMessage = useCallback(
@@ -244,7 +266,7 @@ const Index = () => {
         description: "Your message has been forwarded successfully",
       });
     },
-    []
+    [],
   );
 
   const handleDeleteMessage = useCallback(async () => {
@@ -268,7 +290,7 @@ const Index = () => {
         description: "Your message has been updated",
       });
     },
-    [editMessage, setEditingMessage]
+    [editMessage, setEditingMessage],
   );
 
   const handleNewChat = useCallback(() => {
@@ -285,7 +307,7 @@ const Index = () => {
         description: "Your new group has been created successfully",
       });
     },
-    [setActiveChatId, setShowNewGroupModal]
+    [setActiveChatId, setShowNewGroupModal],
   );
 
   const handleChatCreated = useCallback(
@@ -296,19 +318,32 @@ const Index = () => {
         setSidebarOpen(false);
       }
     },
-    [setActiveChatId, setSidebarOpen]
+    [setActiveChatId, setSidebarOpen],
   );
 
-  // Get participants for active chat
+  // Get participants for active chat (merge users and bots)
   const participants = activeChat
     ? isBotFather
-      ? [{ id: BOTFATHER_ID, name: 'BotFather', avatar: BOTFATHER_CHAT.avatar, status: 'online' as const, isBot: true }]
-      : users.filter((u) => activeChat.participants.includes(u.id))
+      ? [
+          {
+            id: BOTFATHER_ID,
+            name: "BotFather",
+            avatar: BOTFATHER_CHAT.avatar,
+            status: "online" as const,
+            isBot: true,
+          },
+        ]
+      : [
+          ...users.filter((u) => activeChat.participants.includes(u.id)),
+          ...chatBots, // Include bots from the chat
+        ]
     : [];
 
   // Get messages - use BotFather store for BotFather chat
   const displayMessages = isBotFather ? botfatherMessages : messages;
-  const displayLoading = isBotFather ? (botfatherLoading || botfatherLoadingHistory) : messagesLoading;
+  const displayLoading = isBotFather
+    ? botfatherLoading || botfatherLoadingHistory
+    : messagesLoading;
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
@@ -375,7 +410,9 @@ const Index = () => {
           onMenuClick={toggleSidebar}
           onBack={handleBack}
           onClearChat={
-            activeChatId && !isBotFather ? () => clearChatMessages(activeChatId) : undefined
+            activeChatId && !isBotFather
+              ? () => clearChatMessages(activeChatId)
+              : undefined
           }
           onDeleteChat={
             activeChatId && !isBotFather
