@@ -30,12 +30,21 @@ use crate::{
 };
 
 pub fn routes() -> Router<Arc<AppState>> {
+    // Static routes - these must be matched before parameterized routes
+    let static_routes = Router::new()
+        .route("/available", get(list_available_bots))
+        .route("/search", get(search_bot));
+
+    // Parameterized routes
+    let param_routes = Router::new()
+        .route("/:bot_id", get(get_bot).delete(delete_bot))
+        .route("/:bot_id/callback", post(handle_callback));
+
+    // Root route + merge static first, then parameterized
     Router::new()
         .route("/", post(create_bot).get(list_bots))
-        .route("/available", get(list_available_bots))
-        .route("/search", get(search_bot))
-        .route("/:bot_id", get(get_bot).delete(delete_bot))
-        .route("/:bot_id/callback", post(handle_callback))
+        .merge(static_routes)
+        .merge(param_routes)
 }
 
 #[derive(Debug, Deserialize)]
