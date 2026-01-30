@@ -344,14 +344,45 @@ export async function monitorGianoProvider(
     mode: "websocket",
     apiBaseUrl: account.apiBaseUrl,
     wsUrl: account.wsUrl,
+    logLevel: "info",
   });
 
   let stopped = false;
 
-  // Handle incoming messages
+  // Handle incoming messages - with simple echo for testing
   bot.on("text", async (botCtx: Context) => {
     if (abortSignal.aborted || stopped) return;
 
+    const text = botCtx.text || "";
+    const sender = botCtx.userId || "unknown";
+    const chatId = botCtx.chatId;
+    
+    runtime.log?.(`[${account.accountId}] 📩 Received message from ${sender} in chat ${chatId}: "${text.slice(0, 100)}"`);
+
+    // Simple ping/pong test
+    if (text.toLowerCase() === "/ping") {
+      try {
+        await botCtx.reply("🏓 Pong! Giano channel is working!");
+        runtime.log?.(`[${account.accountId}] ↪️ Replied pong success`);
+      } catch (err) {
+        runtime.error?.(`[${account.accountId}] ❌ Ping reply failed: ${String(err)}`);
+      }
+      return;
+    }
+
+    // Echo test command
+    if (text.toLowerCase().startsWith("/echo ")) {
+      const echoText = text.slice(6);
+      try {
+        await botCtx.reply(`Echo: ${echoText}`);
+        runtime.log?.(`[${account.accountId}] ↪️ Echo replied success`);
+      } catch (err) {
+        runtime.error?.(`[${account.accountId}] ❌ Echo reply failed: ${String(err)}`);
+      }
+      return;
+    }
+
+    // Process normally through Moltbot
     await processMessage({
       botCtx,
       bot,
@@ -365,8 +396,13 @@ export async function monitorGianoProvider(
 
   // Handle ready event
   bot.on("ready", () => {
-    runtime.log?.(`[${account.accountId}] giano provider connected`);
+    runtime.log?.(`[${account.accountId}] ✅ giano provider connected and ready!`);
     statusSink?.({ connected: true });
+  });
+
+  // Handle error event
+  bot.on("error" as never, (err: unknown) => {
+    runtime.error?.(`[${account.accountId}] 🔥 Bot error: ${String(err)}`);
   });
 
   // Handle abort signal
