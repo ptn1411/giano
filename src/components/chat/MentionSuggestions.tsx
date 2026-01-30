@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { User } from "@/services/api/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { User } from "@/services/api/types";
+import { useEffect, useRef, useState } from "react";
 
 interface MentionSuggestionsProps {
   users: User[];
@@ -24,7 +24,7 @@ export function MentionSuggestions({
   const filteredUsers = users.filter(
     (user) =>
       user.id !== "user-1" &&
-      user.name.toLowerCase().includes(query.toLowerCase())
+      user.name.toLowerCase().includes(query.toLowerCase()),
   );
 
   useEffect(() => {
@@ -39,13 +39,13 @@ export function MentionSuggestions({
         case "ArrowDown":
           e.preventDefault();
           setSelectedIndex((prev) =>
-            prev < filteredUsers.length - 1 ? prev + 1 : 0
+            prev < filteredUsers.length - 1 ? prev + 1 : 0,
           );
           break;
         case "ArrowUp":
           e.preventDefault();
           setSelectedIndex((prev) =>
-            prev > 0 ? prev - 1 : filteredUsers.length - 1
+            prev > 0 ? prev - 1 : filteredUsers.length - 1,
           );
           break;
         case "Enter":
@@ -71,8 +71,7 @@ export function MentionSuggestions({
   return (
     <div
       ref={listRef}
-      className="absolute bottom-full left-0 mb-2 w-64 max-h-48 overflow-y-auto rounded-xl border border-border bg-card shadow-lg animate-fade-in"
-    >
+      className="absolute bottom-full left-0 mb-2 w-64 max-h-48 overflow-y-auto rounded-xl border border-border bg-card shadow-lg animate-fade-in">
       <div className="p-1">
         {filteredUsers.map((user, index) => (
           <button
@@ -83,17 +82,23 @@ export function MentionSuggestions({
               "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors",
               index === selectedIndex
                 ? "bg-primary/10 text-primary"
-                : "hover:bg-accent"
-            )}
-          >
+                : "hover:bg-accent",
+            )}>
             <Avatar className="h-8 w-8">
               <AvatarImage src={user.avatar} alt={user.name} />
               <AvatarFallback>{user.name[0]}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm truncate">{user.name}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="font-medium text-sm truncate">{user.name}</p>
+                {user.isBot && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                    BOT
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground capitalize">
-                {user.status}
+                {user.isBot ? "Bot" : user.status}
               </p>
             </div>
           </button>
