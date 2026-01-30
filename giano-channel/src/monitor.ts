@@ -74,7 +74,12 @@ async function processMessage(params: {
   const text = botCtx.text ?? "";
   const messageId = botCtx.messageId;
 
-  if (!chatId || !text.trim()) return;
+  runtime.log?.(`[${account.accountId}] processMessage: chatId=${chatId}, senderId=${senderId}, text="${text.slice(0, 50)}..."`);
+
+  if (!chatId || !text.trim()) {
+    runtime.log?.(`[${account.accountId}] processMessage: empty chatId or text, skipping`);
+    return;
+  }
 
   // Skip messages from self (bot) to prevent reply loops
   if (account.config.botUserId && senderId === account.config.botUserId) {
@@ -197,31 +202,39 @@ async function processMessage(params: {
 
   // Use dispatchReplyWithBufferedBlockDispatcher if available, otherwise fallback
   if (core?.channel?.reply?.dispatchReplyWithBufferedBlockDispatcher) {
-    await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
-      ctx: ctxPayload,
-      cfg: config,
-      dispatcherOptions: {
-        deliver: async (payload: { text?: string }) => {
-          await deliverGianoReply({
-            payload,
-            bot,
-            chatId,
-            messageId,
-            runtime,
-            core,
-            config,
-            accountId: account.accountId,
-            statusSink,
-            tableMode,
-          });
+    runtime.log?.(`[${account.accountId}] Dispatching via dispatchReplyWithBufferedBlockDispatcher`);
+    runtime.log?.(`[${account.accountId}] ctx.SessionKey=${ctxPayload.SessionKey}, chatId=${chatId}, senderId=${senderId}`);
+    try {
+      await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
+        ctx: ctxPayload,
+        cfg: config,
+        dispatcherOptions: {
+          deliver: async (payload: { text?: string }) => {
+            runtime.log?.(`[${account.accountId}] deliver() called with payload.text length=${payload.text?.length ?? 0}`);
+            await deliverGianoReply({
+              payload,
+              bot,
+              chatId,
+              messageId,
+              runtime,
+              core,
+              config,
+              accountId: account.accountId,
+              statusSink,
+              tableMode,
+            });
+          },
+          onError: (err: unknown, info: { kind: string }) => {
+            runtime.error?.(
+              `[${account.accountId}] Giano ${info.kind} reply failed: ${String(err)}`,
+            );
+          },
         },
-        onError: (err: unknown, info: { kind: string }) => {
-          runtime.error?.(
-            `[${account.accountId}] Giano ${info.kind} reply failed: ${String(err)}`,
-          );
-        },
-      },
-    });
+      });
+      runtime.log?.(`[${account.accountId}] dispatchReplyWithBufferedBlockDispatcher completed`);
+    } catch (dispatchErr) {
+      runtime.error?.(`[${account.accountId}] dispatchReplyWithBufferedBlockDispatcher threw: ${String(dispatchErr)}`);
+    }
   } else {
     // Fallback for simple dispatch
     runtime.log?.(`[${account.accountId}] Using fallback reply dispatch`);
@@ -255,23 +268,34 @@ async function deliverGianoReply(params: {
   statusSink?: (patch: { lastOutboundAt?: number }) => void;
   tableMode?: string;
 }): Promise<void> {
-  const { payload, bot, chatId, messageId, runtime, statusSink } = params;
+  const { payload, bot, chatId, messageId, runtime, statusSink, accountId } = params;
+
+  runtime.log?.(`[${accountId}] deliverGianoReply called, payload.text="${payload.text?.slice(0, 100)}..."`);
 
   const outText = payload.text ?? "";
-  if (!outText.trim()) return;
+  if (!outText.trim()) {
+    runtime.log?.(`[${accountId}] deliverGianoReply: empty text, skipping`);
+    return;
+  }
 
   // Chunk long messages
   const chunks = chunkText(outText, GIANO_TEXT_LIMIT);
-  for (const chunk of chunks) {
+  runtime.log?.(`[${accountId}] deliverGianoReply: sending ${chunks.length} chunk(s) to chatId=${chatId}`);
+  
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
     try {
+      runtime.log?.(`[${accountId}] Sending chunk ${i + 1}/${chunks.length} (${chunk.length} chars)`);
       await bot.sendMessage(chatId, chunk, {
         replyToId: messageId,
       });
+      runtime.log?.(`[${accountId}] Chunk ${i + 1} sent successfully`);
     } catch (err) {
-      runtime.error?.(`giano send failed: ${String(err)}`);
+      runtime.error?.(`[${accountId}] giano send failed: ${String(err)}`);
     }
   }
   statusSink?.({ lastOutboundAt: now() });
+  runtime.log?.(`[${accountId}] deliverGianoReply completed`);
 }
 
 function chunkText(text: string, limit: number): string[] {
