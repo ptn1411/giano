@@ -73,10 +73,14 @@ async function processMessage(params: {
   const text = botCtx.text ?? "";
   const messageId = botCtx.messageId;
 
-  runtime.log?.(`[${account.accountId}] processMessage: chatId=${chatId}, senderId=${senderId}, text="${text.slice(0, 50)}..."`);
+  runtime.log?.(
+    `[${account.accountId}] processMessage: chatId=${chatId}, senderId=${senderId}, text="${text.slice(0, 50)}..."`,
+  );
 
   if (!chatId || !text.trim()) {
-    runtime.log?.(`[${account.accountId}] processMessage: empty chatId or text, skipping`);
+    runtime.log?.(
+      `[${account.accountId}] processMessage: empty chatId or text, skipping`,
+    );
     return;
   }
 
@@ -151,16 +155,23 @@ async function processMessage(params: {
     }
   }
 
-  const route = core.channel.routing.resolveAgentRoute({
-    cfg: config,
-    channel: "giano-channel",
-    accountId: account.accountId,
-    peer: { kind: isGroup ? "group" : "dm", id: chatId },
-  });
+  // Use routing API if available, otherwise construct route manually
+  const route = core?.channel?.routing?.resolveAgentRoute
+    ? core.channel.routing.resolveAgentRoute({
+        cfg: config,
+        channel: "giano-channel",
+        accountId: account.accountId,
+        peer: { kind: isGroup ? "group" : "dm", id: chatId },
+      })
+    : {
+        sessionKey: `giano-channel:${account.accountId}:${chatId}`,
+        accountId: account.accountId,
+      };
 
   statusSink?.({ lastInboundAt: now() });
 
-  const ctxPayload = core.channel.reply.finalizeInboundContext({
+  // Build inbound context - use finalizeInboundContext if available, otherwise use directly
+  const rawCtx = {
     Body: rawBody,
     RawBody: rawBody,
     CommandBody: rawBody,
@@ -176,7 +187,10 @@ async function processMessage(params: {
     OriginatingTo: chatId,
     SenderId: senderId,
     SenderName: undefined,
-  });
+  };
+  const ctxPayload = core?.channel?.reply?.finalizeInboundContext
+    ? core.channel.reply.finalizeInboundContext(rawCtx)
+    : rawCtx;
 
   // Record inbound session if available
   const storePath = core?.storage?.getSessionStorePath?.() ?? undefined;
@@ -201,15 +215,21 @@ async function processMessage(params: {
 
   // Use dispatchReplyWithBufferedBlockDispatcher if available, otherwise fallback
   if (core?.channel?.reply?.dispatchReplyWithBufferedBlockDispatcher) {
-    runtime.log?.(`[${account.accountId}] Dispatching via dispatchReplyWithBufferedBlockDispatcher`);
-    runtime.log?.(`[${account.accountId}] ctx.SessionKey=${ctxPayload.SessionKey}, chatId=${chatId}, senderId=${senderId}`);
+    runtime.log?.(
+      `[${account.accountId}] Dispatching via dispatchReplyWithBufferedBlockDispatcher`,
+    );
+    runtime.log?.(
+      `[${account.accountId}] ctx.SessionKey=${ctxPayload.SessionKey}, chatId=${chatId}, senderId=${senderId}`,
+    );
     try {
       await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
         ctx: ctxPayload,
         cfg: config,
         dispatcherOptions: {
           deliver: async (payload: { text?: string }) => {
-            runtime.log?.(`[${account.accountId}] deliver() called with payload.text length=${payload.text?.length ?? 0}`);
+            runtime.log?.(
+              `[${account.accountId}] deliver() called with payload.text length=${payload.text?.length ?? 0}`,
+            );
             await deliverGianoReply({
               payload,
               bot,
@@ -230,9 +250,13 @@ async function processMessage(params: {
           },
         },
       });
-      runtime.log?.(`[${account.accountId}] dispatchReplyWithBufferedBlockDispatcher completed`);
+      runtime.log?.(
+        `[${account.accountId}] dispatchReplyWithBufferedBlockDispatcher completed`,
+      );
     } catch (dispatchErr) {
-      runtime.error?.(`[${account.accountId}] dispatchReplyWithBufferedBlockDispatcher threw: ${String(dispatchErr)}`);
+      runtime.error?.(
+        `[${account.accountId}] dispatchReplyWithBufferedBlockDispatcher threw: ${String(dispatchErr)}`,
+      );
     }
   } else {
     // Fallback for simple dispatch
@@ -267,9 +291,12 @@ async function deliverGianoReply(params: {
   statusSink?: (patch: { lastOutboundAt?: number }) => void;
   tableMode?: string;
 }): Promise<void> {
-  const { payload, bot, chatId, messageId, runtime, statusSink, accountId } = params;
+  const { payload, bot, chatId, messageId, runtime, statusSink, accountId } =
+    params;
 
-  runtime.log?.(`[${accountId}] deliverGianoReply called, payload.text="${payload.text?.slice(0, 100)}..."`);
+  runtime.log?.(
+    `[${accountId}] deliverGianoReply called, payload.text="${payload.text?.slice(0, 100)}..."`,
+  );
 
   const outText = payload.text ?? "";
   if (!outText.trim()) {
@@ -279,12 +306,16 @@ async function deliverGianoReply(params: {
 
   // Chunk long messages
   const chunks = chunkText(outText, GIANO_TEXT_LIMIT);
-  runtime.log?.(`[${accountId}] deliverGianoReply: sending ${chunks.length} chunk(s) to chatId=${chatId}`);
-  
+  runtime.log?.(
+    `[${accountId}] deliverGianoReply: sending ${chunks.length} chunk(s) to chatId=${chatId}`,
+  );
+
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     try {
-      runtime.log?.(`[${accountId}] Sending chunk ${i + 1}/${chunks.length} (${chunk.length} chars)`);
+      runtime.log?.(
+        `[${accountId}] Sending chunk ${i + 1}/${chunks.length} (${chunk.length} chars)`,
+      );
       await bot.sendMessage(chatId, chunk, {
         replyToId: messageId,
       });
@@ -355,8 +386,10 @@ export async function monitorGianoProvider(
     const text = botCtx.text || "";
     const sender = botCtx.userId || "unknown";
     const chatId = botCtx.chatId;
-    
-    runtime.log?.(`[${account.accountId}] 📩 Received message from ${sender} in chat ${chatId}: "${text.slice(0, 100)}"`);
+
+    runtime.log?.(
+      `[${account.accountId}] 📩 Received message from ${sender} in chat ${chatId}: "${text.slice(0, 100)}"`,
+    );
 
     // Simple ping/pong test
     if (text.toLowerCase() === "/ping") {
@@ -364,7 +397,9 @@ export async function monitorGianoProvider(
         await botCtx.reply("🏓 Pong! Giano channel is working!");
         runtime.log?.(`[${account.accountId}] ↪️ Replied pong success`);
       } catch (err) {
-        runtime.error?.(`[${account.accountId}] ❌ Ping reply failed: ${String(err)}`);
+        runtime.error?.(
+          `[${account.accountId}] ❌ Ping reply failed: ${String(err)}`,
+        );
       }
       return;
     }
@@ -376,7 +411,9 @@ export async function monitorGianoProvider(
         await botCtx.reply(`Echo: ${echoText}`);
         runtime.log?.(`[${account.accountId}] ↪️ Echo replied success`);
       } catch (err) {
-        runtime.error?.(`[${account.accountId}] ❌ Echo reply failed: ${String(err)}`);
+        runtime.error?.(
+          `[${account.accountId}] ❌ Echo reply failed: ${String(err)}`,
+        );
       }
       return;
     }
@@ -395,7 +432,9 @@ export async function monitorGianoProvider(
 
   // Handle ready event
   bot.on("ready", () => {
-    runtime.log?.(`[${account.accountId}] ✅ giano provider connected and ready!`);
+    runtime.log?.(
+      `[${account.accountId}] ✅ giano provider connected and ready!`,
+    );
     statusSink?.({ connected: true });
   });
 
