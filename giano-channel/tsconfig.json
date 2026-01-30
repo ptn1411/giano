@@ -18,6 +18,7 @@
     },
     "include": [
         "index.ts",
+        "src/**/*",
         "moltbot.d.ts"
     ],
     "exclude": [
