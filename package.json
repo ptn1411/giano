@@ -1,0 +1,14 @@
+{
+  "name": "@openclaw/giano",
+  "version": "1.0.0",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "gianobot": "^1.1.1",
+    "openclaw": "2026.2.9"
+  }
+}

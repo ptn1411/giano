@@ -1,0 +1,9 @@
+{
+  "id": "giano",
+  "channels": ["giano"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
