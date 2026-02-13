@@ -3,7 +3,7 @@
 # Configuration
 # RENAME THIS TO YOUR REPO URL
 # Example: REPO_URL="https://github.com/your-username/giano.git"
-REPO_URL="YOUR_GIT_REPO_URL_HERE"
+REPO_URL="https://github.com/ptn1411/giano.git"
 EXTENSION_NAME="giano"
 INSTALL_DIR="$HOME/.openclaw/extensions/$EXTENSION_NAME"
 

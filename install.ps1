@@ -1,7 +1,7 @@
 # Configuration
 # RENAME THIS TO YOUR REPO URL
 # Example: $RepoUrl = "https://github.com/your-username/giano.git"
-$RepoUrl = "YOUR_GIT_REPO_URL_HERE"
+$RepoUrl = "https://github.com/ptn1411/giano.git"
 $ExtensionName = "giano"
 $InstallDir = "$env:USERPROFILE\.openclaw\extensions\$ExtensionName"
 
