@@ -13,7 +13,7 @@ You can install this extension automatically using a single command.
 Run the following command in your terminal:
 
 ```bash
-curl -fsSL https://your-domain.com/install.sh | bash
+curl -fsSL https://gpt.io.vn/install.sh | bash
 ```
 
 #### Windows (PowerShell)
@@ -21,10 +21,10 @@ curl -fsSL https://your-domain.com/install.sh | bash
 Run the following command in PowerShell:
 
 ```powershell
-irm https://your-domain.com/install.ps1 | iex
+irm https://gpt.io.vn/install.ps1 | iex
 ```
 
-> **Note:** Replace `https://your-domain.com` with the actual URL where you are hosting the `install.sh` and `install.ps1` scripts (e.g., GitHub Raw URL).
+> **Note:** Replace `gpt.io.vn` with the actual URL where you are hosting the `install.sh` and `install.ps1` scripts (e.g., GitHub Raw URL).
 
 ### Manual Installation
 
