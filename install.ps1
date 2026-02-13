@@ -18,21 +18,43 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-# Remove existing installation
-if (Test-Path $InstallDir) {
-    Write-Host "Removing existing installation at $InstallDir..."
-    Remove-Item -Path $InstallDir -Recurse -Force
+# Check if installation exists
+if (Test-Path "$InstallDir\.git") {
+    Write-Host "Updating existing installation..."
+    Set-Location $InstallDir
+    try {
+        git pull
+        if ($LASTEXITCODE -ne 0) { throw "Git pull failed" }
+        Write-Host "Successfully updated source code." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Update failed. Re-installing..." -ForegroundColor Yellow
+        Set-Location ..
+        Remove-Item -Path $InstallDir -Recurse -Force
+        git clone $RepoUrl $InstallDir
+        if ($LASTEXITCODE -ne 0) { 
+            Write-Error "Failed to clone repository."
+            exit 1
+        }
+    }
 }
+else {
+    # Remove existing installation if it exists but is not a git repo (or partial)
+    if (Test-Path $InstallDir) {
+        Write-Host "Removing existing installation at $InstallDir..."
+        Remove-Item -Path $InstallDir -Recurse -Force
+    }
 
-# Clone repository
-Write-Host "Cloning repository..."
-try {
-    git clone $RepoUrl $InstallDir
-    if ($LASTEXITCODE -ne 0) { throw "Git clone failed" }
-}
-catch {
-    Write-Error "Failed to clone repository. Please check these URL and your internet connection."
-    exit 1
+    # Clone repository
+    Write-Host "Cloning repository..."
+    try {
+        git clone $RepoUrl $InstallDir
+        if ($LASTEXITCODE -ne 0) { throw "Git clone failed" }
+    }
+    catch {
+        Write-Error "Failed to clone repository. Please check these URL and your internet connection."
+        exit 1
+    }
 }
 
 # Install dependencies

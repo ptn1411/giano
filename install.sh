@@ -25,20 +25,34 @@ if ! command -v npm &> /dev/null; then
     exit 1
 fi
 
-# Create directory
-echo -e "Target directory: $INSTALL_DIR"
-if [ -d "$INSTALL_DIR" ]; then
-    echo "Removing existing installation..."
-    rm -rf "$INSTALL_DIR"
-fi
+# Check if installation exists
+if [ -d "$INSTALL_DIR" ] && [ -d "$INSTALL_DIR/.git" ]; then
+    echo -e "Updating existing installation..."
+    cd "$INSTALL_DIR" || exit
+    git pull
+    
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Update failed. Re-installing...${NC}"
+        cd ..
+        rm -rf "$INSTALL_DIR"
+        git clone "$REPO_URL" "$INSTALL_DIR"
+    else
+        echo -e "${GREEN}Successfully updated source code.${NC}"
+    fi
+else
+    # Clean install
+    if [ -d "$INSTALL_DIR" ]; then
+        echo "Removing existing directory..."
+        rm -rf "$INSTALL_DIR"
+    fi
 
-# Clone repository
-echo -e "Cloning repository..."
-git clone "$REPO_URL" "$INSTALL_DIR"
+    echo -e "Cloning repository..."
+    git clone "$REPO_URL" "$INSTALL_DIR"
 
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Failed to clone repository.${NC}"
-    exit 1
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Failed to clone repository.${NC}"
+        exit 1
+    fi
 fi
 
 # Install dependencies

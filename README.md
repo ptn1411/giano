@@ -34,3 +34,39 @@ irm https://gpt.io.vn/install.ps1 | iex
 2.  Navigate to the directory: `cd ~/.openclaw/extensions/giano`
 3.  Install dependencies: `npm install`
 4.  Restart OpenClaw.
+
+## Configuration
+
+To use this extension, you need to update your OpenClaw `config.json` file.
+
+1.  **Enable the plugin:**
+
+    Add `"giano": { "enabled": true }` to the `plugins.entries` section.
+
+    ```json
+    "plugins": {
+      "entries": {
+        "giano": {
+          "enabled": true
+        }
+      }
+    }
+    ```
+
+2.  **Configure the channel:**
+
+    Add the following configuration to the `channels` section:
+
+    ```json
+    "channels": {
+      "giano": {
+        "token": "__OPENCLAW_REDACTED__",
+        "apiBaseUrl": "https://messages-api.bug.edu.vn",
+        "wsUrl": "wss://messages-api.bug.edu.vn/bot/ws",
+        "dm": {
+          "policy": "open"
+        },
+        "groupPolicy": "open"
+      }
+    },
+    ```
